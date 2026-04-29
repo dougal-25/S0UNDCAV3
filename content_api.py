@@ -1032,8 +1032,12 @@ def scheduled_posts_update(post_id):
 def scheduled_posts_delete(post_id):
     uid, err = _require_user()
     if err: return err
+    # Allow delete at any status so users can clear failed posts.
+    # Posted ones can also be hidden from the calendar — Stripe-style "this
+    # already happened, here's a record" is fine. The Ayrshare post stays
+    # live regardless; we're only removing our scheduling record.
     sb = _stash_client()
-    sb.table('scheduled_posts').delete().eq('id', post_id).eq('user_id', uid).eq('status', 'scheduled').execute()
+    sb.table('scheduled_posts').delete().eq('id', post_id).eq('user_id', uid).execute()
     return jsonify({'ok': True})
 
 
