@@ -902,6 +902,172 @@ def search():
     return jsonify({'tracks': results, 'total_scanned': len(seen_ids), 'returned': len(results)})
 
 
+# ── Ayrshare publishing (Phase G) ─────────────────────────
+# Single-account model — Doug's free dev tier. Multi-tenant deferred to deploy.
+# See wiki/spec/ayrshare_publishing.md.
+
+AYRSHARE_API_KEY = os.getenv('AYRSHARE_API_KEY')
+AYRSHARE_BASE = 'https://api.ayrshare.com/api'
+PLATFORM_MAP = {'ig': 'instagram', 'tiktok': 'tiktok', 'x': 'twitter', 'linkedin': 'linkedin'}
+
+
+def _ayr_headers():
+    if not AYRSHARE_API_KEY:
+        return None
+    return {'Authorization': f'Bearer {AYRSHARE_API_KEY}', 'Content-Type': 'application/json'}
+
+
+@app.route('/api/ayrshare/connect-url', methods=['GET'])
+def ayrshare_connect_url():
+    _, err = _require_user()
+    if err: return err
+    return jsonify({'url': 'https://app.ayrshare.com/social-accounts'})
+
+
+@app.route('/api/ayrshare/profiles', methods=['GET'])
+def ayrshare_profiles():
+    _, err = _require_user()
+    if err: return err
+    if not AYRSHARE_API_KEY:
+        return jsonify({'platforms': [], 'configured': False})
+    try:
+        r = http_requests.get(f'{AYRSHARE_BASE}/user', headers=_ayr_headers(), timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        return jsonify({
+            'platforms': data.get('activeSocialAccounts') or data.get('socialAccounts') or [],
+            'configured': True,
+        })
+    except Exception as e:
+        print('ayrshare /user failed:', e)
+        return jsonify({'platforms': [], 'configured': True, 'error': str(e)})
+
+
+@app.route('/api/scheduled_posts', methods=['GET'])
+def scheduled_posts_list():
+    uid, err = _require_user()
+    if err: return err
+    sb = _stash_client()
+    res = sb.table('scheduled_posts').select('*').eq('user_id', uid).order('scheduled_for', desc=False).execute()
+    return jsonify({'posts': res.data})
+
+
+@app.route('/api/scheduled_posts', methods=['POST'])
+def scheduled_posts_create():
+    uid, err = _require_user()
+    if err: return err
+    body = request.get_json() or {}
+    stash_item_id = body.get('stash_item_id')
+    scheduled_for = body.get('scheduled_for')
+    platforms = body.get('platforms') or ['ig']
+    if not stash_item_id or not scheduled_for:
+        return jsonify({'error': 'stash_item_id and scheduled_for required'}), 400
+
+    sb = _stash_client()
+    item = sb.table('stash_items').select('content,media_url').eq('id', stash_item_id).eq('user_id', uid).execute()
+    if not item.data:
+        return jsonify({'error': 'stash item not found'}), 404
+    snap = item.data[0]
+
+    row = {
+        'user_id': uid,
+        'stash_item_id': stash_item_id,
+        'platforms': platforms,
+        'scheduled_for': scheduled_for,
+        'post_text': snap.get('content') or '',
+        'media_urls': [snap['media_url']] if snap.get('media_url') else [],
+        'status': 'scheduled',
+    }
+    res = sb.table('scheduled_posts').insert(row).execute()
+    return jsonify({'post': res.data[0] if res.data else None}), 201
+
+
+@app.route('/api/scheduled_posts/<post_id>', methods=['PATCH'])
+def scheduled_posts_update(post_id):
+    uid, err = _require_user()
+    if err: return err
+    body = request.get_json() or {}
+    patch = {}
+    if 'scheduled_for' in body: patch['scheduled_for'] = body['scheduled_for']
+    if 'platforms' in body: patch['platforms'] = body['platforms']
+    if not patch:
+        return jsonify({'error': 'nothing to update'}), 400
+    sb = _stash_client()
+    res = sb.table('scheduled_posts').update(patch).eq('id', post_id).eq('user_id', uid).eq('status', 'scheduled').execute()
+    return jsonify({'post': res.data[0] if res.data else None})
+
+
+@app.route('/api/scheduled_posts/<post_id>', methods=['DELETE'])
+def scheduled_posts_delete(post_id):
+    uid, err = _require_user()
+    if err: return err
+    sb = _stash_client()
+    sb.table('scheduled_posts').delete().eq('id', post_id).eq('user_id', uid).eq('status', 'scheduled').execute()
+    return jsonify({'ok': True})
+
+
+def _fire_due_posts():
+    """Find scheduled posts whose time has passed and fire them via Ayrshare.
+    Run every 60s by APScheduler. Idempotent per row via status filter."""
+    if not AYRSHARE_API_KEY:
+        return
+    sb = _stash_client()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = sb.table('scheduled_posts').select('*').eq('status', 'scheduled').lte('scheduled_for', now_iso).limit(20).execute()
+    due = res.data or []
+    if not due:
+        return
+    print(f'[executor] {len(due)} due post(s)')
+    for row in due:
+        rid = row['id']
+        try:
+            ayr_platforms = [PLATFORM_MAP.get(p, p) for p in (row.get('platforms') or [])]
+            payload = {
+                'post': row.get('post_text') or '',
+                'platforms': ayr_platforms,
+                'mediaUrls': row.get('media_urls') or [],
+                'idempotencyKey': rid,
+            }
+            r = http_requests.post(f'{AYRSHARE_BASE}/post', headers=_ayr_headers(), json=payload, timeout=30)
+            data = r.json() if r.headers.get('content-type','').startswith('application/json') else {}
+            if r.status_code == 200 and data.get('status') in ('success', 'scheduled'):
+                ayr_id = data.get('id') or (data.get('postIds') or [{}])[0].get('postId')
+                sb.table('scheduled_posts').update({
+                    'status': 'posted',
+                    'posted_at': datetime.now(timezone.utc).isoformat(),
+                    'ayrshare_post_id': ayr_id,
+                    'attempts': (row.get('attempts', 0) or 0) + 1,
+                }).eq('id', rid).execute()
+                print(f'  ✓ posted {rid} → ayr {ayr_id}')
+            else:
+                err_msg = data.get('error') or data.get('message') or f'http {r.status_code}'
+                sb.table('scheduled_posts').update({
+                    'status': 'failed',
+                    'error': str(err_msg)[:500],
+                    'attempts': (row.get('attempts', 0) or 0) + 1,
+                }).eq('id', rid).execute()
+                print(f'  ✗ failed {rid}: {err_msg}')
+        except Exception as e:
+            sb.table('scheduled_posts').update({
+                'status': 'failed',
+                'error': str(e)[:500],
+                'attempts': (row.get('attempts', 0) or 0) + 1,
+            }).eq('id', rid).execute()
+            print(f'  ✗ exception {rid}: {e}')
+
+
+def _start_executor():
+    """Start APScheduler. Guarded against Flask debug-mode double-start."""
+    if app.debug and os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        return  # parent of debug reloader; child will start it
+    from apscheduler.schedulers.background import BackgroundScheduler
+    sched = BackgroundScheduler(daemon=True)
+    sched.add_job(_fire_due_posts, 'interval', seconds=60, id='fire_due_posts',
+                  max_instances=1, coalesce=True)
+    sched.start()
+    print('[executor] APScheduler tick=60s started')
+
+
 if __name__ == '__main__':
     port = int(os.getenv('CONTENT_API_PORT', 8000))
     print(f"🔥 Sound Cave API running on http://localhost:{port}")
@@ -910,4 +1076,7 @@ if __name__ == '__main__':
     img = provider_status()
     print(f"   Fal AI:        {'✅' if img['fal_ai'] else '❌'}")
     print(f"   Replicate:     {'✅' if img['replicate'] else '❌'}")
+    print(f"   Stripe:        {'✅' if STRIPE_KEY else '❌ (set STRIPE_SECRET_KEY in .env)'}")
+    print(f"   Ayrshare:      {'✅' if AYRSHARE_API_KEY else '❌ (set AYRSHARE_API_KEY in .env)'}")
+    _start_executor()
     app.run(host='0.0.0.0', port=port, debug=True)

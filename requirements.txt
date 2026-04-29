@@ -5,3 +5,4 @@ flask-cors
 anthropic
 supabase
 psycopg[binary]
+apscheduler

@@ -1,10 +1,9 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TRAIL MAP — content calendar
-// Pure frontend, mock data via localStorage.
-// TODO: replace mock store with /api/scheduled-posts (Stream 1 Phase G)
+// Backed by /api/scheduled_posts (Stream 1 Phase G). In-memory cache feeds
+// sync render functions; mutations call the API and refresh the cache.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const TRAIL_STORE_KEY = 'sc_scheduled_posts';
 const PLATFORMS = [
   { id: 'ig',       label: 'Instagram' },
   { id: 'tiktok',   label: 'TikTok' },
@@ -17,21 +16,60 @@ let trailAnchor = startOfDay(new Date());   // any date in the visible period
 let trailStashOpen = false;
 let trailEditingId = null;                  // id of scheduled_post being edited in modal
 
-// ── Storage ──────────────────────────────────────────────
-function getScheduled()  { return JSON.parse(localStorage.getItem(TRAIL_STORE_KEY) || '[]'); }
-function saveScheduled(d){ localStorage.setItem(TRAIL_STORE_KEY, JSON.stringify(d)); }
+// ── Storage (Supabase-backed via content_api) ────────────
+let _trailCache = [];
+const _trailApiBase = () => localStorage.getItem('sc_api_url') || 'http://localhost:8000';
 
-function newScheduledPost(stash_item_id, dateISO) {
-  return {
-    id: 'sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-    stash_item_id,
-    scheduled_for: dateISO,
-    platforms: ['ig'],
-    status: 'scheduled',
-    error_message: null,
-    created_at: new Date().toISOString(),
-    modified_at: new Date().toISOString(),
-  };
+function getScheduled() { return _trailCache; }
+
+async function loadScheduled() {
+  try {
+    const r = await scAuth.authedFetch(`${_trailApiBase()}/api/scheduled_posts`);
+    if (!r.ok) throw new Error(`scheduled_posts GET ${r.status}`);
+    const j = await r.json();
+    _trailCache = j.posts || [];
+  } catch (e) {
+    console.warn('[trail] load failed', e);
+    _trailCache = [];
+  }
+}
+
+async function createScheduledPost(stash_item_id, dateISO) {
+  const r = await scAuth.authedFetch(`${_trailApiBase()}/api/scheduled_posts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stash_item_id, scheduled_for: dateISO, platforms: ['ig'] }),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `scheduled_posts POST ${r.status}`);
+  }
+  const j = await r.json();
+  if (j.post) _trailCache.push(j.post);
+  return j.post;
+}
+
+async function patchScheduledPost(id, patch) {
+  const r = await scAuth.authedFetch(`${_trailApiBase()}/api/scheduled_posts/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `scheduled_posts PATCH ${r.status}`);
+  }
+  const j = await r.json();
+  if (j.post) {
+    const i = _trailCache.findIndex(p => p.id === id);
+    if (i !== -1) _trailCache[i] = j.post;
+  }
+  return j.post;
+}
+
+async function deleteScheduledPost(id) {
+  await scAuth.authedFetch(`${_trailApiBase()}/api/scheduled_posts/${id}`, { method: 'DELETE' });
+  _trailCache = _trailCache.filter(p => p.id !== id);
 }
 
 // ── Date helpers ─────────────────────────────────────────
@@ -83,11 +121,12 @@ function getTrailStash() {
 }
 
 // ── Render ───────────────────────────────────────────────
-function renderTrailMap() {
+async function renderTrailMap() {
   document.getElementById('trailPeriod').textContent = fmtPeriod(trailAnchor, trailView);
   document.querySelectorAll('.trail-view-toggle button').forEach(b => {
     b.classList.toggle('active', b.dataset.view === trailView);
   });
+  await loadScheduled();
   if (trailView === 'month') renderTrailMonth();
   else renderTrailWeek();
   renderTrailStashDrawer();
@@ -236,19 +275,19 @@ function attachCellHandlers() {
       cell.classList.add('dragging');
     });
     cell.addEventListener('dragleave', () => cell.classList.remove('dragging'));
-    cell.addEventListener('drop', e => {
+    cell.addEventListener('drop', async e => {
       e.preventDefault();
       cell.classList.remove('dragging');
       const stashId = dragStashId || e.dataTransfer.getData('text/plain');
       if (!stashId) return;
       const dateISO = isoForCellDefault(new Date(cell.dataset.date));
-      const post = newScheduledPost(stashId, dateISO);
-      const all = getScheduled();
-      all.push(post);
-      saveScheduled(all);
-      renderTrailMap();
-      // Open modal pre-filled so user can pick platforms/time
-      openTrailModal(post.id);
+      try {
+        const post = await createScheduledPost(stashId, dateISO);
+        renderTrailMap();
+        if (post) openTrailModal(post.id);
+      } catch (err) {
+        alert(`Couldn't schedule: ${err.message}`);
+      }
     });
   });
   document.querySelectorAll('.trail-pill').forEach(pill => {
@@ -298,35 +337,36 @@ function closeTrailModal() {
   trailEditingId = null;
 }
 
-function saveTrailModal() {
+async function saveTrailModal() {
   const id = trailEditingId;
   if (!id) return;
-  const all = getScheduled();
-  const idx = all.findIndex(p => p.id === id);
-  if (idx === -1) return;
-
   const dtVal = document.getElementById('trailModalDateTime').value;
   const platforms = [...document.querySelectorAll('#trailModalPlatforms .trail-platform-pill.selected')]
     .map(b => b.dataset.platform);
-  const status = document.querySelector('#trailModalStatus .trail-status-pill.selected')?.dataset.status || 'scheduled';
 
-  if (dtVal) all[idx].scheduled_for = new Date(dtVal).toISOString();
-  all[idx].platforms = platforms.length ? platforms : ['ig'];
-  all[idx].status = status;
-  all[idx].modified_at = new Date().toISOString();
+  const patch = {};
+  if (dtVal) patch.scheduled_for = new Date(dtVal).toISOString();
+  patch.platforms = platforms.length ? platforms : ['ig'];
 
-  saveScheduled(all);
-  closeTrailModal();
-  renderTrailMap();
+  try {
+    await patchScheduledPost(id, patch);
+    closeTrailModal();
+    renderTrailMap();
+  } catch (e) {
+    alert(`Couldn't save: ${e.message}`);
+  }
 }
 
-function deleteTrailModal() {
+async function deleteTrailModal() {
   const id = trailEditingId;
   if (!id) return;
-  const all = getScheduled().filter(p => p.id !== id);
-  saveScheduled(all);
-  closeTrailModal();
-  renderTrailMap();
+  try {
+    await deleteScheduledPost(id);
+    closeTrailModal();
+    renderTrailMap();
+  } catch (e) {
+    alert(`Couldn't delete: ${e.message}`);
+  }
 }
 
 // ── Toolbar actions ──────────────────────────────────────

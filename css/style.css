@@ -165,18 +165,130 @@
 }
 .account-row:last-of-type { border-bottom: 0; }
 .account-label { color: var(--muted); }
-.account-signout {
+.account-link, .account-signout {
   width: 100%;
   margin-top: 8px;
   padding: 8px;
   background: transparent;
-  color: var(--red);
-  border: 1px solid var(--red-darker);
+  color: var(--body);
+  border: 1px solid var(--border-lt);
   border-radius: 6px;
   font: inherit;
   cursor: pointer;
+  text-align: center;
+}
+.account-link:hover { background: var(--hover); }
+.account-signout {
+  color: var(--red);
+  border-color: var(--red-darker);
 }
 .account-signout:hover { background: var(--red-faint); }
+
+/* Billing modal (Phase D) */
+.billing-modal[hidden] { display: none !important; }
+.billing-modal {
+  position: fixed; inset: 0;
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.billing-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.billing-panel {
+  position: relative;
+  background: var(--bg);
+  border: 1px solid var(--border-lt);
+  border-radius: 12px;
+  padding: 36px 32px 28px;
+  max-width: 1080px;
+  width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  animation: panelIn 0.25s ease;
+}
+@keyframes panelIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.billing-close {
+  position: absolute; top: 12px; right: 16px;
+  width: 32px; height: 32px;
+  background: transparent; border: 0;
+  color: var(--secondary); font-size: 24px;
+  cursor: pointer; border-radius: 50%;
+}
+.billing-close:hover { background: var(--card); color: var(--heading); }
+.billing-title { font-size: 24px; text-align: center; margin-bottom: 6px; color: var(--heading); }
+.billing-sub { text-align: center; color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+.billing-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+@media (max-width: 720px) { .billing-cards { grid-template-columns: 1fr; } }
+.plan-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 18px;
+  position: relative;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.plan-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--red);
+  box-shadow: 0 8px 28px rgba(230, 57, 70, 0.18);
+}
+.plan-card.highlighted {
+  border-color: var(--red-dark);
+  box-shadow: 0 0 0 1px var(--red-dark) inset;
+}
+.plan-badge {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--red); color: #fff;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 12px;
+}
+.plan-name { font-size: 18px; font-weight: 700; color: var(--heading); margin-bottom: 6px; }
+.plan-price { font-size: 34px; font-weight: 700; color: var(--heading); margin-bottom: 2px; }
+.plan-price-period { font-size: 14px; color: var(--muted); font-weight: 400; }
+.plan-credits { font-size: 14px; color: var(--red); margin-bottom: 14px; font-weight: 600; }
+.plan-features { list-style: none; margin: 0 0 18px 0; padding: 0; font-size: 13px; color: var(--body); }
+.plan-features li { padding: 4px 0; color: var(--secondary); }
+.plan-features li::before { content: '✓ '; color: var(--green); margin-right: 4px; }
+.plan-cta {
+  width: 100%; padding: 11px;
+  background: var(--red); color: #fff;
+  border: 0; border-radius: 6px;
+  font: inherit; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.plan-cta:hover:not(:disabled) { background: var(--red-dark); }
+.plan-cta:disabled { background: var(--red-darker); cursor: wait; }
+.billing-pack {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; font-size: 13px;
+}
+.billing-pack-info { color: var(--body); }
+.billing-pack-info strong { color: var(--heading); }
+.billing-pack button {
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red-darker);
+  border-radius: 6px;
+  font: inherit; cursor: pointer;
+}
+.billing-pack button:hover { background: var(--red-faint); }
+.billing-note { margin-top: 14px; font-size: 12px; color: var(--muted); text-align: center; }
+.billing-note.error { color: var(--red); }
 
 /* Phase 1: small cave mouth visible — you're looking at the entrance */
 .cave-entrance.mouth-open::before {

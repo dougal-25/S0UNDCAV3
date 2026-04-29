@@ -640,7 +640,11 @@ function togglePanelStar(username) {
   const avatarEl = document.getElementById('accountAvatar');
   const tierEl   = document.getElementById('accountTier');
   const credEl   = document.getElementById('accountCredits');
+  const socEl    = document.getElementById('accountSocials');
   const outBtn   = document.getElementById('accountSignOut');
+  const upgradeBtn = document.getElementById('accountUpgrade');
+  const manageBtn  = document.getElementById('accountManageBilling');
+  const connectBtn = document.getElementById('accountConnectSocials');
 
   async function hydrate() {
     try {
@@ -653,6 +657,16 @@ function togglePanelStar(username) {
       avatarEl.textContent = (me.email || '?')[0];
       tierEl.textContent = me.tier || '—';
       credEl.textContent = me.credits_balance != null ? me.credits_balance : '—';
+      // Manage billing only shown when user is on a paid plan (not the default 'solo' free state).
+      manageBtn.hidden = !(me.tier && me.tier !== 'solo');
+      // Hydrate socials count from Ayrshare
+      try {
+        const sr = await scAuth.authedFetch(`${apiBase}/api/ayrshare/profiles`);
+        if (sr.ok) {
+          const sj = await sr.json();
+          socEl.textContent = sj.platforms?.length ? `${sj.platforms.length} connected` : 'none';
+        }
+      } catch {}
     } catch (e) { console.warn('account hydrate failed', e); }
   }
 
@@ -667,6 +681,26 @@ function togglePanelStar(username) {
   });
   outBtn.addEventListener('click', () => scAuth.signOut());
 
+  upgradeBtn.addEventListener('click', () => {
+    menu.hidden = true;
+    openBillingModal();
+  });
+  manageBtn.addEventListener('click', async () => {
+    menu.hidden = true;
+    await openBillingPortal();
+  });
+  connectBtn.addEventListener('click', async () => {
+    menu.hidden = true;
+    const apiBase = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
+    try {
+      const r = await scAuth.authedFetch(`${apiBase}/api/ayrshare/connect-url`);
+      const j = await r.json();
+      if (j.url) window.open(j.url, '_blank', 'noopener');
+    } catch (e) {
+      alert(`Couldn't open Ayrshare: ${e.message}`);
+    }
+  });
+
   scAuth.ready.then(async () => {
     if (await scAuth.session()) hydrate();
     scAuth.onChange((event) => {
@@ -674,6 +708,111 @@ function togglePanelStar(username) {
       if (event === 'SIGNED_OUT') wrap.hidden = true;
     });
   }).catch(() => {});
+
+  // Returning from Stripe success: webhook is async; refresh after a beat.
+  if (location.search.includes('billing=success')) {
+    setTimeout(() => hydrate(), 1500);
+  }
+})();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BILLING MODAL (Phase D)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function openBillingModal() {
+  const modal = document.getElementById('billingModal');
+  const cards = document.getElementById('billingCards');
+  const pack  = document.getElementById('billingPack');
+  const note  = document.getElementById('billingNote');
+  const apiBase = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
+  modal.hidden = false;
+  note.textContent = '';
+  note.className = 'billing-note';
+  cards.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted)">Loading plans…</div>';
+  pack.innerHTML = '';
+
+  try {
+    const r = await fetch(`${apiBase}/api/billing/plans`);
+    const data = await r.json();
+    const fmt = (p) => `£${(p / 100).toFixed(0)}`;
+
+    cards.innerHTML = data.plans.map(p => `
+      <div class="plan-card${p.highlighted ? ' highlighted' : ''}">
+        ${p.highlighted ? '<div class="plan-badge">Most popular</div>' : ''}
+        <div class="plan-name">${p.name}</div>
+        <div class="plan-price">${fmt(p.price_pence)}<span class="plan-price-period"> /mo</span></div>
+        <div class="plan-credits">${p.credits.toLocaleString()} credits / month</div>
+        <ul class="plan-features">
+          <li>All content types</li>
+          <li>Image generation</li>
+          <li>SoundCloud scouting</li>
+          <li>Stash + Trail Map</li>
+        </ul>
+        <button class="plan-cta" data-lookup="${p.lookup_key}" data-tier="${p.tier}">Subscribe</button>
+      </div>
+    `).join('');
+
+    pack.innerHTML = `
+      <div class="billing-pack-info">Top up: <strong>${data.pack.credits} credits</strong> for ${fmt(data.pack.price_pence)} — one-off, no subscription.</div>
+      <button data-lookup="${data.pack.lookup_key}">Buy pack</button>
+    `;
+
+    if (!data.configured) {
+      note.textContent = 'Stripe is not configured on the server (STRIPE_SECRET_KEY missing). Subscribe will fail until set.';
+      note.className = 'billing-note error';
+    }
+
+    modal.querySelectorAll('button[data-lookup]').forEach(btn => {
+      btn.addEventListener('click', () => startCheckout(btn));
+    });
+  } catch (e) {
+    note.textContent = `Failed to load plans: ${e.message}`;
+    note.className = 'billing-note error';
+  }
+}
+
+async function startCheckout(btn) {
+  const apiBase = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
+  const lookup_key = btn.dataset.lookup;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Redirecting…';
+  try {
+    const r = await scAuth.authedFetch(`${apiBase}/api/billing/checkout`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({lookup_key}),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || `${r.status}`);
+    window.location.href = data.url;
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = orig;
+    const note = document.getElementById('billingNote');
+    note.textContent = `Checkout failed: ${e.message}`;
+    note.className = 'billing-note error';
+  }
+}
+
+async function openBillingPortal() {
+  const apiBase = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
+  try {
+    const r = await scAuth.authedFetch(`${apiBase}/api/billing/portal`, {method: 'POST'});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || `${r.status}`);
+    window.location.href = data.url;
+  } catch (e) {
+    alert(`Couldn't open billing portal: ${e.message}`);
+  }
+}
+
+(function bindBillingModalDismiss() {
+  const modal = document.getElementById('billingModal');
+  if (!modal) return;
+  const close = () => { modal.hidden = true; };
+  document.getElementById('billingClose')?.addEventListener('click', close);
+  document.getElementById('billingBackdrop')?.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
 })();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

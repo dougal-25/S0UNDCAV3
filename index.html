@@ -120,6 +120,10 @@
     <div class="account-menu" id="accountMenu" hidden>
       <div class="account-row"><span class="account-label">Tier</span><span id="accountTier">—</span></div>
       <div class="account-row"><span class="account-label">Credits</span><span id="accountCredits">—</span></div>
+      <div class="account-row"><span class="account-label">Socials</span><span id="accountSocials">—</span></div>
+      <button class="account-link" id="accountConnectSocials" type="button">Connect socials</button>
+      <button class="account-link" id="accountUpgrade" type="button">Upgrade plan</button>
+      <button class="account-link" id="accountManageBilling" type="button" hidden>Manage billing</button>
       <button class="account-signout" id="accountSignOut" type="button">Sign out</button>
     </div>
   </div>
@@ -691,6 +695,19 @@
      JAVASCRIPT — loaded per-tab for token efficiency
      ═══════════════════════════════════════════════════════ -->
 </div><!-- /.app-wrap -->
+
+<!-- Billing modal (Phase D) -->
+<div class="billing-modal" id="billingModal" hidden>
+  <div class="billing-backdrop" id="billingBackdrop"></div>
+  <div class="billing-panel" role="dialog" aria-modal="true" aria-labelledby="billingTitle">
+    <button class="billing-close" id="billingClose" type="button" aria-label="Close">×</button>
+    <h2 class="billing-title" id="billingTitle">Choose your plan</h2>
+    <p class="billing-sub">Credits power generation. Text 1cr · Image 5cr.</p>
+    <div class="billing-cards" id="billingCards"></div>
+    <div class="billing-pack" id="billingPack"></div>
+    <div class="billing-note" id="billingNote"></div>
+  </div>
+</div>
 
 <script src="js/lib/supabase.js"></script>
 <script src="js/app.js"></script>
