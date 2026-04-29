@@ -913,6 +913,8 @@ PLATFORM_MAP = {
     'facebook': 'facebook', 'youtube': 'youtube', 'reddit': 'reddit',
     'pinterest': 'pinterest', 'threads': 'threads', 'bluesky': 'bluesky',
 }
+# Platforms that REQUIRE at least one media URL (image or video).
+PLATFORMS_REQUIRE_MEDIA = {'ig', 'tiktok', 'youtube', 'pinterest'}
 
 
 def _ayr_headers():
@@ -972,6 +974,16 @@ def scheduled_posts_create():
     if not item.data:
         return jsonify({'error': 'stash item not found'}), 404
     snap = item.data[0]
+    media_urls = [snap['media_url']] if snap.get('media_url') else []
+
+    # Validate: platforms requiring media reject if stash item is text-only.
+    needs_media = [p for p in platforms if p in PLATFORMS_REQUIRE_MEDIA]
+    if needs_media and not media_urls:
+        return jsonify({
+            'error': 'media_required',
+            'detail': f'These platforms require an image or video: {", ".join(needs_media)}. Add media to the Stash item or pick a different platform.',
+            'platforms': needs_media,
+        }), 400
 
     row = {
         'user_id': uid,
@@ -979,7 +991,7 @@ def scheduled_posts_create():
         'platforms': platforms,
         'scheduled_for': scheduled_for,
         'post_text': snap.get('content') or '',
-        'media_urls': [snap['media_url']] if snap.get('media_url') else [],
+        'media_urls': media_urls,
         'status': 'scheduled',
     }
     res = sb.table('scheduled_posts').insert(row).execute()
@@ -996,7 +1008,22 @@ def scheduled_posts_update(post_id):
     if 'platforms' in body: patch['platforms'] = body['platforms']
     if not patch:
         return jsonify({'error': 'nothing to update'}), 400
+
     sb = _stash_client()
+    # If platforms changed, validate media requirements against existing row.
+    if 'platforms' in patch:
+        existing = sb.table('scheduled_posts').select('media_urls').eq('id', post_id).eq('user_id', uid).execute()
+        if not existing.data:
+            return jsonify({'error': 'not found'}), 404
+        media_urls = existing.data[0].get('media_urls') or []
+        needs_media = [p for p in patch['platforms'] if p in PLATFORMS_REQUIRE_MEDIA]
+        if needs_media and not media_urls:
+            return jsonify({
+                'error': 'media_required',
+                'detail': f'These platforms require an image or video: {", ".join(needs_media)}. Add media to the Stash item or pick a different platform.',
+                'platforms': needs_media,
+            }), 400
+
     res = sb.table('scheduled_posts').update(patch).eq('id', post_id).eq('user_id', uid).eq('status', 'scheduled').execute()
     return jsonify({'post': res.data[0] if res.data else None})
 
