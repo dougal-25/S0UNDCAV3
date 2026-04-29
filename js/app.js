@@ -1,33 +1,85 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CAVE ENTRANCE (unified splash + reveal)
+// CAVE ENTRANCE (unified splash + reveal + auth gate)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 (function initCaveEntrance() {
   const cave    = document.getElementById('caveEntrance');
   const appWrap = document.getElementById('appWrap');
+  const form    = document.getElementById('caveLogin');
+  const emailEl = document.getElementById('caveLoginEmail');
+  const btnEl   = document.getElementById('caveLoginBtn');
+  const msgEl   = document.getElementById('caveLoginMsg');
 
-  if (sessionStorage.getItem('sc_splash_done')) {
-    cave.classList.add('hidden');
-    appWrap.classList.add('revealed');
-    return;
+  function reveal() {
+    cave.classList.add('mouth-open');
+    setTimeout(() => {
+      cave.classList.add('entering');
+      appWrap.classList.add('revealed');
+      setTimeout(() => cave.classList.add('hidden'), 2100);
+      sessionStorage.setItem('sc_splash_done', '1');
+    }, 1400);
   }
 
-  // Phase 1: cave mouth opens to small peephole (you see the entrance)
-  requestAnimationFrame(() => {
-    cave.classList.add('mouth-open');
+  function showLoginForm() {
+    cave.classList.add('mouth-open');     // peephole stays open, no further animation
+    form.hidden = false;
+    setTimeout(() => emailEl.focus(), 50);
+  }
+
+  async function start() {
+    try {
+      await window.scAuth.ready;
+      const session = await window.scAuth.session();
+      if (!session) {
+        showLoginForm();
+        return;
+      }
+      if (sessionStorage.getItem('sc_splash_done')) {
+        cave.classList.add('hidden');
+        appWrap.classList.add('revealed');
+      } else {
+        reveal();
+      }
+    } catch (e) {
+      console.error('auth init failed', e);
+      // Fail-open: show the login form so user can at least try.
+      showLoginForm();
+      msgEl.textContent = 'Auth service unreachable — is content_api running?';
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = emailEl.value.trim();
+    if (!email) return;
+    btnEl.disabled = true;
+    btnEl.textContent = 'Sending…';
+    msgEl.textContent = '';
+    const { error } = await window.scAuth.signInWithEmail(email);
+    btnEl.disabled = false;
+    btnEl.textContent = 'Enter the cave';
+    if (error) {
+      msgEl.textContent = error;
+      msgEl.className = 'cave-login-msg error';
+    } else {
+      msgEl.textContent = `Check ${email} — click the link to enter.`;
+      msgEl.className = 'cave-login-msg success';
+      emailEl.disabled = true;
+    }
   });
 
-  // Phase 2: after 1.4s with logo visible, walk through the entrance
-  setTimeout(() => {
-    cave.classList.add('entering');
-    appWrap.classList.add('revealed');
+  // When the magic link returns, Supabase JS auto-detects the URL hash and
+  // fires SIGNED_IN. At that point reveal the app.
+  window.scAuth.ready.then(() => {
+    window.scAuth.onChange((event) => {
+      if (event === 'SIGNED_IN' && cave && !cave.classList.contains('hidden')) {
+        sessionStorage.removeItem('sc_splash_done');
+        form.hidden = true;
+        reveal();
+      }
+    });
+  }).catch(() => {});
 
-    // Phase 3: cleanup after entrance animation (2s transition)
-    setTimeout(() => {
-      cave.classList.add('hidden');
-    }, 2100);
-
-    sessionStorage.setItem('sc_splash_done', '1');
-  }, 1400);
+  start();
 })();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -575,6 +627,54 @@ function togglePanelStar(username) {
   saveFavourites(favs);
   renderPanel(username);
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ACCOUNT DROPDOWN (Phase B)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+(function initAccount() {
+  const wrap = document.getElementById('account');
+  if (!wrap) return;
+  const btn      = document.getElementById('accountBtn');
+  const menu     = document.getElementById('accountMenu');
+  const emailEl  = document.getElementById('accountEmail');
+  const avatarEl = document.getElementById('accountAvatar');
+  const tierEl   = document.getElementById('accountTier');
+  const credEl   = document.getElementById('accountCredits');
+  const outBtn   = document.getElementById('accountSignOut');
+
+  async function hydrate() {
+    try {
+      const apiBase = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
+      const r = await scAuth.authedFetch(`${apiBase}/api/me`);
+      if (!r.ok) return;
+      const me = await r.json();
+      wrap.hidden = false;
+      emailEl.textContent = me.email || '';
+      avatarEl.textContent = (me.email || '?')[0];
+      tierEl.textContent = me.tier || '—';
+      credEl.textContent = me.credits_balance != null ? me.credits_balance : '—';
+    } catch (e) { console.warn('account hydrate failed', e); }
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = !menu.hidden;
+    menu.hidden = open;
+    btn.setAttribute('aria-expanded', String(!open));
+  });
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) menu.hidden = true;
+  });
+  outBtn.addEventListener('click', () => scAuth.signOut());
+
+  scAuth.ready.then(async () => {
+    if (await scAuth.session()) hydrate();
+    scAuth.onChange((event) => {
+      if (event === 'SIGNED_IN') hydrate();
+      if (event === 'SIGNED_OUT') wrap.hidden = true;
+    });
+  }).catch(() => {});
+})();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // INIT

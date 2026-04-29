@@ -6,6 +6,7 @@ Claude builds optimised image prompts from content context.
 import os
 import time
 import hashlib
+import uuid
 import requests as http_requests
 from dotenv import load_dotenv
 import anthropic
@@ -13,6 +14,23 @@ import anthropic
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+# Supabase Storage client (service role — server-side only, bypasses RLS)
+_supabase = None
+def _get_supabase():
+    global _supabase
+    if _supabase is None:
+        from supabase import create_client
+        _supabase = create_client(
+            os.environ['SUPABASE_URL'],
+            os.environ['SUPABASE_SERVICE_KEY'],
+        )
+    return _supabase
+
+# Until Phase B (auth) lands, server-side gens are owned by this dev user.
+# Matches the seeded row in public.users.
+DEV_USER_ID = os.getenv('DEV_USER_ID', '00000000-0000-0000-0000-000000000001')
+IMAGE_BUCKET = 'generated_images'
 
 # ── Per-content-type image dimensions ──────────────────────
 IMAGE_DIMENSIONS = {
@@ -230,20 +248,32 @@ def generate_image(prompt, width, height):
 
 # ── Storage ────────────────────────────────────────────────
 
-def save_image(image_bytes, content_type):
-    """Save image to data/generated_images/. Returns filename."""
-    img_dir = os.path.join(os.path.dirname(__file__), 'data', 'generated_images')
-    os.makedirs(img_dir, exist_ok=True)
+def save_image(image_bytes, content_type, user_id=None):
+    """Upload image to Supabase Storage. Returns public URL.
 
+    If LOCAL_IMAGE_FALLBACK=1, also writes to data/generated_images/ for offline dev.
+    """
+    user_id = user_id or DEV_USER_ID
     ts = int(time.time())
     short_hash = hashlib.md5(image_bytes[:1024]).hexdigest()[:8]
-    filename = f"{content_type}_{ts}_{short_hash}.png"
+    filename = f"{content_type}_{ts}_{short_hash}_{uuid.uuid4().hex[:6]}.png"
+    object_path = f"{user_id}/{filename}"
 
-    filepath = os.path.join(img_dir, filename)
-    with open(filepath, 'wb') as f:
-        f.write(image_bytes)
+    sb = _get_supabase()
+    sb.storage.from_(IMAGE_BUCKET).upload(
+        path=object_path,
+        file=image_bytes,
+        file_options={'content-type': 'image/png', 'upsert': 'true'},
+    )
+    public_url = sb.storage.from_(IMAGE_BUCKET).get_public_url(object_path)
 
-    return filename
+    if os.getenv('LOCAL_IMAGE_FALLBACK') == '1':
+        img_dir = os.path.join(os.path.dirname(__file__), 'data', 'generated_images')
+        os.makedirs(img_dir, exist_ok=True)
+        with open(os.path.join(img_dir, filename), 'wb') as f:
+            f.write(image_bytes)
+
+    return public_url
 
 
 def provider_status():

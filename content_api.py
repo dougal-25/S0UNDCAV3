@@ -6,7 +6,7 @@ Run: python content_api.py
 import os
 import json
 from datetime import datetime, timezone
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import anthropic
@@ -164,16 +164,51 @@ def health():
     })
 
 
+# ── Credits pricing (placeholder; tune later) ─────────────
+CREDIT_COST = {'text': 1, 'image': 5}
+
+def _debit(uid, kind, reason):
+    """Atomic debit via SQL helper. Returns (new_balance, error_response_or_None)."""
+    cost = CREDIT_COST[kind]
+    sb = _stash_client()
+    try:
+        res = sb.rpc('debit_credits', {
+            'p_user_id': uid, 'p_amount': cost, 'p_reason': reason
+        }).execute()
+        return res.data, None
+    except Exception as e:
+        msg = str(e)
+        if 'insufficient_credits' in msg:
+            return None, (jsonify({'error': 'insufficient_credits', 'cost': cost}), 402)
+        print('debit failed:', e)
+        return None, (jsonify({'error': f'credit debit failed: {msg}'}), 500)
+
+def _refund(uid, kind, reason):
+    cost = CREDIT_COST[kind]
+    try:
+        _stash_client().rpc('refund_credits', {
+            'p_user_id': uid, 'p_amount': cost, 'p_reason': reason
+        }).execute()
+    except Exception as e:
+        # Refund failure is logged but doesn't surface to the user — they
+        # already saw the gen error. A reconciliation job (later) can sweep.
+        print('refund failed (will need reconciliation):', e)
+
+
 @app.route('/api/generate', methods=['POST'])
 def generate():
+    uid, err = _require_user()
+    if err: return err
     ctx = request.get_json()
     if not ctx:
         return jsonify({'error': 'No JSON body provided'}), 400
 
     content_type = ctx.get('content_type', 'ig_reel')
     template = TEMPLATES.get(content_type, TEMPLATES['ig_reel'])
-
     user_prompt = build_user_prompt(ctx)
+
+    balance, err = _debit(uid, 'text', f'gen:{content_type}')
+    if err: return err
 
     try:
         message = client.messages.create(
@@ -187,9 +222,11 @@ def generate():
             'content': content,
             'content_type': content_type,
             'tokens_used': message.usage.input_tokens + message.usage.output_tokens,
-            'model': message.model
+            'model': message.model,
+            'credits_balance': balance,
         })
     except anthropic.APIError as e:
+        _refund(uid, 'text', f'refund:gen:{content_type}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -197,6 +234,8 @@ def generate():
 
 @app.route('/api/generate-image', methods=['POST'])
 def generate_image_endpoint():
+    uid, err = _require_user()
+    if err: return err
     ctx = request.get_json()
     if not ctx:
         return jsonify({'error': 'No JSON body provided'}), 400
@@ -204,27 +243,164 @@ def generate_image_endpoint():
     content_type = ctx.get('content_type', 'ig_reel')
     generated_text = ctx.get('generated_text', '')
 
+    balance, err = _debit(uid, 'image', f'image:{content_type}')
+    if err: return err
+
     try:
         image_prompt = build_image_prompt(content_type, ctx, generated_text)
         w, h = IMAGE_DIMENSIONS.get(content_type, (1200, 675))
         image_bytes, provider, model = generate_image(image_prompt, w, h)
-        filename = save_image(image_bytes, content_type)
+        image_url = save_image(image_bytes, content_type, user_id=uid)
 
         return jsonify({
-            'image_url': f'/api/images/{filename}',
+            'image_url': image_url,
             'image_prompt': image_prompt,
             'provider': provider,
             'model': model,
             'dimensions': {'width': w, 'height': h},
+            'credits_balance': balance,
         })
     except Exception as e:
+        _refund(uid, 'image', f'refund:image:{content_type}')
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/images/<filename>')
-def serve_image(filename):
-    img_dir = os.path.join(os.path.dirname(__file__), 'data', 'generated_images')
-    return send_from_directory(img_dir, filename)
+# ── Auth helpers (Phase B) ────────────────────────────────
+def _resolve_user_id():
+    """Return the authed user_id from the request JWT, or None if missing/invalid.
+
+    Endpoints calling this must 401 when None is returned.
+    """
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return None
+    token = auth[7:].strip()
+    try:
+        res = _stash_client().auth.get_user(token)
+        if res and res.user:
+            return res.user.id
+    except Exception as e:
+        print('JWT validation failed:', e)
+    return None
+
+
+def _require_user():
+    """Decorator-less helper: returns (user_id, None) or (None, 401-response)."""
+    uid = _resolve_user_id()
+    if uid is None:
+        return None, (jsonify({'error': 'unauthenticated'}), 401)
+    return uid, None
+
+
+# ── Public client config ──────────────────────────────────
+# Lets the frontend pick up SUPABASE_URL + anon key without baking them into
+# committed source. Anon key is safe to expose (RLS is the security layer).
+@app.route('/api/config', methods=['GET'])
+def public_config():
+    return jsonify({
+        'supabase_url': os.environ['SUPABASE_URL'],
+        'supabase_anon_key': os.environ['SUPABASE_ANON_KEY'],
+    })
+
+
+# ── Stash (Supabase-backed) ───────────────────────────────
+# Service-role proxy. Phase B will replace user_id with auth.uid() from JWT.
+from image_gen import DEV_USER_ID
+_stash_sb = None
+def _stash_client():
+    global _stash_sb
+    if _stash_sb is None:
+        from supabase import create_client
+        _stash_sb = create_client(
+            os.environ['SUPABASE_URL'],
+            os.environ['SUPABASE_SERVICE_KEY'],
+        )
+    return _stash_sb
+
+STASH_KIND_BY_TYPE = {
+    'ig_reel':'text','ig_carousel':'text','tiktok':'text','x_post':'text',
+    'yt_short':'text','lineup_copy':'text','aftermovie':'text','teaser':'text',
+    'pre_release':'text','premiere':'text','dj_support':'text','artist_bio':'text',
+    'press':'text','newsletter':'text','mix_desc':'text','playlist_desc':'text',
+}
+
+@app.route('/api/me', methods=['GET'])
+def me():
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return jsonify({'error': 'unauthenticated'}), 401
+    token = auth[7:].strip()
+    try:
+        res = _stash_client().auth.get_user(token)
+        if not res or not res.user:
+            return jsonify({'error': 'invalid token'}), 401
+        user_id = res.user.id
+        email = res.user.email
+    except Exception as e:
+        return jsonify({'error': f'token error: {e}'}), 401
+    sb = _stash_client()
+    profile = sb.table('users').select('tier,credits_balance').eq('id', user_id).execute()
+    p = (profile.data or [{}])[0]
+    return jsonify({
+        'id': user_id,
+        'email': email,
+        'tier': p.get('tier'),
+        'credits_balance': p.get('credits_balance'),
+    })
+
+
+@app.route('/api/stash', methods=['GET'])
+def stash_list():
+    uid, err = _require_user()
+    if err: return err
+    sb = _stash_client()
+    res = sb.table('stash_items').select('*').eq('user_id', uid).order('created_at', desc=True).execute()
+    return jsonify({'items': res.data})
+
+@app.route('/api/stash', methods=['POST'])
+def stash_insert():
+    uid, err = _require_user()
+    if err: return err
+    body = request.get_json() or {}
+    content_type = body.get('type', '')
+    row = {
+        'user_id': uid,
+        'kind': STASH_KIND_BY_TYPE.get(content_type, 'text'),
+        'content': body.get('content'),
+        'media_url': body.get('imageUrl') or None,
+        'prompt': body.get('prompt'),
+        'metadata': {
+            'type': content_type,
+            'label': body.get('label'),
+            'icon': body.get('icon'),
+            'context': body.get('context') or {},
+            'status': body.get('status', 'draft'),
+        },
+    }
+    sb = _stash_client()
+    res = sb.table('stash_items').insert(row).execute()
+    return jsonify({'item': res.data[0] if res.data else None}), 201
+
+@app.route('/api/stash/<item_id>', methods=['DELETE'])
+def stash_delete(item_id):
+    uid, err = _require_user()
+    if err: return err
+    sb = _stash_client()
+    sb.table('stash_items').delete().eq('id', item_id).eq('user_id', uid).execute()
+    return jsonify({'ok': True})
+
+@app.route('/api/stash/<item_id>', methods=['PATCH'])
+def stash_update(item_id):
+    uid, err = _require_user()
+    if err: return err
+    body = request.get_json() or {}
+    patch = {}
+    if 'content' in body: patch['content'] = body['content']
+    if 'imageUrl' in body: patch['media_url'] = body['imageUrl']
+    if 'metadata' in body: patch['metadata'] = body['metadata']
+    sb = _stash_client()
+    res = sb.table('stash_items').update(patch).eq('id', item_id).eq('user_id', uid).execute()
+    return jsonify({'item': res.data[0] if res.data else None})
 
 
 # ── SoundCloud search (reuses scout.py patterns) ──────────

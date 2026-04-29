@@ -6,6 +6,7 @@
   <title>The Sound Cave</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/trail_map.css">
 </head>
 <body>
 
@@ -36,6 +37,14 @@
       </g>
     </svg>
     <div class="cave-logo-text">The Sound Cave</div>
+
+    <!-- Login form (Phase B) — visible only when no auth session -->
+    <form class="cave-login" id="caveLogin" autocomplete="on" hidden>
+      <input class="cave-login-input" id="caveLoginEmail" type="email" required
+             placeholder="you@example.com" autocomplete="email" spellcheck="false">
+      <button class="cave-login-btn" type="submit" id="caveLoginBtn">Enter the cave</button>
+      <div class="cave-login-msg" id="caveLoginMsg" aria-live="polite"></div>
+    </form>
   </div>
 </div>
 
@@ -102,6 +111,18 @@
     <button class="htab" data-tab="cave" data-group="cave">🕳️ <span>The Cave</span></button>
     <button class="htab" data-tab="firepit">🔥 <span>Firepit</span> <span class="count" id="firepitCount"></span></button>
   </nav>
+  <div class="account" id="account" hidden>
+    <button class="account-btn" id="accountBtn" type="button" aria-haspopup="true" aria-expanded="false">
+      <span class="account-avatar" id="accountAvatar">·</span>
+      <span class="account-email" id="accountEmail"></span>
+      <span class="account-caret">▾</span>
+    </button>
+    <div class="account-menu" id="accountMenu" hidden>
+      <div class="account-row"><span class="account-label">Tier</span><span id="accountTier">—</span></div>
+      <div class="account-row"><span class="account-label">Credits</span><span id="accountCredits">—</span></div>
+      <button class="account-signout" id="accountSignOut" type="button">Sign out</button>
+    </div>
+  </div>
 </header>
 
 <!-- ═══════════════════════════════════════════════════════
@@ -542,10 +563,65 @@
 
     <!-- ── TRAIL MAP ──────────────────────────────────── -->
     <div id="firepit-trailmap" style="display:none">
-      <div class="trail-placeholder">
-        <div class="ico">🗺️</div>
-        <p style="font-size:16px;font-weight:600;color:var(--heading);margin-bottom:8px">Trail Map — Coming Soon</p>
-        <p>Content calendar with drag-and-drop scheduling, campaign timelines,<br>and direct publishing to your connected platforms.</p>
+      <div class="trail-wrap">
+        <div class="trail-main">
+          <div class="trail-toolbar">
+            <div class="trail-nav">
+              <button class="trail-nav-btn" onclick="trailNav(-1)" title="Previous">◀</button>
+              <div class="trail-period" id="trailPeriod"></div>
+              <button class="trail-nav-btn" onclick="trailNav(1)" title="Next">▶</button>
+            </div>
+            <div class="trail-view-toggle">
+              <button data-view="month" class="active" onclick="trailSetView('month')">Month</button>
+              <button data-view="week" onclick="trailSetView('week')">Week</button>
+            </div>
+            <button class="trail-today-btn" onclick="trailToday()">Today</button>
+            <button class="trail-stash-toggle" onclick="trailToggleStash()">
+              Stash <span class="count" id="trailStashCount">0</span>
+            </button>
+          </div>
+          <div id="trailGrid"></div>
+        </div>
+        <aside class="trail-stash-drawer" id="trailStashDrawer">
+          <div class="trail-stash-head">
+            <span>Stash · drag to schedule</span>
+            <button class="trail-modal-close" onclick="trailToggleStash()" title="Close">×</button>
+          </div>
+          <div class="trail-stash-list" id="trailStashList"></div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- Schedule modal -->
+    <div class="trail-modal-overlay" id="trailModalOverlay" onclick="if(event.target===this)closeTrailModal()">
+      <div class="trail-modal">
+        <div class="trail-modal-head">
+          <span class="trail-modal-title">Schedule post</span>
+          <button class="trail-modal-close" onclick="closeTrailModal()">×</button>
+        </div>
+        <div class="trail-modal-body">
+          <div>
+            <label class="trail-field-label">Content</label>
+            <div class="trail-content-preview" id="trailModalContent"></div>
+          </div>
+          <div>
+            <label class="trail-field-label">When</label>
+            <input type="datetime-local" class="trail-input" id="trailModalDateTime">
+          </div>
+          <div>
+            <label class="trail-field-label">Platforms</label>
+            <div class="trail-platforms" id="trailModalPlatforms"></div>
+          </div>
+          <div>
+            <label class="trail-field-label">Status</label>
+            <div class="trail-status-row" id="trailModalStatus"></div>
+          </div>
+        </div>
+        <div class="trail-modal-actions">
+          <button class="trail-btn trail-btn-danger" onclick="deleteTrailModal()">Delete</button>
+          <button class="trail-btn trail-btn-secondary" onclick="closeTrailModal()">Cancel</button>
+          <button class="trail-btn trail-btn-primary" onclick="saveTrailModal()">Save</button>
+        </div>
       </div>
     </div>
   </div>
@@ -616,11 +692,13 @@
      ═══════════════════════════════════════════════════════ -->
 </div><!-- /.app-wrap -->
 
+<script src="js/lib/supabase.js"></script>
 <script src="js/app.js"></script>
 <script src="js/cave.js"></script>
 <script src="js/foraging.js"></script>
 <script src="js/clan.js"></script>
 <script src="js/footprints.js"></script>
 <script src="js/firepit.js"></script>
+<script src="js/trail_map.js"></script>
 </body>
 </html>

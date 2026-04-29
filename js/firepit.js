@@ -26,8 +26,78 @@ const CONTENT_TYPES = {
   playlist_desc:{ label:'Playlist Description', icon:'📋', fields:['freeform'] },
 };
 
-function getContentLibrary() { return JSON.parse(localStorage.getItem('sc_content_library') || '[]'); }
-function saveContentLibrary(d) { localStorage.setItem('sc_content_library', JSON.stringify(d)); }
+// Stash storage moved from localStorage to Supabase via /api/stash backend proxy.
+// Render functions stay sync by reading from this in-memory cache, hydrated on
+// renderFirepit(). Mutations update the cache optimistically and POST/DELETE to
+// the API in the background.
+// TODO(phase-B): drop DEV_USER_ID gating in content_api.py and pass real auth JWT.
+let _stashCache = [];
+
+function getContentLibrary() { return _stashCache; }
+
+// Map server row -> UI item shape used by renderStash, editStashItem, etc.
+function _stashRowToItem(row) {
+  const m = row.metadata || {};
+  return {
+    id: row.id,
+    type: m.type || 'ig_reel',
+    label: m.label,
+    icon: m.icon,
+    content: row.content || '',
+    imageUrl: row.media_url || null,
+    context: m.context || {},
+    status: m.status || 'draft',
+    created: row.created_at,
+    modified: row.created_at,
+  };
+}
+
+async function loadStash() {
+  try {
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/stash`);
+    if (!r.ok) throw new Error(`stash GET ${r.status}`);
+    const j = await r.json();
+    _stashCache = (j.items || []).map(_stashRowToItem);
+  } catch (e) {
+    console.warn('stash load failed', e);
+    _stashCache = [];
+  }
+  await migrateLocalStorageStash();
+}
+
+async function migrateLocalStorageStash() {
+  const raw = localStorage.getItem('sc_content_library');
+  if (!raw) return;
+  let legacy;
+  try { legacy = JSON.parse(raw); } catch { localStorage.removeItem('sc_content_library'); return; }
+  if (!Array.isArray(legacy) || !legacy.length) {
+    localStorage.removeItem('sc_content_library');
+    return;
+  }
+  console.log(`migrating ${legacy.length} legacy Stash items to Supabase`);
+  for (const item of legacy) {
+    try {
+      const r = await scAuth.authedFetch(`${forgeApiUrl}/api/stash`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          type: item.type,
+          label: item.label,
+          icon: item.icon,
+          content: item.content,
+          imageUrl: item.imageUrl,
+          context: item.context,
+          status: item.status || 'draft',
+        }),
+      });
+      if (r.ok) {
+        const j = await r.json();
+        if (j.item) _stashCache.unshift(_stashRowToItem(j.item));
+      }
+    } catch (e) { console.warn('migrate item failed', e); }
+  }
+  localStorage.removeItem('sc_content_library');
+}
 
 function setFirepitMode(mode, btn) {
   firepitMode = mode;
@@ -38,12 +108,15 @@ function setFirepitMode(mode, btn) {
     if (el) el.style.display = m === mode ? 'block' : 'none';
   });
   if (mode === 'stash') renderStash();
+  if (mode === 'trailmap' && typeof renderTrailMap === 'function') renderTrailMap();
 }
 
-function renderFirepit() {
+async function renderFirepit() {
   updateForgeFields();
+  await loadStash();
   updateStashCount();
   populateStashTypeFilter();
+  if (firepitMode === 'stash') renderStash();
   checkApiStatus();
 }
 
@@ -155,14 +228,19 @@ async function generateContent(variation) {
   actionsEl.style.display = 'none';
 
   try {
-    const r = await fetch(`${forgeApiUrl}/api/generate`, {
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(ctx)
     });
+    if (r.status === 402) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(`Insufficient credits — this generation costs ${j.cost || 1}.`);
+    }
     if (!r.ok) throw new Error(`API error: ${r.status}`);
     const data = await r.json();
     forgeGeneratedContent = data.content || '';
+    if (typeof data.credits_balance === 'number') updateCreditsDisplay(data.credits_balance);
     outputArea.innerHTML = `<textarea class="forge-output" id="forgeOutputText" oninput="forgeGeneratedContent=this.value;updateCharCount()">${esc(forgeGeneratedContent)}</textarea>`;
     actionsEl.style.display = 'block';
     updateCharCount();
@@ -175,6 +253,13 @@ async function generateContent(variation) {
       <span style="color:var(--muted);font-size:11px">Make sure content_api.py is running: <code>python content_api.py</code></span>
     </div>`;
   }
+}
+
+// Defined in app.js initAccount; safe shim so generation calls don't blow up
+// if the dropdown hasn't hydrated yet.
+function updateCreditsDisplay(n) {
+  const el = document.getElementById('accountCredits');
+  if (el) el.textContent = n;
 }
 
 function generateVariation(type) { generateContent(type); }
@@ -198,17 +283,23 @@ async function generateImage(ctx) {
   if (forgeGeneratedContent) body.generated_text = forgeGeneratedContent;
 
   try {
-    const r = await fetch(`${forgeApiUrl}/api/generate-image`, {
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate-image`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(body)
     });
+    if (r.status === 402) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(`Insufficient credits — this image costs ${j.cost || 5}.`);
+    }
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.error || `Image API error: ${r.status}`);
     }
     const data = await r.json();
-    forgeGeneratedImageUrl = `${forgeApiUrl}${data.image_url}`;
+    // image_url is now a fully-qualified Supabase Storage URL (Phase A migration).
+    forgeGeneratedImageUrl = data.image_url;
+    if (typeof data.credits_balance === 'number') updateCreditsDisplay(data.credits_balance);
 
     imgArea.innerHTML = `<img src="${forgeGeneratedImageUrl}" class="forge-image-preview" alt="Generated image">
       <div class="forge-image-meta">
@@ -249,28 +340,36 @@ async function copyForgeOutput() {
   } catch(e) {}
 }
 
-function saveToStash() {
+async function saveToStash() {
   if (!forgeGeneratedContent) return;
   const type = document.getElementById('forgeContentType').value;
   const ct = CONTENT_TYPES[type];
-  const lib = getContentLibrary();
-  lib.unshift({
-    id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    type: type,
-    label: ct ? ct.label : type,
-    icon: ct ? ct.icon : '📝',
-    content: forgeGeneratedContent,
-    imageUrl: forgeGeneratedImageUrl || null,
-    context: gatherForgeContext(),
-    status: 'draft',
-    created: new Date().toISOString(),
-    modified: new Date().toISOString()
-  });
-  saveContentLibrary(lib);
-  updateStashCount();
   const btn = event.target;
   const orig = btn.innerHTML;
-  btn.innerHTML = '✅ Saved!';
+  btn.innerHTML = '⏳ Saving…';
+  try {
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/stash`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        type,
+        label: ct ? ct.label : type,
+        icon: ct ? ct.icon : '📝',
+        content: forgeGeneratedContent,
+        imageUrl: forgeGeneratedImageUrl || null,
+        context: gatherForgeContext(),
+        status: 'draft',
+      }),
+    });
+    if (!r.ok) throw new Error(`stash POST ${r.status}`);
+    const j = await r.json();
+    if (j.item) _stashCache.unshift(_stashRowToItem(j.item));
+    updateStashCount();
+    btn.innerHTML = '✅ Saved!';
+  } catch (e) {
+    console.error('saveToStash failed', e);
+    btn.innerHTML = '❌ Failed';
+  }
   setTimeout(() => btn.innerHTML = orig, 1500);
 }
 
@@ -370,10 +469,11 @@ async function copyStashItem(id) {
   try { await navigator.clipboard.writeText(item.content); } catch(e) {}
 }
 
-function deleteStashItem(id) {
-  let lib = getContentLibrary();
-  lib = lib.filter(i => i.id !== id);
-  saveContentLibrary(lib);
+async function deleteStashItem(id) {
+  _stashCache = _stashCache.filter(i => i.id !== id);
   renderStash();
   updateStashCount();
+  try {
+    await scAuth.authedFetch(`${forgeApiUrl}/api/stash/${id}`, { method: 'DELETE' });
+  } catch (e) { console.warn('stash delete failed', e); }
 }

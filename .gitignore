@@ -8,3 +8,16 @@ __pycache__/
 data/generated_images/
 venv/
 .DS_Store
+
+# Local dev shortcuts that may carry session tokens / JWTs
+bypass.html
+*_bypass.html
+*.local.html
+*.local.js
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db

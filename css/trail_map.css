@@ -1,0 +1,364 @@
+/* ═══════════════════════════════════════════════════════
+   TRAIL MAP — content calendar
+   Reuses :root tokens from style.css (--bg, --card, --red, etc)
+   ═══════════════════════════════════════════════════════ */
+
+.trail-wrap {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  position: relative;
+}
+
+.trail-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Toolbar ──────────────────────────────────────────── */
+.trail-toolbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0 16px;
+  flex-wrap: wrap;
+}
+.trail-nav {
+  display: flex; align-items: center; gap: 4px;
+}
+.trail-nav-btn {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--body); width: 32px; height: 32px;
+  border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: background 0.15s;
+}
+.trail-nav-btn:hover { background: var(--hover); }
+.trail-period {
+  font-size: 15px; font-weight: 600; color: var(--heading);
+  min-width: 140px; text-align: center; letter-spacing: 0.02em;
+}
+.trail-view-toggle {
+  display: inline-flex; background: var(--card);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 2px;
+}
+.trail-view-toggle button {
+  background: none; border: none; color: var(--secondary);
+  padding: 6px 14px; font-size: 13px; font-weight: 500;
+  cursor: pointer; border-radius: 4px; transition: all 0.15s;
+}
+.trail-view-toggle button.active {
+  background: var(--elevated); color: var(--heading);
+}
+.trail-today-btn {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--body); padding: 6px 14px; height: 32px;
+  border-radius: 6px; cursor: pointer; font-size: 13px;
+  transition: background 0.15s;
+}
+.trail-today-btn:hover { background: var(--hover); }
+.trail-stash-toggle {
+  margin-left: auto;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--body); padding: 6px 14px; height: 32px;
+  border-radius: 6px; cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; gap: 6px;
+  transition: background 0.15s;
+}
+.trail-stash-toggle:hover { background: var(--hover); }
+.trail-stash-toggle .count {
+  background: var(--red); color: white;
+  font-size: 11px; font-weight: 700;
+  padding: 1px 6px; border-radius: 8px;
+  min-width: 18px; text-align: center;
+}
+
+/* ── Calendar grid ────────────────────────────────────── */
+.trail-grid {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.trail-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+  background: var(--elevated);
+}
+.trail-weekday {
+  padding: 10px 12px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--secondary); text-align: left;
+}
+.trail-month-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(110px, 1fr);
+}
+.trail-week-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  min-height: 480px;
+}
+.trail-cell {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 8px; cursor: default;
+  transition: background 0.15s;
+  min-height: 0; display: flex; flex-direction: column; gap: 4px;
+}
+.trail-cell:nth-child(7n) { border-right: none; }
+.trail-cell.other-month { background: rgba(0,0,0,0.08); }
+.trail-cell.other-month .trail-date { color: var(--muted); opacity: 0.5; }
+.trail-cell.today .trail-date {
+  background: var(--red); color: white;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.trail-cell.dragging {
+  background: var(--red-faint);
+  box-shadow: inset 0 0 0 2px var(--red);
+}
+.trail-date {
+  font-size: 12px; font-weight: 600; color: var(--body);
+  margin-bottom: 2px;
+}
+.trail-cell-pills {
+  display: flex; flex-direction: column; gap: 3px;
+  overflow: hidden;
+}
+.trail-more {
+  font-size: 10px; color: var(--muted);
+  cursor: pointer; padding: 2px 4px;
+}
+.trail-more:hover { color: var(--body); }
+
+/* Week view: bigger cells */
+.trail-week-grid .trail-cell { min-height: 480px; }
+.trail-week-grid .trail-date {
+  font-size: 14px; padding: 4px 0;
+}
+.trail-week-grid .trail-weekday-num {
+  font-size: 22px; font-weight: 700; color: var(--heading);
+  display: block;
+}
+
+/* ── Scheduled pill ───────────────────────────────────── */
+.trail-pill {
+  background: var(--elevated);
+  border: 1px solid var(--border-lt);
+  border-left: 3px solid var(--secondary);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11px; line-height: 1.3;
+  color: var(--body);
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  overflow: hidden;
+  transition: background 0.15s, transform 0.1s;
+}
+.trail-pill:hover { background: var(--hover); }
+.trail-pill:active { transform: scale(0.97); }
+.trail-pill.posted { border-left-color: var(--green); }
+.trail-pill.failed { border-left-color: var(--red); }
+.trail-pill .ico { font-size: 11px; flex-shrink: 0; }
+.trail-pill .title {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.trail-pill .dots {
+  display: flex; gap: 2px; flex-shrink: 0;
+}
+.trail-pill .dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--secondary);
+}
+
+/* ── Stash drawer ─────────────────────────────────────── */
+.trail-stash-drawer {
+  width: 0; flex-shrink: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: width 0.25s ease;
+  display: flex; flex-direction: column;
+}
+.trail-stash-drawer.open { width: 280px; }
+.trail-stash-head {
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--secondary);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.trail-stash-list {
+  flex: 1; overflow-y: auto;
+  padding: 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.trail-stash-card {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  cursor: grab;
+  display: flex; gap: 8px; align-items: flex-start;
+  transition: all 0.15s;
+}
+.trail-stash-card:hover {
+  background: var(--hover);
+  border-color: var(--border-lt);
+}
+.trail-stash-card:active { cursor: grabbing; }
+.trail-stash-card.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+.trail-stash-card .thumb {
+  width: 36px; height: 36px; border-radius: 4px;
+  background: var(--card); flex-shrink: 0;
+  object-fit: cover;
+}
+.trail-stash-card .thumb.placeholder {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.trail-stash-card .info {
+  flex: 1; min-width: 0;
+}
+.trail-stash-card .type {
+  font-size: 10px; color: var(--secondary);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 600; margin-bottom: 2px;
+}
+.trail-stash-card .preview {
+  font-size: 11px; color: var(--body); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.trail-stash-empty {
+  padding: 40px 20px; text-align: center;
+  color: var(--muted); font-size: 12px; line-height: 1.5;
+}
+
+/* ── Schedule modal ───────────────────────────────────── */
+.trail-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 800;
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.trail-modal-overlay.open { display: flex; }
+.trail-modal {
+  background: var(--card);
+  border: 1px solid var(--border-lt);
+  border-radius: 12px;
+  width: 90%; max-width: 480px;
+  max-height: 86vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.trail-modal-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.trail-modal-title {
+  font-size: 14px; font-weight: 600; color: var(--heading);
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.trail-modal-close {
+  background: none; border: none; color: var(--secondary);
+  font-size: 22px; cursor: pointer; line-height: 1;
+}
+.trail-modal-close:hover { color: var(--heading); }
+.trail-modal-body {
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.trail-field-label {
+  font-size: 11px; font-weight: 600; color: var(--secondary);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 6px; display: block;
+}
+.trail-content-preview {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 12px;
+  font-size: 12px; line-height: 1.5;
+  max-height: 100px; overflow-y: auto;
+  color: var(--body);
+}
+.trail-datetime-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.trail-input {
+  width: 100%; background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--body); border-radius: 6px;
+  padding: 8px 10px; font-size: 13px;
+  font-family: inherit;
+}
+.trail-input:focus {
+  outline: none; border-color: var(--red);
+}
+.trail-platforms {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.trail-platform-pill {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--secondary); padding: 6px 12px;
+  border-radius: 16px; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.trail-platform-pill:hover { border-color: var(--border-lt); color: var(--body); }
+.trail-platform-pill.selected {
+  background: var(--red-faint);
+  border-color: var(--red);
+  color: var(--heading);
+}
+.trail-status-row {
+  display: flex; gap: 6px;
+}
+.trail-status-pill {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--secondary); padding: 5px 10px;
+  border-radius: 12px; font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+}
+.trail-status-pill.selected {
+  background: var(--elevated); color: var(--heading);
+  border-color: var(--border-lt);
+}
+.trail-modal-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+.trail-btn {
+  padding: 8px 16px; border-radius: 6px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.trail-btn-secondary {
+  background: var(--card); color: var(--body);
+}
+.trail-btn-secondary:hover { background: var(--hover); }
+.trail-btn-primary {
+  background: var(--red); color: white;
+  border-color: var(--red);
+}
+.trail-btn-primary:hover { background: var(--red-dark); }
+.trail-btn-danger {
+  background: transparent; color: var(--red);
+  border-color: transparent;
+}
+.trail-btn-danger:hover { background: var(--red-faint); }
+
+/* ── Mobile responsive ────────────────────────────────── */
+@media (max-width: 720px) {
+  .trail-stash-drawer.open { width: 100%; position: absolute; right: 0; top: 0; bottom: 0; z-index: 5; }
+  .trail-month-grid { grid-auto-rows: minmax(72px, 1fr); }
+  .trail-cell { padding: 4px; }
+  .trail-date { font-size: 10px; }
+  .trail-pill .title { font-size: 10px; }
+  .trail-toolbar { gap: 6px; }
+  .trail-period { min-width: 100px; font-size: 13px; }
+}
