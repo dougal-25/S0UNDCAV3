@@ -555,6 +555,106 @@ def generate_video_standard(prompt, audio_path, width, height, duration_seconds=
     return video_bytes, used_provider, used_model, duration_seconds
 
 
+# ── Tier 3: Premium video (Fal Kling primary, Replicate Veo fallback) ──
+# Most expensive. Hero moments only. DRY_RUN=1 returns placeholder.
+
+def _generate_fal_kling(prompt, width, height, duration_seconds):
+    """Fal Kling 1.6. Premium quality, ~$1–2 per 5s clip."""
+    out = _fal_queue_generate('fal-ai/kling-video/v1.6/standard/text-to-video', {
+        'prompt': prompt,
+        'aspect_ratio': _aspect_ratio_str(width, height),
+        'duration': str(min(int(duration_seconds), 10)),  # Kling accepts '5' or '10'
+    }, poll_timeout=POLL_TIMEOUT_KLING)
+    video_url = out['video']['url']
+    v = http_requests.get(video_url, timeout=60)
+    v.raise_for_status()
+    return v.content, 'fal-ai', 'kling-1.6-standard'
+
+
+def _generate_replicate_veo(prompt, width, height, duration_seconds):
+    """Replicate Veo 3 fast. Premium fallback, ~$0.50–1.50."""
+    api_token = os.getenv('REPLICATE_API_TOKEN')
+    if not api_token:
+        raise RuntimeError('REPLICATE_API_TOKEN not set')
+    headers = {
+        'Authorization': f'Bearer {api_token}',
+        'Content-Type': 'application/json',
+        'Prefer': 'wait',  # synchronous-ish — Replicate returns when done up to ~60s
+    }
+    payload = {
+        'input': {
+            'prompt': prompt,
+            'aspect_ratio': _aspect_ratio_str(width, height),
+            'duration': min(int(duration_seconds), 8),  # Veo 3 fast caps at 8s
+        }
+    }
+    started = time.time()
+    r = http_requests.post(
+        'https://api.replicate.com/v1/models/google/veo-3-fast/predictions',
+        headers=headers, json=payload, timeout=30,
+    )
+    r.raise_for_status()
+    prediction = r.json()
+    poll_url = prediction.get('urls', {}).get('get', f"https://api.replicate.com/v1/predictions/{prediction['id']}")
+    last_status = None
+    while time.time() - started < POLL_TIMEOUT_VEO:
+        if prediction.get('status') in ('succeeded', 'failed', 'canceled'):
+            status = prediction['status']
+        else:
+            time.sleep(3)
+            poll_r = http_requests.get(poll_url, headers={'Authorization': f'Bearer {api_token}'}, timeout=10)
+            poll_r.raise_for_status()
+            prediction = poll_r.json()
+            status = prediction.get('status')
+        if POLL_VERBOSE and status != last_status:
+            elapsed = int(time.time() - started)
+            print(f"[replicate poll veo-3-fast t+{elapsed}s] status={status}", flush=True)
+            last_status = status
+        if status == 'succeeded':
+            output = prediction['output']
+            video_url = output if isinstance(output, str) else output[0]
+            vr = http_requests.get(video_url, timeout=60)
+            vr.raise_for_status()
+            return vr.content, 'replicate', 'veo-3-fast'
+        if status in ('failed', 'canceled'):
+            raise RuntimeError(f"Replicate Veo failed: {prediction.get('error', status)}")
+    raise RuntimeError(f"Replicate Veo poll timed out after {POLL_TIMEOUT_VEO}s (last status: {last_status})")
+
+
+def generate_video_premium(prompt, audio_path, width, height, duration_seconds=5):
+    """Tier 3: Premium video. Returns (mp4_bytes, provider, model, dur).
+
+    - Fal Kling primary, Replicate Veo fallback.
+    - DRY_RUN=1 returns a placeholder mp4 (no API call).
+    - audio_path optional (None = no audio track muxed).
+    """
+    if duration_seconds <= 0 or duration_seconds > MAX_VIDEO_DURATION_SECONDS:
+        raise ValueError(f'duration_seconds must be 0 < d <= {MAX_VIDEO_DURATION_SECONDS}')
+
+    if DRY_RUN:
+        mp4 = _dry_run_video(width, height, duration_seconds, 'tier3/dryrun')
+        return mp4, 'dry-run', 'placeholder', duration_seconds
+
+    errors = []
+    video_bytes = None
+    used_provider, used_model = None, None
+    for fn, name in [
+        (_generate_fal_kling, 'fal-kling'),
+        (_generate_replicate_veo, 'replicate-veo'),
+    ]:
+        try:
+            video_bytes, used_provider, used_model = fn(prompt, width, height, duration_seconds)
+            break
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+    if video_bytes is None:
+        raise RuntimeError(f"All Tier 3 providers failed: {'; '.join(errors)}")
+
+    if audio_path:
+        video_bytes = _mux_audio_onto_video(video_bytes, audio_path, duration_seconds)
+    return video_bytes, used_provider, used_model, duration_seconds
+
+
 # ── Audio storage ──────────────────────────────────────────
 
 def upload_audio_track(file_bytes, filename, user_id=None, mime_type='audio/mpeg'):
