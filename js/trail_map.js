@@ -9,6 +9,12 @@ const TRAIL_PLATFORMS = [
   { id: 'tiktok',   label: 'TikTok' },
   { id: 'x',        label: 'X' },
   { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'youtube',  label: 'YouTube' },
+  { id: 'reddit',   label: 'Reddit' },
+  { id: 'pinterest',label: 'Pinterest' },
+  { id: 'threads',  label: 'Threads' },
+  { id: 'bluesky',  label: 'Bluesky' },
 ];
 
 let trailView = 'month';                    // 'month' | 'week'

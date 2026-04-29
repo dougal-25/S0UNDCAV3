@@ -908,7 +908,11 @@ def search():
 
 AYRSHARE_API_KEY = os.getenv('AYRSHARE_API_KEY')
 AYRSHARE_BASE = 'https://api.ayrshare.com/api'
-PLATFORM_MAP = {'ig': 'instagram', 'tiktok': 'tiktok', 'x': 'twitter', 'linkedin': 'linkedin'}
+PLATFORM_MAP = {
+    'ig': 'instagram', 'tiktok': 'tiktok', 'x': 'twitter', 'linkedin': 'linkedin',
+    'facebook': 'facebook', 'youtube': 'youtube', 'reddit': 'reddit',
+    'pinterest': 'pinterest', 'threads': 'threads', 'bluesky': 'bluesky',
+}
 
 
 def _ayr_headers():
