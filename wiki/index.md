@@ -9,12 +9,16 @@
 - [Clan](features/clan.md) — saved artist roster. Built; profile polish pending.
 - [Footprints](features/footprints.md) — analytics & charts on tracked artists. Built.
 - [Firepit — Forge](features/firepit_forge.md) — AI text + image generator. Code complete, untested.
+- [Firepit — Video](features/firepit_video.md) — 3-tier video generation (composite/standard/premium). Tiers 1 + 2 live-verified.
 - [Firepit — Stash](features/firepit_stash.md) — content library (localStorage).
 - [Firepit — Trail Map](features/firepit_trail_map.md) — content calendar. **Not yet built.**
 
 ## Decisions
 - [0001 — Pivot to content creation + distribution](decisions/0001_pivot_to_content_creation.md)
 - [0002 — Architecture: vanilla frontend, Flask backend, multi-provider AI](decisions/0002_architecture.md)
+- [0003 — SaaS architecture (paid-only, three video tiers, Supabase backbone)](decisions/0003_saas_architecture.md)
+- [0004 — Parallel execution plan (3 worktree streams)](decisions/0004_parallel_execution.md)
+- [0005 — Media generation engine (image_gen → media_gen)](decisions/0005_media_gen.md)
 
 ## Personas
 - [Artist](personas/artist.md) — stub
