@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# pre-commit — runs gitleaks on staged changes.
+# Blocks the commit if any secret pattern matches.
+#
+# Install in this clone:  ./scripts/git-hooks/install.sh
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "⚠️  gitleaks not installed — secret scan skipped."
+  echo "    install: brew install gitleaks"
+  exit 0
+fi
+
+# protect mode = scan staged but not yet committed; --redact hides matched
+# values in the report so they don't echo into your terminal scrollback.
+gitleaks protect --staged --redact --no-banner --config=.gitleaks.toml

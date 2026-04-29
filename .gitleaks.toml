@@ -1,0 +1,39 @@
+# gitleaks config — Sound Cave
+#
+# Extends the default ruleset (AWS, GitHub, Stripe, Slack, JWT, generic API
+# keys, etc.) and adds an allowlist for known-safe patterns in this repo.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known-safe patterns in this repo"
+
+# Files where env-var *names* appear as documentation, not values
+paths = [
+  '''wiki/.*\.md''',
+  '''CLAUDE\.md''',
+  '''README\.md''',
+  '''db/README\.md''',
+  '''\.gitleaks\.toml''',
+  '''\.gitignore''',
+]
+
+# Strings that look like secrets but are documentation/placeholders
+regexes = [
+  '''SUPABASE_URL''',
+  '''SUPABASE_ANON_KEY''',
+  '''SUPABASE_SERVICE_KEY''',
+  '''ANTHROPIC_API_KEY''',
+  '''SOUNDCLOUD_CLIENT_(ID|SECRET)''',
+  '''SOUNDCLOUD_OAUTH_TOKEN''',
+  '''FAL_KEY''',
+  '''REPLICATE_API_TOKEN''',
+  '''STRIPE_SECRET_KEY''',
+  '''META_ACCESS_TOKEN''',
+  '''NOTION_API_KEY''',
+  '''PERPLEXITY_API_KEY''',
+  '''APOLLO_API_KEY''',
+  '''ECHOTIK_(USERNAME|API_KEY)''',
+  '''sk_test_<placeholder>''',
+  '''sk-ant-<placeholder>''',
+]

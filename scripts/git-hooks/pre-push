@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# pre-push — last line of defense before commits go public.
+# Scans the entire diff being pushed against gitleaks rules.
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "⚠️  gitleaks not installed — secret scan skipped."
+  exit 0
+fi
+
+# Read refs being pushed (git provides them on stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>)
+# Scan the range local_sha..remote_sha (or whole history if remote is new).
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue   # branch deletion; nothing to scan
+  fi
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="$local_sha"   # new branch on remote — scan all reachable commits
+  else
+    range="${remote_sha}..${local_sha}"
+  fi
+  gitleaks detect --redact --no-banner --config=.gitleaks.toml --log-opts="$range"
+done
+
+exit 0
