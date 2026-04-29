@@ -11,7 +11,13 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import anthropic
 import requests as http_requests
-from image_gen import build_image_prompt, generate_image, save_image, IMAGE_DIMENSIONS, provider_status
+from media_gen import (
+    build_image_prompt, generate_image, save_image, save_video,
+    IMAGE_DIMENSIONS, provider_status,
+    generate_video_composite, generate_video_standard, generate_video_premium,
+    upload_audio_track,
+    MediaType, COST_USD, MAX_AUDIO_FILE_BYTES, MAX_VIDEO_DURATION_SECONDS,
+)
 
 # Load .env from workspace root (one level up from project)
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -156,16 +162,24 @@ def build_user_prompt(ctx):
 @app.route('/api/health', methods=['GET'])
 def health():
     has_key = bool(os.getenv('ANTHROPIC_API_KEY'))
-    img_providers = provider_status()
+    media = provider_status()
     return jsonify({
         'status': 'ok',
         'has_api_key': has_key,
-        'image_providers': img_providers,
+        'media_providers': media,        # nested per-tier (preferred)
+        'image_providers': media,        # legacy alias for the existing frontend consumer
     })
 
 
 # ── Credits pricing (placeholder; tune later) ─────────────
-CREDIT_COST = {'text': 1, 'image': 5}
+# Video costs scale with provider price — see COST_USD in media_gen.py.
+CREDIT_COST = {
+    'text': 1,
+    'image': 5,
+    'video_composite': 10,
+    'video_standard': 20,
+    'video_premium': 100,
+}
 
 def _debit(uid, kind, reason):
     """Atomic debit via SQL helper. Returns (new_balance, error_response_or_None)."""
@@ -230,8 +244,131 @@ def generate():
         return jsonify({'error': str(e)}), 500
 
 
-# ── Image generation ───────────────────────────────────────
+# ── Media generation (image + video) ────────────────────────
+# /api/generate-media is the canonical endpoint. /api/generate-image is kept
+# as a thin alias for the existing frontend until Stream 1 wires the new shape.
 
+VALID_MEDIA_TYPES = {'image', 'video_composite', 'video_standard', 'video_premium'}
+
+
+def _parse_media_request():
+    """Return (ctx_dict, audio_bytes_or_None, audio_filename_or_None, error_response_or_None).
+
+    Accepts either:
+      - application/json: ctx in body, no audio
+      - multipart/form-data: ctx as JSON in 'data' field, audio in 'audio_file'
+    """
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        raw = request.form.get('data')
+        if not raw:
+            return None, None, None, (jsonify({'error': "multipart request missing 'data' field"}), 400)
+        try:
+            ctx = json.loads(raw)
+        except json.JSONDecodeError as e:
+            return None, None, None, (jsonify({'error': f'invalid JSON in data: {e}'}), 400)
+        f = request.files.get('audio_file')
+        if f is None:
+            return ctx, None, None, None
+        audio_bytes = f.read()
+        if len(audio_bytes) > MAX_AUDIO_FILE_BYTES:
+            return None, None, None, (
+                jsonify({'error': f'audio_file exceeds {MAX_AUDIO_FILE_BYTES // (1024*1024)}MB limit'}), 413
+            )
+        return ctx, audio_bytes, f.filename or 'upload.mp3', None
+    ctx = request.get_json(silent=True)
+    if not ctx:
+        return None, None, None, (jsonify({'error': 'No JSON body provided'}), 400)
+    return ctx, None, None, None
+
+
+def _dispatch_media(media_type, image_prompt, audio_path, w, h, duration_seconds):
+    """Route to the right media_gen function. Returns (bytes, provider, model, ext)."""
+    if media_type == 'image':
+        b, p, m = generate_image(image_prompt, w, h)
+        return b, p, m, 'png'
+    if media_type == 'video_composite':
+        if not audio_path:
+            raise ValueError('video_composite requires an audio_file')
+        b, p, m, _ = generate_video_composite(image_prompt, audio_path, w, h, duration_seconds)
+        return b, p, m, 'mp4'
+    if media_type == 'video_standard':
+        b, p, m, _ = generate_video_standard(image_prompt, audio_path, w, h, duration_seconds)
+        return b, p, m, 'mp4'
+    if media_type == 'video_premium':
+        b, p, m, _ = generate_video_premium(image_prompt, audio_path, w, h, duration_seconds)
+        return b, p, m, 'mp4'
+    raise ValueError(f'unknown media_type: {media_type}')
+
+
+@app.route('/api/generate-media', methods=['POST'])
+def generate_media_endpoint():
+    uid, err = _require_user()
+    if err: return err
+
+    ctx, audio_bytes, audio_filename, err = _parse_media_request()
+    if err: return err
+
+    media_type = ctx.get('media_type', 'image')
+    if media_type not in VALID_MEDIA_TYPES:
+        return jsonify({'error': f'media_type must be one of {sorted(VALID_MEDIA_TYPES)}'}), 400
+
+    content_type = ctx.get('content_type', 'ig_reel')
+    generated_text = ctx.get('generated_text', '')
+    duration_seconds = int(ctx.get('duration_seconds', 5))
+    if duration_seconds <= 0 or duration_seconds > MAX_VIDEO_DURATION_SECONDS:
+        return jsonify({'error': f'duration_seconds must be 1..{MAX_VIDEO_DURATION_SECONDS}'}), 400
+
+    if media_type == 'video_composite' and audio_bytes is None:
+        return jsonify({'error': 'video_composite requires an audio_file (multipart)'}), 400
+
+    cost_kind = media_type if media_type != 'image' else 'image'
+    balance, err = _debit(uid, cost_kind, f'{media_type}:{content_type}')
+    if err: return err
+
+    audio_track = None
+    try:
+        # If audio supplied, upload + register first so we have a track id to
+        # link from the generated stash item later.
+        if audio_bytes is not None:
+            audio_track = upload_audio_track(audio_bytes, audio_filename, user_id=uid)
+
+        image_prompt = build_image_prompt(content_type, ctx, generated_text)
+        w, h = IMAGE_DIMENSIONS.get(content_type, (1200, 675))
+
+        media_bytes, provider, model, ext = _dispatch_media(
+            media_type, image_prompt,
+            audio_path=(audio_track['local_path'] if audio_track else None),
+            w=w, h=h, duration_seconds=duration_seconds,
+        )
+
+        if ext == 'png':
+            media_url = save_image(media_bytes, content_type, user_id=uid)
+        else:
+            media_url = save_video(media_bytes, content_type, user_id=uid, ext=ext)
+
+        return jsonify({
+            'media_url': media_url,
+            'media_type': media_type,
+            'image_prompt': image_prompt,
+            'provider': provider,
+            'model': model,
+            'dimensions': {'width': w, 'height': h},
+            'duration_seconds': duration_seconds if media_type != 'image' else None,
+            'audio_track_id': audio_track['id'] if audio_track else None,
+            'estimated_cost_usd': COST_USD.get(media_type, 0),
+            'credits_balance': balance,
+        })
+    except Exception as e:
+        _refund(uid, cost_kind, f'refund:{media_type}:{content_type}')
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if audio_track and audio_track.get('local_path') and os.path.exists(audio_track['local_path']):
+            try: os.unlink(audio_track['local_path'])
+            except OSError: pass
+
+
+# Legacy /api/generate-image — thin alias forwarding to /api/generate-media.
+# Kept until Stream 1 wires the Forge frontend to the new endpoint.
 @app.route('/api/generate-image', methods=['POST'])
 def generate_image_endpoint():
     uid, err = _require_user()
@@ -305,7 +442,7 @@ def public_config():
 
 # ── Stash (Supabase-backed) ───────────────────────────────
 # Service-role proxy. Phase B will replace user_id with auth.uid() from JWT.
-from image_gen import DEV_USER_ID
+from media_gen import DEV_USER_ID
 _stash_sb = None
 def _stash_client():
     global _stash_sb
