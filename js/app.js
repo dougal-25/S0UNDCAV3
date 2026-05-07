@@ -4,10 +4,13 @@
 (function initCaveEntrance() {
   const cave    = document.getElementById('caveEntrance');
   const appWrap = document.getElementById('appWrap');
-  const form    = document.getElementById('caveLogin');
-  const emailEl = document.getElementById('caveLoginEmail');
-  const btnEl   = document.getElementById('caveLoginBtn');
-  const msgEl   = document.getElementById('caveLoginMsg');
+  const form     = document.getElementById('caveLogin');
+  const emailEl  = document.getElementById('caveLoginEmail');
+  const pwdEl    = document.getElementById('caveLoginPassword');
+  const btnEl    = document.getElementById('caveLoginBtn');
+  const toggleEl = document.getElementById('caveLoginToggle');
+  const msgEl    = document.getElementById('caveLoginMsg');
+  let mode = 'magic'; // 'magic' | 'password'
 
   function reveal() {
     cave.classList.add('mouth-open');
@@ -47,24 +50,39 @@
     }
   }
 
+  toggleEl.addEventListener('click', () => {
+    mode = mode === 'magic' ? 'password' : 'magic';
+    pwdEl.hidden = mode !== 'password';
+    btnEl.textContent = mode === 'password' ? 'Sign in' : 'Email me a link';
+    toggleEl.textContent = mode === 'password' ? 'Use magic link instead' : 'Use password instead';
+    msgEl.textContent = '';
+    if (mode === 'password') setTimeout(() => pwdEl.focus(), 50);
+  });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = emailEl.value.trim();
     if (!email) return;
+    const password = pwdEl.value;
+    if (mode === 'password' && !password) { pwdEl.focus(); return; }
     btnEl.disabled = true;
-    btnEl.textContent = 'Sending…';
+    const originalLabel = btnEl.textContent;
+    btnEl.textContent = mode === 'password' ? 'Signing in…' : 'Sending…';
     msgEl.textContent = '';
-    const { error } = await window.scAuth.signInWithEmail(email);
+    const { error } = mode === 'password'
+      ? await window.scAuth.signInWithPassword(email, password)
+      : await window.scAuth.signInWithEmail(email);
     btnEl.disabled = false;
-    btnEl.textContent = 'Enter the cave';
+    btnEl.textContent = originalLabel;
     if (error) {
       msgEl.textContent = error;
       msgEl.className = 'cave-login-msg error';
-    } else {
+    } else if (mode === 'magic') {
       msgEl.textContent = `Check ${email} — click the link to enter.`;
       msgEl.className = 'cave-login-msg success';
       emailEl.disabled = true;
     }
+    // password success path: SIGNED_IN event fires reveal() via onChange below
   });
 
   // When the magic link returns, Supabase JS auto-detects the URL hash and
@@ -645,6 +663,11 @@ function togglePanelStar(username) {
   const upgradeBtn = document.getElementById('accountUpgrade');
   const manageBtn  = document.getElementById('accountManageBilling');
   const connectBtn = document.getElementById('accountConnectSocials');
+  const pwdToggle  = document.getElementById('accountSetPassword');
+  const pwdForm    = document.getElementById('accountPwdForm');
+  const pwdInput   = document.getElementById('accountPwdInput');
+  const pwdSave    = document.getElementById('accountPwdSave');
+  const pwdMsg     = document.getElementById('accountPwdMsg');
 
   async function hydrate() {
     try {
@@ -689,6 +712,33 @@ function togglePanelStar(username) {
     menu.hidden = true;
     await openBillingPortal();
   });
+  pwdToggle.addEventListener('click', () => {
+    pwdForm.hidden = !pwdForm.hidden;
+    pwdMsg.textContent = '';
+    if (!pwdForm.hidden) setTimeout(() => pwdInput.focus(), 50);
+  });
+  pwdSave.addEventListener('click', async () => {
+    const password = pwdInput.value;
+    if (!password || password.length < 6) {
+      pwdMsg.textContent = 'Use at least 6 characters.';
+      pwdMsg.className = 'cave-login-msg error';
+      return;
+    }
+    pwdSave.disabled = true;
+    pwdMsg.textContent = '';
+    const { error } = await scAuth.setPassword(password);
+    pwdSave.disabled = false;
+    if (error) {
+      pwdMsg.textContent = error;
+      pwdMsg.className = 'cave-login-msg error';
+    } else {
+      pwdMsg.textContent = 'Password saved.';
+      pwdMsg.className = 'cave-login-msg success';
+      pwdInput.value = '';
+      setTimeout(() => { pwdForm.hidden = true; }, 1200);
+    }
+  });
+
   connectBtn.addEventListener('click', async () => {
     menu.hidden = true;
     const apiBase = localStorage.getItem('sc_api_url') || 'http://localhost:8000';

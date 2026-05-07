@@ -117,6 +117,22 @@
 }
 .cave-login-msg.error { color: var(--red); }
 .cave-login-msg.success { color: var(--green); }
+.cave-login-toggle {
+  background: transparent;
+  border: 0;
+  color: var(--secondary);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.cave-login-toggle:hover { color: var(--heading); }
+.account-pwd-form {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px;
+}
+.account-pwd-form .cave-login-input { width: 100%; padding: 8px 10px; font-size: 13px; }
 
 /* Account dropdown */
 .account { position: relative; margin-left: 16px; }

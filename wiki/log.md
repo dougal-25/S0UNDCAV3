@@ -1,5 +1,13 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-07] auth: password sign-in added alongside magic link
+- Spec amended: `wiki/spec/auth_login_ui.md` now allows password as a secondary sign-in method (magic link still primary; password-based signup still out of scope).
+- `js/lib/supabase.js`: added `signInWithPassword()` and `setPassword()` (wraps `auth.updateUser`).
+- `index.html`: splash login form gains hidden password input + "Use password instead" toggle. Account dropdown gains "Set / change password" panel.
+- `js/app.js`: toggle switches splash between magic-link and password modes; account panel calls `setPassword`.
+- `css/style.css`: minimal additions — `.cave-login-toggle` + `.account-pwd-form` only. No new tokens.
+- Driver: dev ergonomics — Doug was tired of email-code re-logins while building. Supabase email+password provider enabled in dashboard before code change.
+
 ## [2026-05-07] frontend live on Vercel 🎉
 - Deploy `thesoundcave-9k9k086px-douglaswoolfenden-bytes-projects.vercel.app` is `READY` (commit `ac967c0`).
 - Fix: added `vercel.json` (framework=null, no build, no install) + `.vercelignore` to suppress Flask auto-detection. Vercel was sniffing `requirements.txt` and demanding an `app.py` entrypoint; the static frontend now bypasses that entirely.

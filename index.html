@@ -42,7 +42,10 @@
     <form class="cave-login" id="caveLogin" autocomplete="on" hidden>
       <input class="cave-login-input" id="caveLoginEmail" type="email" required
              placeholder="you@example.com" autocomplete="email" spellcheck="false">
-      <button class="cave-login-btn" type="submit" id="caveLoginBtn">Enter the cave</button>
+      <input class="cave-login-input" id="caveLoginPassword" type="password"
+             placeholder="password" autocomplete="current-password" hidden>
+      <button class="cave-login-btn" type="submit" id="caveLoginBtn">Email me a link</button>
+      <button class="cave-login-toggle" type="button" id="caveLoginToggle">Use password instead</button>
       <div class="cave-login-msg" id="caveLoginMsg" aria-live="polite"></div>
     </form>
   </div>
@@ -122,6 +125,12 @@
       <div class="account-row"><span class="account-label">Credits</span><span id="accountCredits">—</span></div>
       <div class="account-row"><span class="account-label">Socials</span><span id="accountSocials">—</span></div>
       <button class="account-link" id="accountConnectSocials" type="button">Connect socials</button>
+      <button class="account-link" id="accountSetPassword" type="button">Set / change password</button>
+      <div class="account-pwd-form" id="accountPwdForm" hidden>
+        <input class="cave-login-input" id="accountPwdInput" type="password" placeholder="new password" autocomplete="new-password">
+        <button class="account-link" id="accountPwdSave" type="button">Save password</button>
+        <div class="cave-login-msg" id="accountPwdMsg" aria-live="polite"></div>
+      </div>
       <button class="account-link" id="accountUpgrade" type="button">Upgrade plan</button>
       <button class="account-link" id="accountManageBilling" type="button" hidden>Manage billing</button>
       <button class="account-signout" id="accountSignOut" type="button">Sign out</button>
@@ -632,8 +641,13 @@
 
 </div>
 
+</div><!-- /.app-wrap -->
+
 <!-- ═══════════════════════════════════════════════════════
      ARTIST DETAIL PANEL (slide-out)
+     Must live OUTSIDE .app-wrap: that ancestor has transform:scale(),
+     which would re-anchor position:fixed to it (instead of viewport)
+     and create horizontal page overflow.
      ═══════════════════════════════════════════════════════ -->
 <div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
 <div class="artist-panel" id="artistPanel">
@@ -694,7 +708,6 @@
 <!-- ═══════════════════════════════════════════════════════
      JAVASCRIPT — loaded per-tab for token efficiency
      ═══════════════════════════════════════════════════════ -->
-</div><!-- /.app-wrap -->
 
 <!-- Billing modal (Phase D) -->
 <div class="billing-modal" id="billingModal" hidden>

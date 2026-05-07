@@ -7,9 +7,11 @@
 //   scAuth.session()          - Promise<Session|null>
 //   scAuth.user()             - Promise<User|null>
 //   scAuth.token()            - Promise<string|null>  (current access JWT)
-//   scAuth.signInWithEmail(e) - calls signInWithOtp; returns {error?: string}
-//   scAuth.signOut()          - signs out + reloads page
-//   scAuth.onChange(cb)       - subscribes to auth state changes
+//   scAuth.signInWithEmail(e)         - calls signInWithOtp; returns {error?: string}
+//   scAuth.signInWithPassword(e, p)   - calls signInWithPassword; returns {error?: string}
+//   scAuth.setPassword(p)             - calls updateUser({ password }); returns {error?: string}
+//   scAuth.signOut()                  - signs out + reloads page
+//   scAuth.onChange(cb)               - subscribes to auth state changes
 (function () {
   const SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
   const apiBase = (typeof localStorage !== 'undefined' && localStorage.getItem('sc_api_url')) || 'http://localhost:8000';
@@ -62,6 +64,18 @@
     return error ? { error: error.message } : {};
   }
 
+  async function signInWithPassword(email, password) {
+    await ready;
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    return error ? { error: error.message } : {};
+  }
+
+  async function setPassword(password) {
+    await ready;
+    const { error } = await client.auth.updateUser({ password });
+    return error ? { error: error.message } : {};
+  }
+
   async function signOut() {
     await ready;
     await client.auth.signOut();
@@ -85,6 +99,6 @@
   window.scAuth = {
     get ready() { return ready; },
     get client() { return client; },
-    session, user, token, signInWithEmail, signOut, onChange, authedFetch,
+    session, user, token, signInWithEmail, signInWithPassword, setPassword, signOut, onChange, authedFetch,
   };
 })();
