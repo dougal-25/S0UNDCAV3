@@ -5,6 +5,7 @@ Run: python content_api.py
 """
 import os
 import json
+import time
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -1041,6 +1042,57 @@ def scheduled_posts_delete(post_id):
     return jsonify({'ok': True})
 
 
+def _ayr_rehost(media_url):
+    """Download a media URL and re-upload to Ayrshare's CDN.
+    Required for Instagram — Meta's fetchers can't reliably pull from
+    Cloudflare-fronted Supabase Storage (error 440)."""
+    img = http_requests.get(media_url, timeout=20)
+    img.raise_for_status()
+    fn = media_url.rsplit('/', 1)[-1] or 'media.jpg'
+    mime = img.headers.get('content-type', 'image/jpeg').split(';')[0]
+    r = http_requests.post(
+        f'{AYRSHARE_BASE}/upload',
+        headers={'Authorization': f'Bearer {AYRSHARE_API_KEY}'},
+        files={'file': (fn, img.content, mime)},
+        timeout=60,
+    )
+    r.raise_for_status()
+    return r.json()['url']
+
+
+_REDDIT_SUBREDDIT_CACHE = {'value': None, 'fetched': 0}
+
+def _ayr_default_reddit_subreddit():
+    """Pick a default subreddit = user's own profile (u_<username>).
+    Cached for 1h to avoid extra /user calls on every post."""
+    cache = _REDDIT_SUBREDDIT_CACHE
+    if cache['value'] and (time.time() - cache['fetched']) < 3600:
+        return cache['value']
+    try:
+        r = http_requests.get(f'{AYRSHARE_BASE}/user', headers=_ayr_headers(), timeout=10)
+        for acc in r.json().get('displayNames') or []:
+            if acc.get('platform') == 'reddit' and acc.get('username'):
+                sub = f"u_{acc['username']}"
+                cache.update(value=sub, fetched=time.time())
+                return sub
+    except Exception as e:
+        print('[executor] could not resolve reddit username:', e)
+    return None
+
+
+def _ayr_extract_error(data, http_status):
+    """Pull a human-readable error string from Ayrshare's response shape.
+    Real per-platform errors live in data['errors'][]; the top-level
+    error/message fields are often misleading."""
+    errs = data.get('errors') or []
+    if errs:
+        return '; '.join(
+            f"{e.get('platform','?')}: {e.get('message') or e.get('code') or '?'}"
+            for e in errs
+        )
+    return data.get('error') or data.get('message') or f'http {http_status}'
+
+
 def _fire_due_posts():
     """Find scheduled posts whose time has passed and fire them via Ayrshare.
     Run every 60s by APScheduler. Idempotent per row via status filter."""
@@ -1057,15 +1109,31 @@ def _fire_due_posts():
         rid = row['id']
         try:
             ayr_platforms = [PLATFORM_MAP.get(p, p) for p in (row.get('platforms') or [])]
+            media_urls = row.get('media_urls') or []
+            post_text = row.get('post_text') or ''
+
+            # Instagram needs media re-hosted on Ayrshare's CDN (Meta-reachable).
+            if 'instagram' in ayr_platforms and media_urls:
+                media_urls = [_ayr_rehost(u) for u in media_urls]
+
             payload = {
-                'post': row.get('post_text') or '',
+                'post': post_text,
                 'platforms': ayr_platforms,
-                'mediaUrls': row.get('media_urls') or [],
+                'mediaUrls': media_urls,
                 'idempotencyKey': rid,
             }
-            r = http_requests.post(f'{AYRSHARE_BASE}/post', headers=_ayr_headers(), json=payload, timeout=30)
+
+            # Reddit needs title + subreddit. Default subreddit = user profile.
+            if 'reddit' in ayr_platforms:
+                title = (post_text.strip().split('\n', 1)[0] or 'Sound Cave post')[:299]
+                sub = _ayr_default_reddit_subreddit()
+                if sub:
+                    payload['redditOptions'] = {'title': title, 'subreddit': sub}
+
+            r = http_requests.post(f'{AYRSHARE_BASE}/post', headers=_ayr_headers(), json=payload, timeout=60)
             data = r.json() if r.headers.get('content-type','').startswith('application/json') else {}
-            if r.status_code == 200 and data.get('status') in ('success', 'scheduled'):
+            ok = r.status_code == 200 and data.get('status') in ('success', 'scheduled') and not data.get('errors')
+            if ok:
                 ayr_id = data.get('id') or (data.get('postIds') or [{}])[0].get('postId')
                 sb.table('scheduled_posts').update({
                     'status': 'posted',
@@ -1075,7 +1143,7 @@ def _fire_due_posts():
                 }).eq('id', rid).execute()
                 print(f'  ✓ posted {rid} → ayr {ayr_id}')
             else:
-                err_msg = data.get('error') or data.get('message') or f'http {r.status_code}'
+                err_msg = _ayr_extract_error(data, r.status_code)
                 sb.table('scheduled_posts').update({
                     'status': 'failed',
                     'error': str(err_msg)[:500],

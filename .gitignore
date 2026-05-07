@@ -6,6 +6,7 @@ config.local.js
 __pycache__/
 *.pyc
 data/generated_images/
+data/generated_videos/
 venv/
 .DS_Store
 

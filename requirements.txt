@@ -6,3 +6,4 @@ anthropic
 supabase
 psycopg[binary]
 apscheduler
+Pillow

@@ -13,11 +13,13 @@ Claude builds optimised prompts from content context.
 import os
 import time
 import hashlib
+import io
 import uuid
 from enum import Enum
 import requests as http_requests
 from dotenv import load_dotenv
 import anthropic
+from PIL import Image
 
 
 class MediaType(str, Enum):
@@ -716,22 +718,39 @@ def upload_audio_track(file_bytes, filename, user_id=None, mime_type='audio/mpeg
 
 # ── Storage ────────────────────────────────────────────────
 
-def save_image(image_bytes, content_type, user_id=None):
-    """Upload image to Supabase Storage. Returns public URL.
+def _to_jpeg(image_bytes, quality=92):
+    """Convert any image bytes (PNG/WEBP/etc) to JPEG bytes.
+    Instagram's Graph API only accepts JPEG."""
+    img = Image.open(io.BytesIO(image_bytes))
+    if img.mode in ('RGBA', 'LA', 'P'):
+        bg = Image.new('RGB', img.size, (255, 255, 255))
+        bg.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+        img = bg
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+    out = io.BytesIO()
+    img.save(out, format='JPEG', quality=quality, optimize=True)
+    return out.getvalue()
 
+
+def save_image(image_bytes, content_type, user_id=None):
+    """Upload image to Supabase Storage as JPEG. Returns public URL.
+
+    Always converts to JPEG — Instagram Graph API rejects PNG/WEBP.
     If LOCAL_IMAGE_FALLBACK=1, also writes to data/generated_images/ for offline dev.
     """
+    image_bytes = _to_jpeg(image_bytes)
     user_id = user_id or DEV_USER_ID
     ts = int(time.time())
     short_hash = hashlib.md5(image_bytes[:1024]).hexdigest()[:8]
-    filename = f"{content_type}_{ts}_{short_hash}_{uuid.uuid4().hex[:6]}.png"
+    filename = f"{content_type}_{ts}_{short_hash}_{uuid.uuid4().hex[:6]}.jpg"
     object_path = f"{user_id}/{filename}"
 
     sb = _get_supabase()
     sb.storage.from_(IMAGE_BUCKET).upload(
         path=object_path,
         file=image_bytes,
-        file_options={'content-type': 'image/png', 'upsert': 'true'},
+        file_options={'content-type': 'image/jpeg', 'upsert': 'true'},
     )
     public_url = sb.storage.from_(IMAGE_BUCKET).get_public_url(object_path)
 

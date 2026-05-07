@@ -41,10 +41,14 @@ async function loadScheduled() {
 }
 
 async function createScheduledPost(stash_item_id, dateISO) {
+  const stash = getTrailStash();
+  const item = stash.find(s => s.id === stash_item_id);
+  const hasMedia = !!(item && item.media_url);
+  const defaultPlatforms = hasMedia ? ['ig'] : ['x'];
   const r = await scAuth.authedFetch(`${_trailApiBase()}/api/scheduled_posts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stash_item_id, scheduled_for: dateISO, platforms: ['ig'] }),
+    body: JSON.stringify({ stash_item_id, scheduled_for: dateISO, platforms: defaultPlatforms }),
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
@@ -350,9 +354,13 @@ async function saveTrailModal() {
   const platforms = [...document.querySelectorAll('#trailModalPlatforms .trail-platform-pill.selected')]
     .map(b => b.dataset.platform);
 
+  if (!platforms.length) {
+    alert('Pick at least one platform before saving.');
+    return;
+  }
   const patch = {};
   if (dtVal) patch.scheduled_for = new Date(dtVal).toISOString();
-  patch.platforms = platforms.length ? platforms : ['ig'];
+  patch.platforms = platforms;
 
   try {
     await patchScheduledPost(id, patch);
