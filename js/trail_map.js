@@ -4,17 +4,12 @@
 // sync render functions; mutations call the API and refresh the cache.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+// Active channels — Meta (IG + FB), TikTok, Reddit.
 const TRAIL_PLATFORMS = [
   { id: 'ig',       label: 'Instagram' },
-  { id: 'tiktok',   label: 'TikTok' },
-  { id: 'x',        label: 'X' },
-  { id: 'linkedin', label: 'LinkedIn' },
-  { id: 'facebook', label: 'Facebook' },
-  { id: 'youtube',  label: 'YouTube' },
-  { id: 'reddit',   label: 'Reddit' },
-  { id: 'pinterest',label: 'Pinterest' },
-  { id: 'threads',  label: 'Threads' },
-  { id: 'bluesky',  label: 'Bluesky' },
+  { id: 'facebook', label: 'Facebook'  },
+  { id: 'tiktok',   label: 'TikTok'    },
+  { id: 'reddit',   label: 'Reddit'    },
 ];
 
 let trailView = 'month';                    // 'month' | 'week'
@@ -44,7 +39,7 @@ async function createScheduledPost(stash_item_id, dateISO) {
   const stash = getTrailStash();
   const item = stash.find(s => s.id === stash_item_id);
   const hasMedia = !!(item && item.media_url);
-  const defaultPlatforms = hasMedia ? ['ig'] : ['x'];
+  const defaultPlatforms = hasMedia ? ['ig'] : ['reddit'];
   const r = await scAuth.authedFetch(`${_trailApiBase()}/api/scheduled_posts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

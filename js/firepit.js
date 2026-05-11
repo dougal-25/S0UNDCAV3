@@ -7,23 +7,16 @@ let forgeGeneratedImageUrl = '';
 let forgeImageMode = false;
 let forgeApiUrl = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
 
+// Forge content types — slim set focused on Meta + TikTok + Reddit.
+// Captions are auto-generated inside the social types; no standalone "caption" type.
 const CONTENT_TYPES = {
-  ig_reel:      { label:'IG Reel Caption',     icon:'📸', fields:['artist','freeform'], maxLength:2200 },
-  ig_carousel:  { label:'IG Carousel',         icon:'📸', fields:['artist','freeform'], maxLength:2200 },
-  tiktok:       { label:'TikTok Caption',      icon:'🎵', fields:['artist','freeform'], maxLength:300 },
-  x_post:       { label:'X/Twitter Post',      icon:'𝕏',  fields:['artist','freeform'], maxLength:280 },
-  yt_short:     { label:'YouTube Short Desc',  icon:'▶️', fields:['artist','freeform'], maxLength:5000 },
-  lineup_copy:  { label:'Lineup Poster Copy',  icon:'🎪', fields:['event','artist_list','freeform'] },
-  aftermovie:   { label:'Aftermovie Script',   icon:'🎬', fields:['event','freeform'] },
-  teaser:       { label:'Event Teaser',        icon:'🔥', fields:['event','artist','freeform'] },
-  pre_release:  { label:'Pre-Release Teaser',  icon:'💿', fields:['artist','release','freeform'] },
-  premiere:     { label:'Premiere Pitch Email', icon:'📧', fields:['artist','release','freeform'] },
-  dj_support:   { label:'DJ Support Roundup',  icon:'🎧', fields:['release','freeform'] },
-  artist_bio:   { label:'Artist Spotlight/Bio', icon:'✨', fields:['artist','freeform'] },
-  press:        { label:'Press Release',       icon:'📰', fields:['artist','release','event','freeform'] },
-  newsletter:   { label:'Newsletter Roundup',  icon:'📬', fields:['freeform'] },
-  mix_desc:     { label:'Mix Description',     icon:'🎛️', fields:['artist','freeform'] },
-  playlist_desc:{ label:'Playlist Description', icon:'📋', fields:['freeform'] },
+  social_post:     { label:'Post',                  icon:'📸', fields:['artist','freeform'], maxLength:2200 },
+  social_carousel: { label:'Carousel',              icon:'🗂️', fields:['artist','freeform'], maxLength:2200 },
+  social_short:    { label:'Short',                 icon:'🎬', fields:['artist','freeform'], maxLength:2200 },
+  event_promo:     { label:'Event Promotion',       icon:'🔥', fields:['event','artist','freeform'] },
+  lineup_poster:   { label:'Lineup Poster',         icon:'🎪', fields:['event','artist_list','freeform'] },
+  artist_bio:      { label:'Artist Spotlight / Bio', icon:'✨', fields:['artist','freeform'] },
+  press_release:   { label:'Press Release',         icon:'📰', fields:['artist','release','event','freeform'] },
 };
 
 // Stash storage moved from localStorage to Supabase via /api/stash backend proxy.
@@ -40,7 +33,7 @@ function _stashRowToItem(row) {
   const m = row.metadata || {};
   return {
     id: row.id,
-    type: m.type || 'ig_reel',
+    type: m.type || 'social_post',
     label: m.label,
     icon: m.icon,
     content: row.content || '',

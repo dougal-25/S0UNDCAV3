@@ -29,6 +29,27 @@ Sound Cave's pivot is from pure discovery to content creation. Forge is the entr
 - Error UI states
 - Decide: do we want streaming text output, or wait-for-full-response?
 
+## Content type surface (locked 2026-05-11)
+
+Stripped from 15 types to 7 to remove clutter and focus on the active channels.
+
+**Social** (caption auto-generated, channel tone adapts at schedule time):
+- `social_post` — Post (image + caption)
+- `social_carousel` — Carousel (multi-slide + caption)
+- `social_short` — Short (vertical video + caption + on-screen-text outline)
+
+**Events:**
+- `event_promo` — Event Promotion (absorbs old teaser/aftermovie/pre_release)
+- `lineup_poster` — Lineup Poster (poster image + supporting copy)
+
+**Editorial:**
+- `artist_bio` — Artist Spotlight / Bio
+- `press_release` — Press Release (long-form catch-all for editorial/PR)
+
+**Active channels:** Instagram, Facebook, TikTok, Reddit. Reddit allows text-only posts; IG/FB/TikTok require media.
+
+**Killed:** `ig_reel`, `ig_carousel`, `tiktok` (caption), `x_post`, `yt_short`, `lineup_copy`, `aftermovie`, `teaser`, `pre_release`, `premiere`, `dj_support`, `newsletter`, `mix_desc`, `playlist_desc`. Channels removed: X, LinkedIn, YouTube, Pinterest, Threads, Bluesky.
+
 ## Related
 - `wiki/decisions/image_gen_provider.md` _(TODO — write when picking primary vs fallback strategy)_
 - `wiki/features/firepit_stash.md` _(TODO)_

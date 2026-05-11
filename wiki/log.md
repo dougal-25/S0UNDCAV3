@@ -1,5 +1,58 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-11] Firepit Forge strip-down — 15 → 7 types, 10 → 4 channels
+- **Why:** Doug's call — the Forge content-type menu was too clunky and full of options he doesn't use. Real focus is Meta (IG + FB), TikTok, and Reddit; everything else was noise.
+- **Content types** (locked): `social_post`, `social_carousel`, `social_short`, `event_promo`, `lineup_poster`, `artist_bio`, `press_release`. Captions are baked into the three social types (no standalone "TikTok caption"). Press Release is the safety valve for long-form/editorial oddities — no generic "Other" bucket.
+- **Channels:** Instagram, Facebook, TikTok, Reddit. Removed X, LinkedIn, YouTube, Pinterest, Threads, Bluesky. `PLATFORMS_REQUIRE_MEDIA = {ig, facebook, tiktok}` — Reddit allows text-only.
+- **Files:** `js/firepit.js` (CONTENT_TYPES + default `social_post`), `index.html` (forgeContentType `<select>`), `content_api.py` (TEMPLATES rewrite, STASH_KIND_BY_TYPE, PLATFORM_MAP, system prompt tweak), `media_gen.py` (IMAGE_DIMENSIONS + STYLE_HINTS), `js/trail_map.js` (TRAIL_PLATFORMS + text-only default → reddit), `wiki/features/firepit_forge.md`.
+- **Stash:** Doug deleted existing rows beforehand → no migration needed.
+
+## [2026-05-08] App-wide redesign v1 (overnight pass — chrome shipped, per-tab content awaiting Doug's morning walkthrough)
+- **Spec:** new [`wiki/spec/redesign_v1.md`](spec/redesign_v1.md). Direction = stretch the splash's KVS skin across the rest of the app, lighter touch (no CRT bezel, body data stays sans for legibility, headers/labels/buttons go mono).
+- **Tokens:** `:root` palette in `css/style.css` lifted to KVS-aligned dark + warm. `--red` repurposed to KVS orange-red `#ff4500` so all JS-set reds (avatars, error states) auto-update without touching JS.
+- **Body:** subtle film grain via `body::after` (2.5% opacity overlay).
+- **Header / nav / htabs / account dropdown:** mono uppercase tabs with accent-color underline on active, count badges as outlined boxes, account avatar as outlined accent square, sharp edges throughout.
+- **Component primitives:** `.card`/`.stat-card`/`.input` radius 2px, `.stat-card` corner-tick chrome, `.btn-red` flipped to outlined accent (was filled), all numeric values mono.
+- **Billing modal:** sharp edges, mono title, accent-orange hover shadow.
+- **Trail Map (`css/trail_map.css`):** appended override block — buttons + period header + day cells re-tokened.
+- **Custom scrollbars** matching theme (border-lt thumb, accent on hover).
+- **Single override block** appended to end of `css/style.css` and `css/trail_map.css` for sweep-pattern fixes (radii, mono headings, pill micro-treatment) — annotated, easy to surgically revert per-rule.
+- **Confirmed visually:** splash + home tab (see [`redesign_v1_assets/`](spec/redesign_v1_assets/)).
+- **NOT yet visually confirmed:** the 5 sub-tabs + artist detail panel + billing modal — they share the same chrome so should be consistent, but headless screenshot harness couldn't render them (depend on async-fetched data). Doug to walk through in real browser; spec page lists the 10 surfaces to check.
+- **Headless gotcha (logged for future):** `--headless=new`, never old `--headless` + `--disable-gpu` (mutes filters and animation forwards). Don't ship-check off headless alone for data-driven tabs.
+- **Tech debt carried:** `css/style.css` now ~1466 lines (over 500 guideline); logo SVG still using a `brightness(2.2)` filter band-aid for the new dark bg; ambient drone is synthesised placeholder. All tracked in spec page.
+
+## [2026-05-08] splash + cave entrance redesign — KVS×Augen hybrid (Doug-confirmed, shipped)
+- **Doug visual sign-off:** "looks fucking awesome. i love." (chat, 2026-05-08).
+- **Confirmed render:** [`wiki/spec/splash_cave_entrance_assets/v1_splash.png`](spec/splash_cave_entrance_assets/v1_splash.png).
+- **Headless gotcha (logged):** old `--headless` + `--disable-gpu` mutes CSS filters and skips animation `forwards` fill — wasted ~30 min chasing a render bug that didn't exist in the real browser. For future visual confirms use `--headless=new` and don't trust old-headless screenshots.
+- **Tweak made during verification:** logo SVG fills (designed for the old `#4a4a4a` palette) were nearly invisible against the new `#0a0a0a` bg. Added `.cave-logo svg { filter: brightness(2.2) contrast(1.05); }` as a quick fix. **Tech-debt:** longer-term, recolour the SVG paths directly against new tokens — the filter isn't tone-precise on the orange flame.
+- **Animation fill mode:** changed `caveLogoIn` and `caveLoginIn` keyframes to use explicit `from { opacity: 0 }` + `backwards` fill so content stays visible if animation skips (reduced motion, slow paint, etc.).
+
+
+- **Spec:** new `wiki/spec/splash_cave_entrance.md` — direction, hero moment, choreography timeline, ingredients lifted from KVS (skin/microcopy) and Augen (motion grammar). Approved in chat 2026-05-08.
+- **Tokens:** new `tokens.css` at project root. Mono font (DM Mono — already in Google Fonts link), KVS palette (near-black `#0a0a0a`, off-white `#e8e8e8`, single accent `#ff4500`), motion durations + easings. Linked in `index.html` *before* `css/style.css` so feature CSS can reference `var(--…)`.
+- **CSS rewrite:** entrance block in `css/style.css` (top ~225 lines) re-skinned. Adds `.cave-crt` (scanlines + vignette), `.cave-grain` (animated SVG noise), `.cave-sound-toggle`, `.cave-stamp`. Login inputs/buttons re-styled mono + sharp-edged + accent-only. Phase transitions retuned: total reveal shortened to ~2.6s with halftone-resolve overlay on `.app-wrap::before`.
+- **HTML changes:** `index.html` cave-entrance block adds CRT/grain layers, sound-toggle (mute by default, opt-in `{SOUND ON/OFF}`), location stamp `{51.5°N 0.1°W}`, `{HEADPHONES RECOMMENDED}` tag above logo, halftone SVG filter def. CTA copy moved to bracket microcopy (`{ENTER THE CAVE}`, `{USE PASSWORD}`, etc.).
+- **JS new:** `js/cave_entrance.js` — exposes `window.caveGlitch(el, target)` (vanilla 600ms scramble effect, locks left-to-right) and a WebAudio synth-drone behind the sound toggle (placeholder — swap to a real audio asset by setting `AUDIO_URL` in the file). Loads before `app.js`.
+- **JS edits:** `js/app.js` `reveal()` adds `halftoning` class to `appWrap` then drops it after reveal; CTA submit now glitches via `window.caveGlitch` if available; mode-toggle labels updated to `{BRACKETS}`.
+- **Status:** dev server running at `http://localhost:8765/` (PID 24040). NOT yet declared done — needs Doug's visual sign-off (ship-check rule). Open questions logged at the bottom of the spec page.
+- **Tech-debt flag:** `css/style.css` is now ~1200 lines (over the 500 guideline). Net add ~100 lines from this work; overage pre-existed. Splitting style.css into modules is a separate refactor — flagged for later, not bundled here to keep this change focused.
+
+## [2026-05-08] design_references: augen.pro added
+- Saved [augen.pro](https://augen.pro/) as second entry in `wiki/design_references/`.
+- Reference page `augen.md` documents stack (Nuxt 3 + Storyblok + Lenis + GSAP/ScrollTrigger), palette extracted from compiled CSS, replication tiers, and how to apply the aesthetic to Sound Cave (marketing pages yes, app surfaces no — KVS still owns the app mood).
+- Visual stills (5 hero images, 144KB total) saved to `augen_assets/` — matches KVS "stills only" pattern.
+- **Full code mirror** (504 files, 65MB) lives outside the wiki at `~/Desktop/website_clones/augen/` — too heavy for the repo. Reproducible via `wget --mirror` (command saved in `augen.md`). Doug picked option 2 (code clone outside wiki, visual stills inside) after the first attempt put the whole 65MB clone in the wiki and broke the KVS pattern.
+- Index updated in `design_references/README.md`.
+
+## [2026-05-07] auth: forgot-password reset flow added
+- Spec amended: `wiki/spec/auth_login_ui.md` §2 now covers reset flow (`resetPasswordForEmail` + `PASSWORD_RECOVERY` event handler).
+- `js/lib/supabase.js`: added `sendPasswordReset(email)`.
+- `index.html`: "Forgot password?" link inside cave-login form (hidden until password mode).
+- `js/app.js`: splash forgot-link sends the reset email; account dropdown listens for `PASSWORD_RECOVERY` and auto-opens the set-password panel.
+- Reuses Supabase's default reset email template (custom branding deferred — out of scope).
+
 ## [2026-05-07] auth: password sign-in added alongside magic link
 - Spec amended: `wiki/spec/auth_login_ui.md` now allows password as a secondary sign-in method (magic link still primary; password-based signup still out of scope).
 - `js/lib/supabase.js`: added `signInWithPassword()` and `setPassword()` (wraps `auth.updateUser`).

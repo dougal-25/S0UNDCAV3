@@ -29,70 +29,57 @@ CORS(app)
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # ── Content type templates ──────────────────────────────────
+# Channel-aware captions are baked into the three social types. Editorial types
+# (artist_bio, press_release) are long-form. Active channels: Meta (IG+FB),
+# TikTok, Reddit.
 TEMPLATES = {
-    'ig_reel': {
-        'instruction': 'Write an Instagram Reel caption for a dance music audience. Use line breaks for readability. Include 3-5 relevant hashtags at the end. Keep it punchy and authentic — no corporate tone.',
+    'social_post': {
+        'instruction': (
+            'Write a single social post — caption plus a one-line image direction prefixed "IMAGE:". '
+            'Caption is punchy, scroll-stopping, line breaks for readability, 3-5 relevant hashtags at the end. '
+            'Adapt tone to the chosen channel(s): Instagram/Facebook = visual + atmospheric, '
+            'TikTok = short and energetic, Reddit = no hashtags, conversational, no marketing speak.'
+        ),
         'max_tokens': 400,
     },
-    'ig_carousel': {
-        'instruction': 'Write Instagram carousel slide text (one paragraph per slide, separated by ---). First slide is the hook. Last slide is the CTA. 4-6 slides total. Include hashtags after the last slide.',
-        'max_tokens': 600,
+    'social_carousel': {
+        'instruction': (
+            'Write a carousel: opening hook caption, then 4–6 slides separated by "---" (slide 1 first), '
+            'closing slide is the CTA. Include 3-5 hashtags after the final slide. '
+            'For Reddit, drop the hashtags and treat slides as numbered points in a text post.'
+        ),
+        'max_tokens': 700,
     },
-    'tiktok': {
-        'instruction': 'Write a TikTok caption. Very short, punchy, with 2-3 hashtags. Under 300 characters. Match the energy of underground dance music culture.',
-        'max_tokens': 150,
+    'social_short': {
+        'instruction': (
+            'Write a vertical short-form video caption plus an on-screen-text outline prefixed "ON-SCREEN:" '
+            '(3-5 beats, one line each). Caption short and punchy with 2-3 hashtags. '
+            'TikTok = trend-aware energy; Instagram Reels = same caption rides; Reddit = drop hashtags.'
+        ),
+        'max_tokens': 400,
     },
-    'x_post': {
-        'instruction': 'Write a tweet (under 280 characters). Direct, opinionated, no hashtag spam. Sound like someone in the scene, not a brand.',
-        'max_tokens': 100,
+    'event_promo': {
+        'instruction': (
+            'Write event promotion copy: a hype caption that builds intrigue plus a one-line image direction prefixed "IMAGE:". '
+            'Dark, moody, minimal. Mention date/venue if given. Urgency without screaming. '
+            'Suits Meta + TikTok; for Reddit drop hashtags and stay conversational.'
+        ),
+        'max_tokens': 400,
     },
-    'yt_short': {
-        'instruction': 'Write a YouTube Shorts description. Brief hook line, then 2-3 sentences of context. Include relevant tags at the end.',
-        'max_tokens': 300,
-    },
-    'lineup_copy': {
-        'instruction': 'Write lineup announcement copy for an event poster or social post. Build hype. List the artists with flair. Include date/venue if provided. Create urgency.',
+    'lineup_poster': {
+        'instruction': (
+            'Write copy paired with a lineup poster: short hype headline, artist list with flair, '
+            'date/venue line, plus a one-line poster direction prefixed "POSTER:" describing the visual treatment.'
+        ),
         'max_tokens': 500,
-    },
-    'aftermovie': {
-        'instruction': 'Write a short script/voiceover for an aftermovie (30-60 seconds). Evocative, atmospheric, captures the feeling of the night. Use short poetic lines.',
-        'max_tokens': 400,
-    },
-    'teaser': {
-        'instruction': 'Write teaser copy for an upcoming event. Create intrigue without revealing everything. Dark, moody, minimal. Make people want to know more.',
-        'max_tokens': 300,
-    },
-    'pre_release': {
-        'instruction': 'Write a pre-release teaser for an upcoming music release. Build anticipation. Hint at the sound without giving it all away. Include a call to pre-save.',
-        'max_tokens': 400,
-    },
-    'premiere': {
-        'instruction': 'Write a premiere pitch email to a music blog or YouTube channel. Professional but warm. Explain why this track matters. Include key stats if available. Keep it concise — editors are busy.',
-        'max_tokens': 500,
-    },
-    'dj_support': {
-        'instruction': 'Write a DJ support roundup post. Celebrate the DJs who have been playing the release. Thank them by name. Create social proof for the release.',
-        'max_tokens': 400,
     },
     'artist_bio': {
         'instruction': 'Write an artist bio/spotlight. Third person, 2-3 paragraphs. Cover their sound, journey, and what makes them distinctive. Suitable for press kit or website.',
         'max_tokens': 600,
     },
-    'press': {
+    'press_release': {
         'instruction': 'Write a press release for a music release or event. Professional format: headline, subhead, 3-4 paragraphs, boilerplate. Include quotes placeholder. Formal but not stiff.',
         'max_tokens': 800,
-    },
-    'newsletter': {
-        'instruction': 'Write a newsletter roundup covering recent discoveries, releases, or events. Conversational tone, like writing to a friend who trusts your taste. 3-5 items with brief commentary.',
-        'max_tokens': 700,
-    },
-    'mix_desc': {
-        'instruction': 'Write a mix description for SoundCloud or Mixcloud. Set the scene — what vibe, what journey. Mention key tracks or moments if context provided. 2-3 paragraphs.',
-        'max_tokens': 400,
-    },
-    'playlist_desc': {
-        'instruction': 'Write a playlist description. Brief, evocative, tells the listener what mood or journey to expect. 2-4 sentences.',
-        'max_tokens': 200,
     },
 }
 
@@ -112,13 +99,13 @@ Your voice:
 - No cringe, no over-hype, no generic influencer language
 - British English spelling
 
-Adapt your register to the content type — a TikTok caption hits different from a press release."""
+Adapt your register to the content type and the channel — a TikTok caption hits different from a press release, and Reddit hates marketing speak."""
 
 
 def build_user_prompt(ctx):
     """Build the user prompt from the request context."""
-    content_type = ctx.get('content_type', 'ig_reel')
-    template = TEMPLATES.get(content_type, TEMPLATES['ig_reel'])
+    content_type = ctx.get('content_type', 'social_post')
+    template = TEMPLATES.get(content_type, TEMPLATES['social_post'])
 
     parts = [template['instruction']]
 
@@ -218,8 +205,8 @@ def generate():
     if not ctx:
         return jsonify({'error': 'No JSON body provided'}), 400
 
-    content_type = ctx.get('content_type', 'ig_reel')
-    template = TEMPLATES.get(content_type, TEMPLATES['ig_reel'])
+    content_type = ctx.get('content_type', 'social_post')
+    template = TEMPLATES.get(content_type, TEMPLATES['social_post'])
     user_prompt = build_user_prompt(ctx)
 
     balance, err = _debit(uid, 'text', f'gen:{content_type}')
@@ -313,7 +300,7 @@ def generate_media_endpoint():
     if media_type not in VALID_MEDIA_TYPES:
         return jsonify({'error': f'media_type must be one of {sorted(VALID_MEDIA_TYPES)}'}), 400
 
-    content_type = ctx.get('content_type', 'ig_reel')
+    content_type = ctx.get('content_type', 'social_post')
     generated_text = ctx.get('generated_text', '')
     duration_seconds = int(ctx.get('duration_seconds', 5))
     if duration_seconds <= 0 or duration_seconds > MAX_VIDEO_DURATION_SECONDS:
@@ -378,7 +365,7 @@ def generate_image_endpoint():
     if not ctx:
         return jsonify({'error': 'No JSON body provided'}), 400
 
-    content_type = ctx.get('content_type', 'ig_reel')
+    content_type = ctx.get('content_type', 'social_post')
     generated_text = ctx.get('generated_text', '')
 
     balance, err = _debit(uid, 'image', f'image:{content_type}')
@@ -456,10 +443,9 @@ def _stash_client():
     return _stash_sb
 
 STASH_KIND_BY_TYPE = {
-    'ig_reel':'text','ig_carousel':'text','tiktok':'text','x_post':'text',
-    'yt_short':'text','lineup_copy':'text','aftermovie':'text','teaser':'text',
-    'pre_release':'text','premiere':'text','dj_support':'text','artist_bio':'text',
-    'press':'text','newsletter':'text','mix_desc':'text','playlist_desc':'text',
+    'social_post':'text','social_carousel':'text','social_short':'text',
+    'event_promo':'text','lineup_poster':'text',
+    'artist_bio':'text','press_release':'text',
 }
 
 @app.route('/api/me', methods=['GET'])
@@ -791,6 +777,52 @@ def sc_fetch_followers(user_id):
     return 0
 
 
+def sc_resolve_user(username_or_url):
+    """Resolve a SoundCloud username/permalink to the full user profile."""
+    token = get_sc_token()
+    if not token:
+        return None
+    url = username_or_url if username_or_url.startswith('http') else f'https://soundcloud.com/{username_or_url}'
+    try:
+        r = http_requests.get('https://api.soundcloud.com/resolve',
+                              params={'url': url},
+                              headers={'Authorization': f'OAuth {token}'}, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+
+def sc_fetch_user_profile(user_id):
+    token = get_sc_token()
+    if not token:
+        return None
+    try:
+        r = http_requests.get(f'https://api.soundcloud.com/users/{user_id}',
+                              headers={'Authorization': f'OAuth {token}'}, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+
+def sc_fetch_user_tracks(user_id, limit=5):
+    token = get_sc_token()
+    if not token:
+        return []
+    try:
+        r = http_requests.get(f'https://api.soundcloud.com/users/{user_id}/tracks',
+                              params={'limit': limit},
+                              headers={'Authorization': f'OAuth {token}'}, timeout=10)
+        if r.status_code == 200:
+            return r.json() or []
+    except Exception:
+        pass
+    return []
+
+
 def sc_score_track(track):
     likes = track.get('likes_count') or track.get('favoritings_count') or 0
     reposts = track.get('reposts_count') or 0
@@ -842,6 +874,66 @@ SCOUT_GENRES = [
     'bassline', 'drum and bass', 'jungle', 'techno', 'minimal techno',
     'breaks', 'breakbeat', 'electronic', 'lo-fi', '140',
 ]
+
+
+ARTIST_TTL_SECONDS = 600  # 10 minutes
+
+
+@app.route('/api/artist/<username>', methods=['GET'])
+def artist_stats(username):
+    """Fresh per-artist stats with Supabase-backed TTL cache.
+
+    Cache hit (< TTL): no SoundCloud call.
+    Cache miss: 2 SC calls (resolve + recent tracks), upserts row, returns fresh.
+    """
+    username = (username or '').strip()
+    if not username:
+        return jsonify({'error': 'username required'}), 400
+
+    force = request.args.get('force') == '1'
+    sb = _stash_client()
+
+    cached = sb.table('artists').select('*').eq('username', username).limit(1).execute()
+    row = (cached.data or [None])[0]
+
+    if row and not force:
+        try:
+            updated = datetime.fromisoformat(row['updated_at'].replace('Z', '+00:00'))
+            age = (datetime.now(timezone.utc) - updated).total_seconds()
+            if age < ARTIST_TTL_SECONDS:
+                return jsonify({**row, 'cached': True, 'age_seconds': int(age)})
+        except Exception:
+            pass
+
+    profile = sc_resolve_user(username)
+    if not profile or not profile.get('id'):
+        if row:
+            return jsonify({**row, 'cached': True, 'stale': True, 'error': 'soundcloud unreachable'})
+        return jsonify({'error': 'artist not found'}), 404
+
+    user_id = profile['id']
+    tracks = sc_fetch_user_tracks(user_id, limit=5)
+    total_plays = sum((t.get('playback_count') or 0) for t in tracks)
+    total_likes = sum((t.get('likes_count') or t.get('favoritings_count') or 0) for t in tracks)
+
+    record = {
+        'soundcloud_id': str(user_id),
+        'username': username,
+        'display_name': profile.get('username') or username,
+        'name': profile.get('full_name') or profile.get('username') or username,
+        'follower_count': profile.get('followers_count') or 0,
+        'play_count': total_plays,
+        'like_count': total_likes,
+        'track_count': profile.get('track_count') or 0,
+        'avatar_url': profile.get('avatar_url') or '',
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        sb.table('artists').upsert(record, on_conflict='soundcloud_id').execute()
+    except Exception as e:
+        record['warning'] = f'cache write failed: {e}'
+
+    return jsonify({**record, 'cached': False, 'age_seconds': 0})
 
 
 @app.route('/api/search', methods=['GET'])
@@ -910,12 +1002,14 @@ def search():
 AYRSHARE_API_KEY = os.getenv('AYRSHARE_API_KEY')
 AYRSHARE_BASE = 'https://api.ayrshare.com/api'
 PLATFORM_MAP = {
-    'ig': 'instagram', 'tiktok': 'tiktok', 'x': 'twitter', 'linkedin': 'linkedin',
-    'facebook': 'facebook', 'youtube': 'youtube', 'reddit': 'reddit',
-    'pinterest': 'pinterest', 'threads': 'threads', 'bluesky': 'bluesky',
+    'ig': 'instagram',
+    'facebook': 'facebook',
+    'tiktok': 'tiktok',
+    'reddit': 'reddit',
 }
 # Platforms that REQUIRE at least one media URL (image or video).
-PLATFORMS_REQUIRE_MEDIA = {'ig', 'tiktok', 'youtube', 'pinterest'}
+# Reddit allows text-only posts, so it's not in this set.
+PLATFORMS_REQUIRE_MEDIA = {'ig', 'facebook', 'tiktok'}
 
 
 def _ayr_headers():

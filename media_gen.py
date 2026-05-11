@@ -82,42 +82,24 @@ AUDIO_BUCKET = 'audio_tracks'
 
 # ── Per-content-type image dimensions ──────────────────────
 IMAGE_DIMENSIONS = {
-    'ig_reel':      (1080, 1920),   # 9:16 vertical
-    'ig_carousel':  (1080, 1080),   # 1:1 square
-    'tiktok':       (1080, 1920),   # 9:16 vertical
-    'x_post':       (1200, 675),    # 16:9 landscape
-    'yt_short':     (1080, 1920),   # 9:16 vertical
-    'lineup_copy':  (1080, 1080),   # 1:1 square (poster)
-    'aftermovie':   (1280, 720),    # 16:9 landscape
-    'teaser':       (1080, 1350),   # 4:5 portrait (IG feed)
-    'pre_release':  (1080, 1080),   # 1:1 square
-    'premiere':     (1200, 675),    # 16:9 landscape
-    'dj_support':   (1080, 1080),   # 1:1 square
-    'artist_bio':   (1200, 675),    # 16:9 landscape
-    'press':        (1200, 675),    # 16:9 landscape
-    'newsletter':   (1200, 675),    # 16:9 landscape
-    'mix_desc':     (1080, 1080),   # 1:1 square
-    'playlist_desc':(1080, 1080),   # 1:1 square
+    'social_post':     (1080, 1350),   # 4:5 portrait — IG/FB feed
+    'social_carousel': (1080, 1350),   # 4:5 portrait — IG/FB carousel slide
+    'social_short':    (1080, 1920),   # 9:16 vertical — Reels/TikTok
+    'event_promo':     (1080, 1350),   # 4:5 portrait — feed-friendly
+    'lineup_poster':   (1080, 1350),   # 4:5 portrait — poster
+    'artist_bio':      (1200, 675),    # 16:9 landscape — press/site header
+    'press_release':   (1200, 675),    # 16:9 landscape — press kit
 }
 
 # ── Style hints per content type ───────────────────────────
 STYLE_HINTS = {
-    'ig_reel':      'Vertical composition, bold and eye-catching, social media aesthetic, high contrast.',
-    'ig_carousel':  'Square format, clean and graphic, modern editorial feel.',
-    'tiktok':       'Vertical, vibrant, energetic, youth culture aesthetic, bold typography-friendly.',
-    'x_post':       'Wide landscape, minimal, moody, editorial photography style.',
-    'yt_short':     'Vertical, cinematic, dramatic lighting, thumbnail-worthy.',
-    'lineup_copy':  'Square poster design, dark background, neon or metallic accents, event flyer aesthetic.',
-    'aftermovie':   'Wide cinematic, strobe lights, crowd silhouettes, atmospheric haze, motion blur.',
-    'teaser':       'Portrait, mysterious, dark and moody, minimal elements, fog or smoke.',
-    'pre_release':  'Square, abstract or textural, vinyl/waveform motifs, anticipation mood.',
-    'premiere':     'Wide, professional, clean with subtle music elements, press-ready.',
-    'dj_support':   'Square, decks/mixer close-up, warm club lighting, authentic feel.',
-    'artist_bio':   'Wide portrait orientation, dramatic lighting, artist-spotlight feel.',
-    'press':        'Wide, professional press kit aesthetic, clean and modern.',
-    'newsletter':   'Wide header image, warm editorial style, curated feel.',
-    'mix_desc':     'Square, abstract soundwave visuals, deep colours, immersive.',
-    'playlist_desc':'Square, mood-driven, colour palette matching the playlist vibe.',
+    'social_post':     'Feed-friendly portrait, bold and eye-catching, high contrast, scroll-stopping.',
+    'social_carousel': 'Portrait carousel slide, clean and graphic, modern editorial feel, consistent palette across slides.',
+    'social_short':    'Vertical, cinematic, dramatic lighting, thumbnail-worthy for Reels/TikTok.',
+    'event_promo':     'Portrait, mysterious, dark and moody, minimal elements, fog or smoke, anticipation.',
+    'lineup_poster':   'Portrait poster design, dark background, neon or metallic accents, event flyer aesthetic, room for typography.',
+    'artist_bio':      'Wide portrait orientation, dramatic lighting, artist-spotlight feel.',
+    'press_release':   'Wide, professional press kit aesthetic, clean and modern.',
 }
 
 IMAGE_PROMPT_SYSTEM = """You are an expert image prompt engineer for AI image generation (FLUX/Stable Diffusion models).
