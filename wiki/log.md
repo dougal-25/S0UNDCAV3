@@ -1,5 +1,39 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-12] Brand Overlay Compositor — Phase 3 (Konva compositor in Forge)
+- **Why:** Phases 1 + 2 stored brand kits but never applied them. Phase 3 introduces the two-layer model in practice: the Fal-generated background becomes the bottom layer; logo + brand-fonted text are draggable Konva nodes on top. AI never touches text/logo — that's how the output stays "consistent" (the original ask).
+- **Locked UI calls:** compositor renders **inline** in the Forge output card (replaces the inline `<img>` preview when a brand kit is selected); brand-kit selector lives at the **top** of the Forge form (first decision, frames the whole generation).
+- **Flow:** select brand → generate content + image as normal → if a brand is selected, `js/firepit.js` hands the Fal URL to `window.scCompositor.show(contentType) + applyBackground(url) + applyBrandKit(kit) + applyContent({supporting})` instead of showing the bare image. User can click/drag logo and text, resize via Konva transformer, re-colour text from palette swatches, double-click text to edit. Save flattens via `stage.toBlob({pixelRatio: 1/scale})` and uploads the composited PNG to `brand_assets` bucket (reused as a generic public-image drop until a stash-media endpoint exists), persisted on `stash_items.media_url`.
+- **Files (new):**
+  - `js/compositor.js` — Konva integration. Single Konva.Stage with `bgLayer` (locked, not interactive) + `designLayer` (draggable logo + 2 text nodes + Konva.Transformer). Public surface: `show / hide / applyBackground / applyBrandKit / applyContent / resetLayout / toBlob / adjustTextSize / setTextColour / promptTextEdit / onSelectionChange`. Stage rendered at virtual resolution (1080×1350 / 1080×1920 / 1200×675 per content type) and CSS-scaled down via `stage.scale()` for the viewport; `toBlob` rescales to 1:1 so the saved PNG is full-resolution. Auto-fits on `window resize`.
+  - `js/compositor_templates.js` — `window.COMPOSITOR_DIMENSIONS` + `COMPOSITOR_TEMPLATES`. Fractional coords (0..1) for `lineup_poster / event_promo / social_post / social_carousel / social_short` matching the spec § 4. Easy to tweak without a DB migration.
+- **Files (edited):**
+  - `index.html` — Konva CDN (v9.3.16); `compositor_templates.js` + `compositor.js` script tags BEFORE `firepit.js`. New brand selector row at the top of the Forge input column (`<select id="forgeBrandSelect">` + ⚙ shortcut to the BRANDS tab). New `#forgeCompositor` container in the output column with toolbar (SELECTED label, A−/A+ text sizing, EDIT TEXT, RESET, palette swatch row) and `#compositorStage` Konva mount.
+  - `js/firepit.js` — `_brandKits` cache + `loadBrandKits()` populates the selector on `renderFirepit`. `_selectedBrandKit()` lookup. In `generateImage`, on success: if brand selected → compositor takes over (Phase 3 path); else → unchanged inline image. `saveToStash` detects compositor-active and uploads the flat PNG via `/api/brand_assets/upload` before posting to `/api/stash`. New DOMContentLoaded block wires the compositor toolbar, selection-change handler (shows/hides text tools + palette swatches based on selected node type), and a brand-select `change` listener that re-applies the kit mid-flight.
+  - `css/brands.css` — Compositor block added: `.forge-brand-selector` row, `.forge-compositor` panel, `.compositor-toolbar` + `.compositor-btn` (token-driven), `.compositor-swatch` circular palette buttons, `.compositor-stage-frame` (centred dark frame around the canvas).
+- **Default templates (spec § 4 → code):** lineup_poster, event_promo, social_post, social_carousel, social_short. Editorial types (`artist_bio`, `press_release`) skip the compositor (no media).
+- **Five layer types per spec:** background, logo, headline_text, supporting_text, accent_shape. v1 wires the first four; `accent_shape` isn't used by any default template yet (deferred until Doug asks for it).
+- **Reused, not rebuilt:** `scAuth.authedFetch` for auth, `/api/brand_kits` + `/api/brand_assets/upload` from Phase 1, the existing Stash upload path (`/api/stash POST`), and the existing `imageUrl` field on stash rows — no schema changes.
+- **Not yet verified:**
+  - Phase 1 SQL migrations + `brand_assets` bucket still pending in Supabase, so end-to-end will fail until applied.
+  - No browser screenshot yet — first eyeball is on Doug.
+  - Text wrapping might over/underflow at extreme sizes; the canvas auto-trims supporting text >320 chars but headline isn't trimmed.
+- **Known limitations (per spec, intentional):** no mobile drag; no undo/redo; no clipart / extra layer types; `social_carousel` uses the same template for every slide (no per-slide override yet); compositor doesn't auto-load when reopening a stashed item — re-open shows the saved flat PNG only.
+- **Next:** Phase 5 verification — apply migrations, create bucket, open Firepit, generate a `lineup_poster` with Melomania brand, drag the M into the corner, save to Stash, confirm flat PNG persists. Phase 4 (Forge wiring) is essentially folded into Phase 3 above.
+
+## [2026-05-12] Brand Overlay Compositor — Phase 2 (BRANDS tab UI)
+- **Why:** Phase 1 shipped the data layer (brand_kits table + brand_assets bucket + API). With no UI, kits couldn't be created. Phase 2 ships the management surface so the user can create/edit/delete brand kits (logo + fonts + palette + default logo position/scale) — the inputs the compositor will consume in Phase 3.
+- **Spec:** `wiki/spec/brand_kits_ui.md` (drafted + signed off this session). Framing: in-family with the rest of the dark theme; designer's-toolbox feel; hero moment is "logo + font click into place" — live preview right of inputs updates within ~50ms of every change.
+- **Files (new):**
+  - `js/brands.js` — load kits, render grid, open editor, live preview (logo + name + palette + font sample), save (uploads then POST/PATCH), delete (with confirm). All requests via `scAuth.authedFetch`.
+  - `css/brands.css` — kit card grid, dashed `+ Add` tile, two-col editor (inputs left, sticky preview right). Token-driven; collapses to single col <900px.
+- **Files (edited):**
+  - `index.html` — new `<button class="htab" data-tab="brands">` pill in nav between FIREPIT and REFLECTION; new `#tab-brands` page section with header, grid, empty state, and full editor (file inputs, color pickers, 3×3 position grid, scale slider, live-preview card). Loads `css/brands.css` and `js/brands.js`.
+  - `js/app.js` — added `'brands'` to the tab-name list and to `TOP_TABS`; new `if (name === 'brands') window.refreshBrands()` branch in `switchTab`.
+- **Not yet verified:** Browser screenshot pending (Playwright wasn't run). Backend endpoints from Phase 1 not yet applied to live Supabase, so end-to-end create/save will fail until SQL migrations + bucket are in place.
+- **Out of scope (deferred):** Mobile drag-upload polish; drag-to-reorder kits; duplicate-a-kit; Brandfetch-style URL import; >1 display font per kit.
+- **Next:** Phase 3 — Konva.js compositor wired into the Forge, consuming kits selected from a new dropdown.
+
 ## [2026-05-12] Report builder moved Clan → Footprints + foraging text + clan pill
 Three small UX shifts in one pass:
 - **Reports live where the data lives:** the Clan Report Builder UI (toggle button, in-mode notice, export CSV, in-report card highlight) has been removed from Clan and rebuilt inside Footprints. In Footprints' header there's now a 📋 Report Builder toggle; when on, the artist sidebar becomes a checkable selection list (☐ / ☑ with accent border on selected items), the export button appears once anyone is selected, and the CSV output matches the previous Clan exporter exactly. `reportMode` / `reportSelected` stayed global in `app.js` for simplicity (both tabs used them; only one uses them now).

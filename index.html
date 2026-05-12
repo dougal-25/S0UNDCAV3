@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/foraging.css">
   <link rel="stylesheet" href="css/trail_map.css">
+  <link rel="stylesheet" href="css/brands.css">
 </head>
 <body>
 
@@ -73,6 +74,9 @@
     </button>
     <button class="htab" type="button" data-tab="firepit">
       <span class="htab-label">FIREPIT <span class="count" id="firepitCount"></span></span>
+    </button>
+    <button class="htab" type="button" data-tab="brands">
+      <span class="htab-label">BRANDS</span>
     </button>
     <button class="htab" type="button" data-tab="reflection">
       <span class="htab-label">REFLECTION</span>
@@ -392,6 +396,17 @@
         <div class="card">
           <div class="section-label">Input</div>
 
+          <!-- Brand selector — first decision (Phase 3 of Brand Overlay Compositor) -->
+          <div class="forge-input-group">
+            <label class="forge-label">Brand</label>
+            <div class="forge-brand-selector">
+              <select class="input" id="forgeBrandSelect">
+                <option value="">— No brand kit —</option>
+              </select>
+              <button type="button" class="btn-outline" onclick="switchTab('brands')" title="Manage brand kits">⚙</button>
+            </div>
+          </div>
+
           <div class="forge-input-group">
             <label class="forge-label">Content Type</label>
             <input type="hidden" id="forgeContentType" value="social_post" onchange="updateForgeFields()">
@@ -452,6 +467,30 @@
           </div>
 
           <div id="forgeImageArea" class="forge-image-area" style="display:none"></div>
+
+          <!-- Compositor — replaces image preview when a brand kit is applied (Phase 3) -->
+          <div id="forgeCompositor" class="forge-compositor" style="display:none">
+            <div class="compositor-toolbar">
+              <div class="compositor-tool-group">
+                <span class="compositor-tool-label">SELECTED</span>
+                <span class="compositor-selected-name" id="compositorSelectedName">—</span>
+              </div>
+              <div class="compositor-tool-group" id="compositorTextTools" style="display:none">
+                <button type="button" class="compositor-btn" data-action="text-size-down" title="Smaller">A−</button>
+                <button type="button" class="compositor-btn" data-action="text-size-up" title="Larger">A+</button>
+                <div class="compositor-swatch-row" id="compositorTextSwatches"></div>
+              </div>
+              <div class="compositor-tool-group" id="compositorEditTextWrap" style="display:none">
+                <button type="button" class="compositor-btn" data-action="edit-text">EDIT TEXT</button>
+              </div>
+              <div class="compositor-tool-group">
+                <button type="button" class="compositor-btn" data-action="reset-layout" title="Reset to default layout">RESET</button>
+              </div>
+            </div>
+            <div class="compositor-stage-frame">
+              <div id="compositorStage"></div>
+            </div>
+          </div>
 
           <div id="forgeActions" style="display:none">
             <div class="forge-actions">
@@ -550,6 +589,133 @@
           <button class="trail-btn trail-btn-primary" onclick="saveTrailModal()">Save</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ─── BRANDS TAB (brand-kit management) ──────────────────
+       Spec: wiki/spec/brand_kits_ui.md
+       Phase 2 of the Brand Overlay Compositor build. -->
+  <div id="tab-brands" style="display:none">
+    <div class="brands-wrap">
+      <header class="brands-head">
+        <div>
+          <div class="brands-eyebrow">YOUR IDENTITIES</div>
+          <h1 class="brands-title">BRANDS</h1>
+        </div>
+        <button class="brands-new" id="brandsNew" type="button">+ New brand kit</button>
+      </header>
+
+      <section class="brands-grid" id="brandsGrid" aria-live="polite">
+        <!-- kit cards rendered by js/brands.js -->
+      </section>
+
+      <section class="brands-empty" id="brandsEmpty" hidden>
+        <div class="brands-empty-title">NO BRAND KITS YET</div>
+        <p class="brands-empty-body">
+          A brand kit holds your logo, fonts, and colours so every poster, lineup, and social post looks like <em>you</em>.
+        </p>
+        <button class="brands-new" id="brandsEmptyCta" type="button">+ Create your first brand kit</button>
+      </section>
+
+      <!-- ── EDITOR (slides over the grid; full-page swap, not modal) ── -->
+      <section class="brand-editor" id="brandEditor" hidden>
+        <header class="brand-editor-head">
+          <button class="brand-editor-back" id="brandEditorBack" type="button" aria-label="Back to brands">← back</button>
+          <div class="brand-editor-title" id="brandEditorTitle">NEW BRAND KIT</div>
+          <div class="brand-editor-spacer"></div>
+        </header>
+
+        <div class="brand-editor-body">
+          <!-- LEFT: inputs -->
+          <div class="brand-editor-inputs">
+            <label class="brand-field">
+              <span class="brand-field-label">NAME</span>
+              <input class="brand-input" id="bfName" type="text" maxlength="64" placeholder="e.g. S0UNDCAV3">
+            </label>
+
+            <label class="brand-field">
+              <span class="brand-field-label">LOGO <small>PNG / SVG / JPEG / WebP · 5MB max</small></span>
+              <input class="brand-file" id="bfLogo" type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp">
+              <span class="brand-file-state" id="bfLogoState">no file</span>
+            </label>
+
+            <label class="brand-field">
+              <span class="brand-field-label">DISPLAY FONT <small>.woff2 / .woff / .ttf / .otf · optional</small></span>
+              <input class="brand-file" id="bfDisplayFont" type="file" accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf">
+              <span class="brand-file-state" id="bfDisplayFontState">no file</span>
+            </label>
+
+            <label class="brand-field">
+              <span class="brand-field-label">BODY FONT <small>.woff2 / .woff / .ttf / .otf · optional</small></span>
+              <input class="brand-file" id="bfBodyFont" type="file" accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf">
+              <span class="brand-file-state" id="bfBodyFontState">no file</span>
+            </label>
+
+            <div class="brand-field">
+              <span class="brand-field-label">PALETTE</span>
+              <div class="brand-palette-row">
+                <label class="brand-swatch-field">
+                  <input type="color" id="bfPalettePrimary" class="brand-swatch-input" value="#3FB7E9">
+                  <span class="brand-swatch-name">primary</span>
+                </label>
+                <label class="brand-swatch-field">
+                  <input type="color" id="bfPaletteAccent" class="brand-swatch-input" value="#F5A8C9">
+                  <span class="brand-swatch-name">accent</span>
+                </label>
+                <label class="brand-swatch-field">
+                  <input type="color" id="bfPaletteText" class="brand-swatch-input" value="#FFFFFF">
+                  <span class="brand-swatch-name">text</span>
+                </label>
+                <label class="brand-swatch-field">
+                  <input type="color" id="bfPaletteStroke" class="brand-swatch-input" value="#000000">
+                  <span class="brand-swatch-name">stroke</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="brand-field">
+              <span class="brand-field-label">DEFAULT LOGO POSITION</span>
+              <div class="brand-position-grid" id="bfPositionGrid" role="radiogroup" aria-label="Default logo position">
+                <button type="button" data-pos="top_left"     class="brand-pos">↖</button>
+                <button type="button" data-pos="top_center"   class="brand-pos">↑</button>
+                <button type="button" data-pos="top_right"    class="brand-pos">↗</button>
+                <button type="button" data-pos="center_left"  class="brand-pos">←</button>
+                <button type="button" data-pos="center"       class="brand-pos">●</button>
+                <button type="button" data-pos="center_right" class="brand-pos">→</button>
+                <button type="button" data-pos="bottom_left"  class="brand-pos">↙</button>
+                <button type="button" data-pos="bottom_center" class="brand-pos">↓</button>
+                <button type="button" data-pos="bottom_right" class="brand-pos">↘</button>
+              </div>
+            </div>
+
+            <label class="brand-field">
+              <span class="brand-field-label">LOGO SCALE <small id="bfLogoScaleVal">18%</small></span>
+              <input class="brand-range" id="bfLogoScale" type="range" min="5" max="50" step="1" value="18">
+            </label>
+
+            <div class="brand-editor-actions">
+              <button class="brand-cancel" id="brandEditorCancel" type="button">Cancel</button>
+              <button class="brand-save"   id="brandEditorSave"   type="button">Save kit</button>
+            </div>
+
+            <div class="brand-editor-msg" id="brandEditorMsg" aria-live="polite"></div>
+          </div>
+
+          <!-- RIGHT: live preview -->
+          <div class="brand-editor-preview-wrap">
+            <div class="brand-editor-preview-label">LIVE PREVIEW</div>
+            <article class="brand-card brand-card--preview" id="brandPreviewCard">
+              <div class="brand-card-logo-strip"><img id="bpLogo" alt=""></div>
+              <div class="brand-card-name" id="bpName">YOUR BRAND</div>
+              <div class="brand-card-palette" id="bpPalette"></div>
+              <div class="brand-card-fonts">
+                <span class="brand-card-font-sample" id="bpDisplaySample">Aa</span>
+                <span class="brand-card-font-caption" id="bpDisplayCaption">(default)</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -715,7 +881,11 @@
 <script src="js/foraging.js"></script>
 <script src="js/clan.js"></script>
 <script src="js/footprints.js"></script>
+<script src="https://unpkg.com/konva@9.3.16/konva.min.js"></script>
+<script src="js/compositor_templates.js"></script>
+<script src="js/compositor.js"></script>
 <script src="js/firepit.js"></script>
 <script src="js/trail_map.js"></script>
+<script src="js/brands.js"></script>
 </body>
 </html>

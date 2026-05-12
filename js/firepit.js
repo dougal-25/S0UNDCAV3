@@ -4,6 +4,8 @@
 let firepitMode = 'forge';
 let forgeGeneratedContent = '';
 let forgeGeneratedImageUrl = '';
+let _brandKits = [];
+let _compositorActive = false;
 let forgeApiUrl = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
 
 // Reference images uploaded for the current generation (base64 data URLs).
@@ -122,10 +124,48 @@ function setFirepitMode(mode, btn) {
 async function renderFirepit() {
   updateForgeFields();
   await loadStash();
+  await loadBrandKits();
   updateStashCount();
   populateStashTypeFilter();
   if (firepitMode === 'stash') renderStash();
   checkApiStatus();
+}
+
+// ── Brand kits (for the Forge selector + compositor handoff) ─────
+async function loadBrandKits() {
+  try {
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/brand_kits`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    _brandKits = j.kits || [];
+  } catch (e) {
+    console.warn('loadBrandKits failed:', e);
+    _brandKits = [];
+  }
+  populateBrandSelect();
+}
+
+function populateBrandSelect() {
+  const sel = document.getElementById('forgeBrandSelect');
+  if (!sel) return;
+  const previous = sel.value;
+  sel.replaceChildren();
+  const none = document.createElement('option');
+  none.value = ''; none.textContent = '— No brand kit —';
+  sel.appendChild(none);
+  _brandKits.forEach(kit => {
+    const opt = document.createElement('option');
+    opt.value = kit.id;
+    opt.textContent = kit.name;
+    sel.appendChild(opt);
+  });
+  if (previous && _brandKits.some(k => k.id === previous)) sel.value = previous;
+}
+
+function _selectedBrandKit() {
+  const sel = document.getElementById('forgeBrandSelect');
+  if (!sel || !sel.value) return null;
+  return _brandKits.find(k => k.id === sel.value) || null;
 }
 
 function updateForgeFields() {
@@ -419,6 +459,20 @@ async function saveToStash() {
   const orig = btn.innerHTML;
   btn.innerHTML = '⏳ Saving…';
   try {
+    // If the compositor is active, flatten the canvas and upload the composited PNG
+    // (we reuse /api/brand_assets/upload as a public-storage drop until a dedicated
+    // stash-media endpoint exists — same bucket size + auth model).
+    let savedImageUrl = forgeGeneratedImageUrl || null;
+    if (_compositorActive && window.scCompositor) {
+      const blob = await window.scCompositor.toBlob();
+      const fd = new FormData();
+      fd.append('file', new File([blob], `composite_${Date.now()}.png`, { type: 'image/png' }));
+      fd.append('kind', 'composite');
+      const up = await scAuth.authedFetch(`${forgeApiUrl}/api/brand_assets/upload`, { method: 'POST', body: fd });
+      if (!up.ok) throw new Error(`upload ${up.status}`);
+      const upJson = await up.json();
+      savedImageUrl = upJson.url;
+    }
     const r = await scAuth.authedFetch(`${forgeApiUrl}/api/stash`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -427,7 +481,7 @@ async function saveToStash() {
         label: ct ? ct.label : type,
         icon: ct ? ct.icon : '📝',
         content: forgeGeneratedContent,
-        imageUrl: forgeGeneratedImageUrl || null,
+        imageUrl: savedImageUrl,
         context: gatherForgeContext(),
         status: 'draft',
       }),
@@ -555,14 +609,76 @@ async function deleteStashItem(id) {
 // the .value get/set API the rest of firepit.js depends on.
 document.addEventListener('DOMContentLoaded', () => {
   const picker = document.getElementById('forgePicker');
-  if (!picker) return;
-  const hidden = document.getElementById('forgeContentType');
-  picker.querySelectorAll('.forge-picker-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      picker.querySelectorAll('.forge-picker-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      hidden.value = btn.dataset.value;
-      hidden.dispatchEvent(new Event('change'));
+  if (picker) {
+    const hidden = document.getElementById('forgeContentType');
+    picker.querySelectorAll('.forge-picker-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        picker.querySelectorAll('.forge-picker-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        hidden.value = btn.dataset.value;
+        hidden.dispatchEvent(new Event('change'));
+      });
     });
-  });
+  }
+
+  // ── Compositor toolbar wiring (Phase 3) ─────────────
+  const toolbar = document.querySelector('#forgeCompositor .compositor-toolbar');
+  if (toolbar) {
+    toolbar.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-action]');
+      if (!t || !window.scCompositor) return;
+      const action = t.dataset.action;
+      if (action === 'text-size-up')   window.scCompositor.adjustTextSize(+0.10);
+      if (action === 'text-size-down') window.scCompositor.adjustTextSize(-0.10);
+      if (action === 'edit-text')      window.scCompositor.promptTextEdit();
+      if (action === 'reset-layout')   window.scCompositor.resetLayout();
+    });
+  }
+
+  // Selection change → toolbar context updates
+  if (window.scCompositor) {
+    window.scCompositor.onSelectionChange((node) => {
+      const nameEl = document.getElementById('compositorSelectedName');
+      const textTools = document.getElementById('compositorTextTools');
+      const editWrap = document.getElementById('compositorEditTextWrap');
+      const swatchRow = document.getElementById('compositorTextSwatches');
+      if (!node) {
+        if (nameEl) nameEl.textContent = '—';
+        if (textTools) textTools.style.display = 'none';
+        if (editWrap)  editWrap.style.display = 'none';
+        return;
+      }
+      const labels = { logo: 'LOGO', headline_text: 'HEADLINE', supporting_text: 'BODY TEXT' };
+      if (nameEl) nameEl.textContent = labels[node.layerType] || 'LAYER';
+      const isText = node.layerType === 'headline_text' || node.layerType === 'supporting_text';
+      if (textTools) textTools.style.display = isText ? 'flex' : 'none';
+      if (editWrap)  editWrap.style.display = isText ? 'flex' : 'none';
+      if (isText && swatchRow) {
+        swatchRow.replaceChildren();
+        const brand = window.scCompositor.brand();
+        const palette = brand?.palette || {};
+        ['primary', 'accent', 'text', 'text_stroke'].forEach(role => {
+          if (!palette[role]) return;
+          const sw = document.createElement('button');
+          sw.type = 'button';
+          sw.className = 'compositor-swatch';
+          sw.style.background = palette[role];
+          sw.title = role;
+          sw.addEventListener('click', () => window.scCompositor.setTextColour(palette[role]));
+          swatchRow.appendChild(sw);
+        });
+      }
+    });
+  }
+
+  // Re-apply brand kit when user changes the selector mid-flight
+  const brandSel = document.getElementById('forgeBrandSelect');
+  if (brandSel) {
+    brandSel.addEventListener('change', () => {
+      if (!_compositorActive || !window.scCompositor) return;
+      const kit = _selectedBrandKit();
+      if (kit) window.scCompositor.applyBrandKit(kit);
+      else window.scCompositor.hide();
+    });
+  }
 });

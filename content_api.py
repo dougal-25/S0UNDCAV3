@@ -610,6 +610,105 @@ def stash_update(item_id):
     return jsonify({'item': res.data[0] if res.data else None})
 
 
+# ── Brand Kits (Brand Overlay Compositor — Phase 1) ──────
+# Multi-brand per user. Each kit holds the logo + fonts + palette + default
+# layout knobs used by the browser compositor.
+# Spec: wiki/spec/brand_overlay_compositor.md
+BRAND_ASSETS_BUCKET = 'brand_assets'
+BRAND_ASSET_MAX_BYTES = 5 * 1024 * 1024  # 5MB per file
+BRAND_ASSET_ALLOWED_MIMES = {
+    'image/png', 'image/svg+xml', 'image/jpeg', 'image/webp',
+    'font/woff2', 'font/woff', 'font/ttf', 'font/otf',
+    'application/font-woff2', 'application/font-woff',
+    'application/x-font-ttf', 'application/x-font-otf',
+    'application/octet-stream',  # browsers sometimes send fonts as this
+}
+
+BRAND_KIT_FIELDS = ('name', 'logo_url', 'display_font_url', 'body_font_url', 'palette', 'defaults')
+
+@app.route('/api/brand_kits', methods=['GET'])
+def brand_kits_list():
+    uid, err = _require_user()
+    if err: return err
+    sb = _stash_client()
+    res = sb.table('brand_kits').select('*').eq('user_id', uid).order('created_at', desc=True).execute()
+    return jsonify({'kits': res.data})
+
+@app.route('/api/brand_kits', methods=['POST'])
+def brand_kits_insert():
+    uid, err = _require_user()
+    if err: return err
+    body = request.get_json() or {}
+    name = (body.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+    row = {'user_id': uid, 'name': name}
+    for f in ('logo_url', 'display_font_url', 'body_font_url'):
+        if f in body: row[f] = body[f]
+    if 'palette' in body and isinstance(body['palette'], dict): row['palette'] = body['palette']
+    if 'defaults' in body and isinstance(body['defaults'], dict): row['defaults'] = body['defaults']
+    sb = _stash_client()
+    res = sb.table('brand_kits').insert(row).execute()
+    return jsonify({'kit': res.data[0] if res.data else None}), 201
+
+@app.route('/api/brand_kits/<kit_id>', methods=['PATCH'])
+def brand_kits_update(kit_id):
+    uid, err = _require_user()
+    if err: return err
+    body = request.get_json() or {}
+    patch = {}
+    for f in BRAND_KIT_FIELDS:
+        if f in body:
+            patch[f] = body[f]
+    if not patch:
+        return jsonify({'error': 'no fields to update'}), 400
+    sb = _stash_client()
+    res = sb.table('brand_kits').update(patch).eq('id', kit_id).eq('user_id', uid).execute()
+    return jsonify({'kit': res.data[0] if res.data else None})
+
+@app.route('/api/brand_kits/<kit_id>', methods=['DELETE'])
+def brand_kits_delete(kit_id):
+    uid, err = _require_user()
+    if err: return err
+    sb = _stash_client()
+    sb.table('brand_kits').delete().eq('id', kit_id).eq('user_id', uid).execute()
+    return jsonify({'ok': True})
+
+@app.route('/api/brand_assets/upload', methods=['POST'])
+def brand_assets_upload():
+    """Multipart upload to the brand_assets bucket. Returns the public URL.
+
+    Body: multipart/form-data with field 'file' and optional 'kind' (logo|display_font|body_font).
+    """
+    uid, err = _require_user()
+    if err: return err
+    f = request.files.get('file')
+    if f is None:
+        return jsonify({'error': 'file field required'}), 400
+    mime = (f.mimetype or '').lower()
+    if mime not in BRAND_ASSET_ALLOWED_MIMES:
+        return jsonify({'error': f'unsupported type: {mime}'}), 400
+    data = f.read()
+    if len(data) > BRAND_ASSET_MAX_BYTES:
+        return jsonify({'error': f'file exceeds {BRAND_ASSET_MAX_BYTES // (1024*1024)}MB'}), 400
+    kind = (request.form.get('kind') or 'asset').strip().lower()
+    safe_kind = ''.join(c for c in kind if c.isalnum() or c == '_')[:32] or 'asset'
+    original = (f.filename or '').lower()
+    ext = ''
+    if '.' in original:
+        ext = '.' + original.rsplit('.', 1)[1][:6]
+    ts = int(time.time())
+    object_path = f"{uid}/{safe_kind}_{ts}_{os.urandom(3).hex()}{ext}"
+    sb = _stash_client()
+    sb.storage.from_(BRAND_ASSETS_BUCKET).upload(
+        path=object_path,
+        file=data,
+        file_options={'content-type': mime, 'upsert': 'true'},
+    )
+    public_url = sb.storage.from_(BRAND_ASSETS_BUCKET).get_public_url(object_path)
+    return jsonify({'url': public_url, 'path': object_path})
+
+
 # ── Billing (Phase D — Stripe) ────────────────────────────
 import stripe
 
