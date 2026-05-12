@@ -1,0 +1,87 @@
+/* ──────────────────────────────────────────────────────────
+   foraging.css — Foraging tab (two-column rotation/watching)
+   Spec: wiki/spec/foraging_two_column.md  (2026-05-12)
+   ────────────────────────────────────────────────────────── */
+
+.forage-top-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+  align-items: start;
+}
+
+.forage-col {
+  background: var(--color-bg-warm);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 2px;
+  padding: var(--space-4) var(--space-5);
+}
+
+.forage-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.forage-col-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.forage-col-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: var(--tracking-mono);
+  color: var(--color-muted);
+}
+.forage-col-count.accent { color: var(--color-accent); }
+
+.forage-col-empty {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-faint);
+  letter-spacing: var(--tracking-mono);
+  padding: var(--space-4) 0;
+}
+
+.forage-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 70vh;
+  overflow-y: auto;
+  /* Custom scrollbar to match the dark aesthetic */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.forage-col-body::-webkit-scrollbar { width: 6px; }
+.forage-col-body::-webkit-scrollbar-track { background: transparent; }
+.forage-col-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+}
+.forage-col-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,69,0,0.3);
+}
+
+/* Pending section below the grid */
+.forage-pending-wrap {
+  margin-top: var(--space-5);
+}
+
+/* Responsive — collapse on narrow screens */
+@media (max-width: 900px) {
+  .forage-top-grid {
+    grid-template-columns: 1fr;
+  }
+  .forage-col-body {
+    max-height: none;
+  }
+}

@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/foraging.css">
   <link rel="stylesheet" href="css/trail_map.css">
 </head>
 <body>
@@ -290,8 +291,11 @@
         </div>
       </div>
       <div id="liveSearchStatus" style="display:none"></div>
-      <div id="foragingRotation"></div>
-      <div id="foragingPrevious"></div>
+      <div class="forage-top-grid" id="foragingTopGrid">
+        <div id="foragingRotation"></div>
+        <div id="foragingWatching"></div>
+      </div>
+      <div id="foragingPrevious" class="forage-pending-wrap"></div>
     </div>
 
     <!-- Scheduled Sub-tab -->

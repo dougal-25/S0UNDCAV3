@@ -152,11 +152,21 @@ async function runLiveSearch() {
 function renderLiveResults() {
   const el = document.getElementById('foragingRotation');
   if (!liveSearchResults.length) {
-    el.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:12px 0">No results found. Try broadening your search criteria.</p>';
+    el.innerHTML = `
+      <div class="forage-col">
+        <div class="forage-col-header"><div class="forage-col-title">Search results</div><div class="forage-col-count">0</div></div>
+        <div class="forage-col-empty">No results found. Try broadening your search criteria.</div>
+      </div>`;
     return;
   }
-  el.innerHTML = `<h3 class="section-title">Search Results (${liveSearchResults.length})</h3>` +
-    liveSearchResults.map(t => buildForageCard(t, 'rotation')).join('');
+  el.innerHTML = `
+    <div class="forage-col">
+      <div class="forage-col-header">
+        <div class="forage-col-title">Search results</div>
+        <div class="forage-col-count accent">${liveSearchResults.length}</div>
+      </div>
+      <div class="forage-col-body">${liveSearchResults.map(t => buildForageCard(t, 'rotation')).join('')}</div>
+    </div>`;
 }
 
 function toggleFilters() {
@@ -183,6 +193,9 @@ function renderForaging() {
       });
     }
   });
+
+  // Always render the watching column — it's independent of search mode
+  renderForagingWatching();
 
   // Only render report-based results if no live search was done
   if (liveSearchResults.length) {
@@ -219,14 +232,6 @@ function renderForaging() {
     .filter(t => !favs[t.artist_username] && !dismissed.includes(t.artist_username) && !watching.includes(t.artist_username))
     .filter(matchesFilters);
 
-  const watchingArtists = [];
-  watching.forEach(username => {
-    for (const r of allReports) {
-      const t = (r.tracks||[]).find(t => t.artist_username === username);
-      if (t) { watchingArtists.push({...t, discoveredDate: r.date}); break; }
-    }
-  });
-
   const currentUsernames = new Set((currentData ? currentData.tracks||[] : []).map(t => t.artist_username));
   const pendingArtists = [];
   allReports.slice(1).forEach(report => {
@@ -243,29 +248,49 @@ function renderForaging() {
   });
 
   document.getElementById('foragingRotation').innerHTML = `
-    <div style="margin-bottom:28px">
-      <h3 class="section-title">This Week's Rotation</h3>
-      ${currentTracks.length ? currentTracks.map(t => buildForageCard(t, 'rotation')).join('') :
-        '<p style="color:var(--muted);font-size:13px;padding:12px 0">No artists in current rotation. Run a live search or <code>scout.py</code>.</p>'}
+    <div class="forage-col">
+      <div class="forage-col-header">
+        <div class="forage-col-title">This week's rotation</div>
+        <div class="forage-col-count accent">${currentTracks.length}</div>
+      </div>
+      ${currentTracks.length
+        ? `<div class="forage-col-body">${currentTracks.map(t => buildForageCard(t, 'rotation')).join('')}</div>`
+        : '<div class="forage-col-empty">No artists in current rotation. Run a live search or scout.py.</div>'}
     </div>`;
 
-  let prevHTML = '<h3 class="section-title">Previously Discovered</h3>';
-  if (watchingArtists.length) {
-    prevHTML += `<div style="margin-bottom:18px">
-      <div class="section-label">👁️ Watching</div>
-      ${watchingArtists.map(t => buildForageCard(t, 'watching')).join('')}
-    </div>`;
-  }
+  // Previously Discovered now contains ONLY Pending (Watching moved to top-right column)
+  const prevEl = document.getElementById('foragingPrevious');
   if (pendingArtists.length) {
-    prevHTML += `<div>
+    prevEl.innerHTML = `
+      <h3 class="section-title" style="margin-top:0">Previously discovered</h3>
       <div class="section-label">⏳ Pending</div>
-      ${pendingArtists.map(t => buildForageCard(t, 'pending')).join('')}
+      ${pendingArtists.map(t => buildForageCard(t, 'pending')).join('')}`;
+  } else {
+    prevEl.innerHTML = '';
+  }
+}
+
+function renderForagingWatching() {
+  const el = document.getElementById('foragingWatching');
+  if (!el) return;
+  const watching = getWatching();
+  const watchingArtists = [];
+  watching.forEach(username => {
+    for (const r of (typeof allReports !== 'undefined' ? allReports : [])) {
+      const t = (r.tracks||[]).find(t => t.artist_username === username);
+      if (t) { watchingArtists.push({...t, discoveredDate: r.date}); break; }
+    }
+  });
+  el.innerHTML = `
+    <div class="forage-col">
+      <div class="forage-col-header">
+        <div class="forage-col-title">Watching</div>
+        <div class="forage-col-count">${watchingArtists.length}</div>
+      </div>
+      ${watchingArtists.length
+        ? `<div class="forage-col-body">${watchingArtists.map(t => buildForageCard(t, 'watching')).join('')}</div>`
+        : '<div class="forage-col-empty">No artists being watched. Hit 👁 Watch on a card to track an artist without adding to your Clan.</div>'}
     </div>`;
-  }
-  if (!watchingArtists.length && !pendingArtists.length) {
-    prevHTML += '<p style="color:var(--muted);font-size:13px">No previously discovered artists.</p>';
-  }
-  document.getElementById('foragingPrevious').innerHTML = prevHTML;
 }
 
 function buildForageCard(t, source) {

@@ -1,10 +1,10 @@
 # Feature: Foraging
 
-> Status: **Partially built.** Live search endpoint exists; SoundCloud OAuth still untested.
+> Status: **Partially built.** Live search endpoint exists; SoundCloud OAuth still untested. Two-column rotation/watching layout shipped 2026-05-12.
 
 ## What it does
 Three sub-tabs for finding artists outside the weekly scout cycle:
-1. **Manual Search** — live SoundCloud API queries via `/api/search` on `content_api.py`
+1. **Manual Search** — live SoundCloud API queries via `/api/search` on `content_api.py`. Below the search form, **This Week's Rotation** and **Watching** sit as two columns side-by-side (so the artists user is actively monitoring stay visible at the top of the page). **Previously Discovered / Pending** sits full-width below.
 2. **Scheduled Search** — saved search definitions that run on a cron
 3. **Running** — currently-running scheduled searches with progress
 

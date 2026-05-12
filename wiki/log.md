@@ -1,5 +1,16 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-12] Foraging — two-column rotation/watching layout
+- **Why:** Watching was buried under "Previously Discovered" beside Pending. Doug wanted the actively-tracked artists raised to the top of the page next to This Week's Rotation so they're visible at a glance.
+- **Change:** Inside Foraging > Manual Search, below the search form, rotation and watching now sit in a 2-col grid. Pending stays full-width below.
+- **Files:**
+  - new — `css/foraging.css` (grid + glass forge-col styling, responsive collapse <900px)
+  - new — `wiki/spec/foraging_two_column.md`
+  - edit — `js/foraging.js`: split `renderForagingWatching()` into its own function called from `renderForaging()` regardless of search mode; `renderLiveResults()` writes into the same col-wrapper for visual consistency
+  - edit — `index.html`: wrap rotation + new `#foragingWatching` in `.forage-top-grid`; add foraging.css link
+- **Verified:** Playwright 1440x900 — two columns render side-by-side with proper headers, counts, and empty-state copy. (Caveat: watching column requires usernames to match `artist_username` in scout reports — that's a pre-existing data inconsistency unrelated to this layout change.)
+- **Wrinkle worth noting:** During this session, an Edit silently no-op'd (probably whitespace mismatch in old_string) and I didn't notice until verification surfaced an undefined function. Lesson: after Edit calls on JS, grep for the inserted symbol before assuming the change landed.
+
 ## [2026-05-12] Cave dashboard redesign — diagonal stack hero
 - **Why:** The Cave is the first scene users land on. The old dashboard was a generic stat-grid; Doug wanted a visually pleasing centerpiece that says "this is a serious music tool", not a Bloomberg terminal.
 - **Reference:** Unveil Projects diagonal stacked-cards (3 screenshots shared in chat). Technique only — palette stays Sound Cave dark per the standing rule (memory: `feedback_soundcave_palette`).
