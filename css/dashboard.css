@@ -102,7 +102,6 @@
       calc(var(--offset) * -68px),
       0
     )
-    rotate(-14deg)
     scale(calc(1 - var(--abs) * 0.07));
   opacity: calc(1 - var(--abs) * 0.13);
   z-index: calc(100 - var(--abs));
@@ -154,7 +153,6 @@
   z-index: 200;
   transform:
     translate3d(0, -8px, 0)
-    rotate(-10deg)
     scale(1.06);
   box-shadow:
     0 50px 90px rgba(0,0,0,0.65),
@@ -176,7 +174,6 @@
       calc(var(--offset) * -68px - 14px),
       0
     )
-    rotate(-10deg)
     scale(calc(1 - var(--abs) * 0.07 + 0.04));
   border-color: rgba(255,69,0,0.2);
   z-index: calc(180 - var(--abs));
@@ -271,6 +268,29 @@
 .panel-tr { top: var(--space-5); right: var(--space-5); text-align: right; }
 .panel-bl { bottom: var(--space-5); left: var(--space-5); max-width: 260px; }
 .panel-br { bottom: var(--space-5); right: var(--space-5); max-width: 280px; }
+
+/* Secondary stat chips — sit just below the primary top panels */
+.panel-tl-2 { top: calc(var(--space-5) + 116px); left: var(--space-5); }
+.panel-tr-2 { top: calc(var(--space-5) + 116px); right: var(--space-5); text-align: right; }
+
+.cave-hero-chip {
+  position: absolute;
+  z-index: 20;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(10,10,10,0.55);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 2px;
+  min-width: 150px;
+}
+.cave-hero-chip .panel-value {
+  font-size: 18px;
+}
+.cave-hero-chip .panel-trend {
+  margin-top: 4px;
+  font-size: 9px;
+}
 
 .panel-label {
   font-family: var(--font-mono);

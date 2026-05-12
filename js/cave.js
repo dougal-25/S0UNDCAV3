@@ -161,28 +161,34 @@ function attachStackInteractions() {
 function renderCaveStatPanels(clan) {
   const followersEl = document.getElementById('caveFollowersPanel');
   const likesEl = document.getElementById('caveLikesPanel');
+  const listensEl = document.getElementById('caveListensPanel');
+  const playlistEl = document.getElementById('cavePlaylistPanel');
   if (!followersEl || !likesEl) return;
 
-  let curF = 0, prevF = 0, curL = 0, prevL = 0;
+  let curF = 0, prevF = 0, curL = 0, prevL = 0, curP = 0, prevP = 0;
   if (clan.length && typeof allReports !== 'undefined' && allReports.length) {
     const clanU = new Set(clan.map(a => a.username));
     const weekAggs = allReports.slice(0, 6).reverse().map(report => {
-      let f = 0, l = 0;
+      let f = 0, l = 0, p = 0;
       (report.tracks || []).forEach(t => {
         if (clanU.has(t.artist_username)) {
           f += t.followers || 0;
           l += t.likes || 0;
+          p += t.plays || 0;
         }
       });
-      return { f, l };
+      return { f, l, p };
     });
-    const latest = weekAggs[weekAggs.length - 1] || { f: 0, l: 0 };
+    const latest = weekAggs[weekAggs.length - 1] || { f: 0, l: 0, p: 0 };
     const prev   = weekAggs[weekAggs.length - 2] || latest;
     curF = latest.f; prevF = prev.f;
     curL = latest.l; prevL = prev.l;
+    curP = latest.p; prevP = prev.p;
   }
   const dF = curF - prevF;
   const dL = curL - prevL;
+  const dP = curP - prevP;
+  const totalAdds = clan.reduce((sum, a) => sum + (a.playlist_adds || 0), 0);
 
   setHTML(followersEl, `
     <div class="panel-label">Followers gained</div>
@@ -193,6 +199,16 @@ function renderCaveStatPanels(clan) {
     <div class="panel-label">Likes gained</div>
     <div class="panel-value">${dL >= 0 ? '+' : ''}${fmt(dL)}</div>
     <div class="panel-trend ${dL >= 0 ? 'up' : 'down'}">${dL >= 0 ? '▲' : '▼'} this week</div>`);
+
+  if (listensEl) setHTML(listensEl, `
+    <div class="panel-label">Listens gained</div>
+    <div class="panel-value">${dP >= 0 ? '+' : ''}${fmt(dP)}</div>
+    <div class="panel-trend ${dP >= 0 ? 'up' : 'down'}">${dP >= 0 ? '▲' : '▼'} this week</div>`);
+
+  if (playlistEl) setHTML(playlistEl, `
+    <div class="panel-label">Playlist adds</div>
+    <div class="panel-value">${fmt(totalAdds)}</div>
+    <div class="panel-trend up">▲ total</div>`);
 }
 
 function renderCaveGenrePanel(clan) {
