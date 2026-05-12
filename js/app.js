@@ -488,13 +488,13 @@ document.querySelectorAll('.htab[data-action="splash"]').forEach(btn => {
 
 function switchTab(name) {
   currentTab = name;
-  ['home','cave','foraging','clan','footprints','firepit','index'].forEach(t => {
+  ['home','cave','foraging','clan','footprints','firepit','reflection','index'].forEach(t => {
     const el = document.getElementById(`tab-${t}`);
     if (el) el.style.display = t === name ? 'block' : 'none';
   });
   // Top-level nav: Cave group stays "active" for any cave sub-section.
   // Home/Index are reached via the bottom-right corner-nav, not the top pills.
-  const TOP_TABS = ['cave','firepit'];
+  const TOP_TABS = ['cave','firepit','reflection'];
   const topGroup = CAVE_TABS.includes(name) ? 'cave' : (TOP_TABS.includes(name) ? name : null);
   document.querySelectorAll('.htab[data-tab]').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === topGroup);
@@ -517,6 +517,7 @@ function switchTab(name) {
   if (name === 'clan')       renderClan();
   if (name === 'footprints') renderFootprints();
   if (name === 'firepit')    renderFirepit();
+  if (name === 'reflection' && typeof window.refreshReflection === 'function') window.refreshReflection();
 }
 
 function renderHome() {
@@ -802,27 +803,24 @@ function togglePanelStar(username) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ACCOUNT DROPDOWN (Phase B)
+// REFLECTION TAB (Phase B — profile + account actions as a page)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-(function initAccount() {
-  const wrap = document.getElementById('account');
-  if (!wrap) return;
-  const btn      = document.getElementById('accountBtn');
-  const menu     = document.getElementById('accountMenu');
-  const emailEl  = document.getElementById('accountEmail');
-  const avatarEl = document.getElementById('accountAvatar');
-  const tierEl   = document.getElementById('accountTier');
-  const credEl   = document.getElementById('accountCredits');
-  const socEl    = document.getElementById('accountSocials');
-  const outBtn   = document.getElementById('accountSignOut');
-  const upgradeBtn = document.getElementById('accountUpgrade');
-  const manageBtn  = document.getElementById('accountManageBilling');
-  const connectBtn = document.getElementById('accountConnectSocials');
-  const pwdToggle  = document.getElementById('accountSetPassword');
-  const pwdForm    = document.getElementById('accountPwdForm');
-  const pwdInput   = document.getElementById('accountPwdInput');
-  const pwdSave    = document.getElementById('accountPwdSave');
-  const pwdMsg     = document.getElementById('accountPwdMsg');
+(function initReflection() {
+  const emailEl   = document.getElementById('reflectionEmail');
+  const avatarEl  = document.getElementById('reflectionAvatar');
+  const tierEl    = document.getElementById('reflectionTier');
+  const credEl    = document.getElementById('reflectionCredits');
+  const socEl     = document.getElementById('reflectionSocials');
+  const outBtn    = document.getElementById('reflectionSignOut');
+  const upgradeBtn = document.getElementById('reflectionUpgrade');
+  const manageBtn  = document.getElementById('reflectionManageBilling');
+  const connectBtn = document.getElementById('reflectionConnectSocials');
+  const pwdToggle  = document.getElementById('reflectionSetPassword');
+  const pwdForm    = document.getElementById('reflectionPwdForm');
+  const pwdInput   = document.getElementById('reflectionPwdInput');
+  const pwdSave    = document.getElementById('reflectionPwdSave');
+  const pwdMsg     = document.getElementById('reflectionPwdMsg');
+  if (!emailEl) return;
 
   async function hydrate() {
     try {
@@ -830,14 +828,11 @@ function togglePanelStar(username) {
       const r = await scAuth.authedFetch(`${apiBase}/api/me`);
       if (!r.ok) return;
       const me = await r.json();
-      wrap.hidden = false;
       emailEl.textContent = me.email || '';
       avatarEl.textContent = (me.email || '?')[0];
       tierEl.textContent = me.tier || '—';
       credEl.textContent = me.credits_balance != null ? me.credits_balance : '—';
-      // Manage billing only shown when user is on a paid plan (not the default 'solo' free state).
       manageBtn.hidden = !(me.tier && me.tier !== 'solo');
-      // Hydrate socials count from Ayrshare
       try {
         const sr = await scAuth.authedFetch(`${apiBase}/api/ayrshare/profiles`);
         if (sr.ok) {
@@ -845,28 +840,13 @@ function togglePanelStar(username) {
           socEl.textContent = sj.platforms?.length ? `${sj.platforms.length} connected` : 'none';
         }
       } catch {}
-    } catch (e) { console.warn('account hydrate failed', e); }
+    } catch (e) { console.warn('reflection hydrate failed', e); }
   }
+  window.refreshReflection = hydrate;
 
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const open = !menu.hidden;
-    menu.hidden = open;
-    btn.setAttribute('aria-expanded', String(!open));
-  });
-  document.addEventListener('click', (e) => {
-    if (!wrap.contains(e.target)) menu.hidden = true;
-  });
   outBtn.addEventListener('click', () => scAuth.signOut());
-
-  upgradeBtn.addEventListener('click', () => {
-    menu.hidden = true;
-    openBillingModal();
-  });
-  manageBtn.addEventListener('click', async () => {
-    menu.hidden = true;
-    await openBillingPortal();
-  });
+  upgradeBtn.addEventListener('click', () => openBillingModal());
+  manageBtn.addEventListener('click', () => openBillingPortal());
   pwdToggle.addEventListener('click', () => {
     pwdForm.hidden = !pwdForm.hidden;
     pwdMsg.textContent = '';
@@ -893,9 +873,7 @@ function togglePanelStar(username) {
       setTimeout(() => { pwdForm.hidden = true; }, 1200);
     }
   });
-
   connectBtn.addEventListener('click', async () => {
-    menu.hidden = true;
     const apiBase = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
     try {
       const r = await scAuth.authedFetch(`${apiBase}/api/ayrshare/connect-url`);
@@ -906,9 +884,9 @@ function togglePanelStar(username) {
     }
   });
 
-  function openPasswordPanelForRecovery() {
-    menu.hidden = false;
-    btn.setAttribute('aria-expanded', 'true');
+  // Password-recovery deep link: switch to Reflection tab + reveal the form.
+  function openRecoveryFlow() {
+    if (typeof switchTab === 'function') switchTab('reflection');
     pwdForm.hidden = false;
     pwdMsg.textContent = 'Set a new password to finish recovery.';
     pwdMsg.className = 'cave-login-msg';
@@ -919,15 +897,10 @@ function togglePanelStar(username) {
     if (await scAuth.session()) hydrate();
     scAuth.onChange((event) => {
       if (event === 'SIGNED_IN') hydrate();
-      if (event === 'SIGNED_OUT') wrap.hidden = true;
-      if (event === 'PASSWORD_RECOVERY') {
-        hydrate();
-        openPasswordPanelForRecovery();
-      }
+      if (event === 'PASSWORD_RECOVERY') { hydrate(); openRecoveryFlow(); }
     });
   }).catch(() => {});
 
-  // Returning from Stripe success: webhook is async; refresh after a beat.
   if (location.search.includes('billing=success')) {
     setTimeout(() => hydrate(), 1500);
   }

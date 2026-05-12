@@ -1,5 +1,24 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-12] Unveil-style header overhaul + REFLECTION tab
+- **Why:** The account avatar + dropdown felt cramped and easy to miss. Doug wanted profile/account info to live on its own page, and the top header to adopt the Unveil Projects nav style — tall outlined pills flush to the top of the viewport, text bottom-left of each pill.
+- **Header overhaul:** `.htab` reworked into tall pills (min-height 84px, min-width 150px, text bottom-left via `flex-direction: column; justify-content: flex-end; align-items: flex-start`). Header padding shifted so pills reach the very top edge. Brand pill keeps the same outer shape but stacks a 48px logo above the S0UNDCAV3 wordmark inside.
+- **Sound toggle promoted to a tall pill:** `#appSoundToggle` now has class `app-sound-toggle htab` — inherits the same shape as the nav pills. Sits in the far top-right via `margin-left: auto`.
+- **REFLECTION tab:** new top-nav pill `[REFLECTION]` after `[FIREPIT]`. Clicking it opens `#tab-reflection`, a real page (`max-width: 720px`) containing the avatar + email header, a 3-col stat grid (Tier / Credits / Socials), and a vertical action stack (Connect socials / Set password / Upgrade plan / Manage billing / Sign out).
+- **Old account dropdown removed entirely:** `<div class="account">…</div>` deleted from `index.html`; all `.account-*` CSS rules deleted; `initAccount()` rewritten as `initReflection()` in `js/app.js`. Recovery flow now switches to the Reflection tab and reveals the password form there.
+- **Cross-file dep patched:** `js/firepit.js` was reading `accountCredits` to update the credits ticker after each generation — repointed to `reflectionCredits`.
+- **Spec:** `wiki/spec/reflection_tab.md`.
+- **Files touched:** `index.html`, `css/style.css`, `js/app.js`, `js/firepit.js`, `wiki/spec/reflection_tab.md` (new), `wiki/log.md`.
+
+## [2026-05-12] Brand Overlay Compositor — Phase 1 (data layer)
+- **Why:** Forge today produces "blank canvas" backgrounds — the system prompt strips text from AI prompts because diffusion models render text/logos badly. To ship usable posters/lineups (Melomania-style), we need a two-layer system: AI background + deterministic brand overlay (logo + text in real fonts). Phase 1 ships the data backbone only — no UI yet.
+- **Spec:** `wiki/spec/brand_overlay_compositor.md` (drafted + signed off this session). Locked decisions: multi-brand per user, browser-side Konva compositor (Phase 3), five fixed layer types, default starting layouts per content type, one display + one body font per kit (user-uploaded).
+- **Schema:** `db/0009_brand_kits.sql` — new `public.brand_kits` table (id, user_id, name, logo_url, display_font_url, body_font_url, palette jsonb, defaults jsonb, created_at). RLS owner-only policy, mirrors stash_items.
+- **Storage:** `db/0010_brand_assets_bucket.sql` — `brand_assets` bucket policies (public read, owner-folder write/update/delete) mirroring `0003_storage.sql`. Bucket itself created via REST.
+- **API surface (in `content_api.py`):** `GET/POST /api/brand_kits`, `PATCH/DELETE /api/brand_kits/<id>`, `POST /api/brand_assets/upload` (multipart, 5MB cap, mime allowlist for PNG/SVG/JPEG/WebP + woff2/woff/ttf/otf). All JWT-auth via existing `_resolve_user_id()`.
+- **Not yet done:** Storage bucket creation in Supabase dashboard. Both SQL migrations not yet applied to live DB. Phase 2 (Brand Kit management UI), Phase 3 (Konva compositor), Phase 4 (Forge wiring), Phase 5 (verification) are separate, deferred plans.
+- **Files:** new — `wiki/spec/brand_overlay_compositor.md`, `db/0009_brand_kits.sql`, `db/0010_brand_assets_bucket.sql`. Edit — `content_api.py` (brand_kits + brand_assets/upload routes).
+
 ## [2026-05-12] Foraging — two-column rotation/watching layout
 - **Why:** Watching was buried under "Previously Discovered" beside Pending. Doug wanted the actively-tracked artists raised to the top of the page next to This Week's Rotation so they're visible at a glance.
 - **Change:** Inside Foraging > Manual Search, below the search form, rotation and watching now sit in a 2-col grid. Pending stays full-width below.

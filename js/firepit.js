@@ -265,10 +265,10 @@ async function generateContent(variation) {
   }
 }
 
-// Defined in app.js initAccount; safe shim so generation calls don't blow up
-// if the dropdown hasn't hydrated yet.
+// Defined in app.js initReflection; safe shim so generation calls don't blow up
+// if the Reflection tab hasn't been opened yet.
 function updateCreditsDisplay(n) {
-  const el = document.getElementById('accountCredits');
+  const el = document.getElementById('reflectionCredits');
   if (el) el.textContent = n;
 }
 

@@ -66,37 +66,22 @@
   <nav class="header-tabs">
     <button class="htab htab-brand" type="button" data-action="splash">
       <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="" class="htab-brand-logo" width="20" height="20">
-      <span>S0UNDCAV3</span>
+      <span class="htab-label">S0UNDCAV3</span>
     </button>
-    <button class="htab active" type="button" data-tab="cave" data-group="cave">THE CAVE</button>
-    <button class="htab" type="button" data-tab="firepit">FIREPIT <span class="count" id="firepitCount"></span></button>
+    <button class="htab active" type="button" data-tab="cave" data-group="cave">
+      <span class="htab-label">THE CAVE</span>
+    </button>
+    <button class="htab" type="button" data-tab="firepit">
+      <span class="htab-label">FIREPIT <span class="count" id="firepitCount"></span></span>
+    </button>
+    <button class="htab" type="button" data-tab="reflection">
+      <span class="htab-label">REFLECTION</span>
+    </button>
   </nav>
-  <button type="button" class="app-sound-toggle" id="appSoundToggle"
+  <button type="button" class="app-sound-toggle htab" id="appSoundToggle"
           aria-pressed="false" aria-label="Toggle ambient sound">
-    {SOUND <span id="appSoundState">OFF</span>}
+    <span class="htab-label">{SOUND <span id="appSoundState">OFF</span>}</span>
   </button>
-  <div class="account" id="account" hidden>
-    <button class="account-btn" id="accountBtn" type="button" aria-haspopup="true" aria-expanded="false">
-      <span class="account-avatar" id="accountAvatar">·</span>
-      <span class="account-email" id="accountEmail"></span>
-      <span class="account-caret">▾</span>
-    </button>
-    <div class="account-menu" id="accountMenu" hidden>
-      <div class="account-row"><span class="account-label">Tier</span><span id="accountTier">—</span></div>
-      <div class="account-row"><span class="account-label">Credits</span><span id="accountCredits">—</span></div>
-      <div class="account-row"><span class="account-label">Socials</span><span id="accountSocials">—</span></div>
-      <button class="account-link" id="accountConnectSocials" type="button">Connect socials</button>
-      <button class="account-link" id="accountSetPassword" type="button">Set / change password</button>
-      <div class="account-pwd-form" id="accountPwdForm" hidden>
-        <input class="cave-login-input" id="accountPwdInput" type="password" placeholder="new password" autocomplete="new-password">
-        <button class="account-link" id="accountPwdSave" type="button">Save password</button>
-        <div class="cave-login-msg" id="accountPwdMsg" aria-live="polite"></div>
-      </div>
-      <button class="account-link" id="accountUpgrade" type="button">Upgrade plan</button>
-      <button class="account-link" id="accountManageBilling" type="button" hidden>Manage billing</button>
-      <button class="account-signout" id="accountSignOut" type="button">Sign out</button>
-    </div>
-  </div>
 </header>
 
 <!-- ═══════════════════════════════════════════════════════
@@ -561,6 +546,48 @@
           <button class="trail-btn trail-btn-primary" onclick="saveTrailModal()">Save</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ─── REFLECTION TAB (formerly the account dropdown) ──── -->
+  <div id="tab-reflection" style="display:none">
+    <div class="reflection-wrap">
+      <header class="reflection-head">
+        <span class="reflection-avatar" id="reflectionAvatar">·</span>
+        <div>
+          <div class="reflection-eyebrow">YOUR REFLECTION</div>
+          <div class="reflection-email" id="reflectionEmail">—</div>
+        </div>
+      </header>
+
+      <section class="reflection-stats">
+        <div class="reflection-stat">
+          <div class="reflection-stat-label">TIER</div>
+          <div class="reflection-stat-val" id="reflectionTier">—</div>
+        </div>
+        <div class="reflection-stat">
+          <div class="reflection-stat-label">CREDITS</div>
+          <div class="reflection-stat-val" id="reflectionCredits">—</div>
+        </div>
+        <div class="reflection-stat">
+          <div class="reflection-stat-label">SOCIALS</div>
+          <div class="reflection-stat-val" id="reflectionSocials">—</div>
+        </div>
+      </section>
+
+      <section class="reflection-actions">
+        <button class="reflection-action" id="reflectionConnectSocials" type="button">Connect socials</button>
+        <button class="reflection-action" id="reflectionSetPassword" type="button">Set / change password</button>
+        <div class="reflection-pwd-form" id="reflectionPwdForm" hidden>
+          <input class="cave-login-input" id="reflectionPwdInput" type="password"
+                 placeholder="new password" autocomplete="new-password">
+          <button class="reflection-action" id="reflectionPwdSave" type="button">Save password</button>
+          <div class="cave-login-msg" id="reflectionPwdMsg" aria-live="polite"></div>
+        </div>
+        <button class="reflection-action" id="reflectionUpgrade" type="button">Upgrade plan</button>
+        <button class="reflection-action" id="reflectionManageBilling" type="button" hidden>Manage billing</button>
+        <button class="reflection-action reflection-action-danger" id="reflectionSignOut" type="button">Sign out</button>
+      </section>
     </div>
   </div>
 

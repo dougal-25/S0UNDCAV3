@@ -99,22 +99,9 @@
 .cave-sound-toggle:hover { color: var(--color-accent); border-color: var(--color-accent); }
 .cave-sound-toggle.is-on { color: var(--color-accent); border-color: var(--color-accent); }
 
-/* Persistent toggle in app shell header — same chip, smaller weight */
-.app-sound-toggle {
-  margin-left: auto;
-  background: transparent;
-  border: 1px solid var(--color-faint);
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: var(--tracking-mono);
-  text-transform: uppercase;
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  transition: border-color var(--motion-fast) var(--ease-soft),
-              color var(--motion-fast) var(--ease-soft);
-}
-.app-sound-toggle:hover { color: var(--color-accent); border-color: var(--color-accent); }
+/* Persistent toggle in app shell header — shares .htab tall-pill base.
+   Just hugs the right edge and shows accent when sound is ON. */
+.app-sound-toggle { margin-left: auto; }
 .app-sound-toggle.is-on { color: var(--color-accent); border-color: var(--color-accent); }
 
 /* Bottom-left location/version stamp */
@@ -281,97 +268,107 @@
   padding: var(--space-1) var(--space-2);
 }
 .cave-login-toggle:hover { color: var(--color-text); }
-.account-pwd-form {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 8px 10px;
+/* ── Reflection page (formerly account dropdown) ──────── */
+.reflection-wrap {
+  max-width: 720px;
+  margin: 48px auto;
+  padding: 0 24px;
+  display: flex; flex-direction: column;
+  gap: 32px;
 }
-.account-pwd-form .cave-login-input { width: 100%; padding: 8px 10px; font-size: 13px; }
-
-/* Account dropdown */
-.account { position: relative; margin-left: 16px; }
-.account-btn {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 10px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--body);
-  border-radius: 0;
-  cursor: pointer;
-  font: inherit;
-  transition: background var(--motion-fast) var(--ease-soft),
-              border-color var(--motion-fast) var(--ease-soft);
-}
-.account-btn:hover { background: var(--hover); border-color: var(--red); }
-.account-avatar {
-  width: 24px; height: 24px;
-  border-radius: 0;                /* sharp edges, terminal feel */
-  background: transparent;
-  border: 1px solid var(--red);
-  color: var(--red);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono);
-  font-weight: 500; font-size: 11px; text-transform: uppercase;
-  letter-spacing: var(--tracking-mono);
-}
-.account-email {
-  max-width: 160px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: var(--tracking-mono);
-  color: var(--secondary);
-}
-.account-caret { font-size: 9px; color: var(--muted); }
-.account-menu {
-  position: absolute;
-  top: calc(100% + 6px); right: 0;
-  min-width: 220px;
-  background: var(--elevated);
-  border: 1px solid var(--border-lt);
-  border-radius: 0;
-  padding: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  z-index: 50;
-}
-.account-row {
-  display: flex; justify-content: space-between;
-  padding: 6px 4px;
-  font-size: 12px;
+.reflection-head {
+  display: flex; align-items: center; gap: 16px;
+  padding-bottom: 24px;
   border-bottom: 1px solid var(--border);
 }
-.account-row:last-of-type { border-bottom: 0; }
-.account-label {
-  color: var(--muted);
+.reflection-avatar {
+  width: 48px; height: 48px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 18px; font-weight: 500;
+  text-transform: uppercase;
+}
+.reflection-eyebrow {
   font-family: var(--font-mono);
   font-size: 10px;
+  letter-spacing: var(--tracking-wide);
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.reflection-email {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--heading);
+  letter-spacing: var(--tracking-mono);
+}
+.reflection-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.reflection-stat {
+  border: 1px solid var(--border-lt);
+  padding: 16px;
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.reflection-stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-wide);
+  color: var(--muted);
+}
+.reflection-stat-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--heading);
   letter-spacing: var(--tracking-mono);
   text-transform: uppercase;
 }
-.account-link, .account-signout {
+.reflection-actions {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.reflection-action {
   width: 100%;
-  margin-top: 8px;
-  padding: 8px;
+  padding: 14px 16px;
   background: transparent;
   color: var(--body);
   border: 1px solid var(--border-lt);
-  border-radius: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: var(--tracking-mono);
   text-transform: uppercase;
   cursor: pointer;
-  text-align: center;
+  text-align: left;
   transition: background var(--motion-fast) var(--ease-soft),
               border-color var(--motion-fast) var(--ease-soft),
               color var(--motion-fast) var(--ease-soft);
 }
-.account-link:hover { background: var(--hover); border-color: var(--red); color: var(--red); }
-.account-signout {
-  color: var(--red);
-  border-color: var(--red-darker);
+.reflection-action:hover {
+  background: var(--hover);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
-.account-signout:hover { background: var(--red); color: var(--bg); border-color: var(--red); }
-.account-signout:hover { background: var(--red-faint); }
+.reflection-action-danger { color: var(--red); border-color: var(--red-darker); }
+.reflection-action-danger:hover {
+  background: var(--red-faint);
+  border-color: var(--red);
+  color: var(--red);
+}
+.reflection-pwd-form {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.reflection-pwd-form[hidden] { display: none; }
+.reflection-pwd-form .cave-login-input { width: 100%; padding: 10px 12px; font-size: 13px; }
+.reflection-action[hidden] { display: none; }
 
 /* Billing modal (Phase D) */
 .billing-modal[hidden] { display: none !important; }
@@ -604,7 +601,7 @@ body::after {
 h1, h2, h3, h4, h5, h6,
 .htab, .btn-red, button.btn-red,
 .section-title, .panel-title, .stat-label, .badge, .chip,
-.account-email, .account-label,
+.reflection-eyebrow, .reflection-stat-label,
 .tab-label, .pill {
   font-family: var(--font-mono, 'DM Mono', ui-monospace, monospace);
   letter-spacing: var(--tracking-mono, 0.04em);
@@ -642,15 +639,22 @@ header {
   scrollbar-width: none; flex: 1; min-width: 0;
 }
 .header-tabs::-webkit-scrollbar { display: none; }
-/* Boxed nav pills (Unveil-style). Each tab is its own outlined rect;
-   active = brighter border + slight elevated background. */
-.header-tabs { gap: 8px; align-items: center; padding: 14px 0; }
+/* Unveil-style tall pills: each tab is its own outlined rect that runs
+   from the very top of the header to the bottom of the row, text aligned
+   to the bottom-left of the pill. Active = orange accent border + text. */
+.header-tabs { gap: 8px; align-items: stretch; padding: 0; }
+header { padding-left: 28px; padding-right: 28px; gap: 8px; align-items: stretch; }
 .htab {
   background: var(--card);
   border: 1px solid var(--border-lt);
   cursor: pointer;
-  padding: 8px 16px;
-  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 84px;
+  min-width: 150px;
+  padding: 12px 16px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
   font-family: var(--font-mono);
   font-size: 11px; font-weight: 400;
   letter-spacing: var(--tracking-mono);
@@ -661,28 +665,33 @@ header {
               background var(--motion-fast) var(--ease-soft);
   white-space: nowrap; flex-shrink: 0;
 }
+.htab-label { display: block; line-height: 1; }
 .htab:hover { color: var(--color-accent); border-color: var(--color-accent); }
 .htab.active {
   color: var(--color-accent);
   border-color: var(--color-accent);
   background: var(--elevated);
 }
-/* Brand pill (top-left) — wordmark + sizeable logo. Borderless by default
-   so the logo reads as the mark, not a tab. Orange accent on hover. */
+/* Brand pill: same tall shape as siblings, but the logo dominates inside
+   and the wordmark sits bottom-left under it. */
 .htab-brand {
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 14px;
   color: var(--heading);
-  font-weight: 600;
-  font-size: 16px;
-  background: transparent;
-  border-color: transparent;
-  padding-left: 4px; padding-right: 16px;
-  gap: 14px;
 }
-.htab-brand:hover { color: var(--color-accent); border-color: transparent; background: transparent; }
+.htab-brand:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.htab-brand .htab-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-mono);
+}
 .htab-brand-logo {
-  display: inline-block; vertical-align: middle;
-  width: 56px; height: 56px;
-  filter: drop-shadow(0 0 10px rgba(255,69,0,0.4));
+  display: block;
+  width: 48px; height: 48px;
+  filter: drop-shadow(0 0 8px rgba(255,69,0,0.4));
 }
 
 /* Bottom-right corner nav — OVERVIEW + INDEX.
@@ -1608,7 +1617,7 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 .clan-row, .clan-card,
 .snap-table, .insight-row,
 .forge-card, .stash-item, .stash-card,
-.account-menu, .account-btn, .account-link, .account-signout,
+.reflection-stat, .reflection-action, .reflection-pwd-form,
 .btn-red, .btn-outline, .input,
 .artist-panel, .billing-pack {
   border-radius: 2px;
