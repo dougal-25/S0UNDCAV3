@@ -1,5 +1,23 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-12] Forge text rework — Phase B (brand-bound caption templates)
+- **Why:** Doug runs the same shape of event night repeatedly. Phase A made one-shot generation good; Phase B makes the *next* generation faster by saving great captions against the current brand and loading them with one click. Eliminates the "copy/paste from last week's stash item" friction loop.
+- **Spec:** `wiki/spec/brand_templates_inline.md` (signed off in plan workflow). Locked: plain-text starters (no `{{placeholder}}` substitution); inline-only UI (no BRANDS-tab management surface); per-brand isolation (Sound Cave templates don't pollute Melomania, etc.); per-content-type filter so an event_promo template doesn't clutter the picker when you're writing a press release.
+- **Schema:** `db/0011_brand_kit_templates.sql` — `ALTER TABLE brand_kits ADD COLUMN templates jsonb NOT NULL DEFAULT '[]'::jsonb`. Each template = `{id, name, text, content_type?, created_at}`. No second table for v1.
+- **Backend (`content_api.py`):** one-line change — added `'templates'` to `BRAND_KIT_FIELDS` so the existing `PATCH /api/brand_kits/<id>` accepts the new field. No new endpoints needed.
+- **Frontend (`index.html` + `js/firepit.js`):**
+  - New Template row in the Forge input column, directly below Brand. Shows only when a brand is selected. Dropdown is content-type-filtered (templates tagged with the current content type + any general/untagged templates).
+  - "Save Template" button added to the Forge actions row alongside ENHANCE / SHORTER / LONGER / CHANGE TONE / REGENERATE. Prompts for a name (defaults to the Event field value), tags the template with the current content type, PATCHes the brand kit's templates array, refreshes the dropdown.
+  - Picking a template loads its text into the draft area. If a variant has been picked and edited, asks for confirm before clobbering.
+  - ⋯ "manage templates" button next to the picker → numbered prompt → pick a number to delete. v1 minimal management UI; no separate modal.
+  - Repopulation triggers: brand selector change, content type change, after `loadBrandKits()` resolves, after every save/delete.
+- **Reused, not rebuilt:** `_brandKits` in-memory cache (already populated by `loadBrandKits()`), `scAuth.authedFetch` JWT auth, the existing `PATCH /api/brand_kits/<id>` endpoint, the existing brand selector + content type wiring.
+- **Out of scope (deferred or rejected):** `{{event}}` / `{{artist}}` placeholder substitution (Phase C if requested); drag-to-reorder; shared templates across brands; templates section on BRANDS page (explicitly rejected — inline only).
+- **Not yet verified:** Doug needs to apply `db/0011_brand_kit_templates.sql` in Supabase, restart `content_api.py`, hard-reload the Firepit. Then: pick S0UNDCAV3 → see empty template row → generate or paste a draft → Save Template → reload → template appears in dropdown → pick it → text lands in draft. Per-brand isolation + per-content-type filter both need eyeballing.
+- **Files (new):** `wiki/spec/brand_templates_inline.md`, `db/0011_brand_kit_templates.sql`.
+- **Files (edited):** `content_api.py` (`BRAND_KIT_FIELDS` tuple), `index.html` (template row + Save Template button), `js/firepit.js` (~140 lines of template logic + DOMContentLoaded wiring).
+- **Next:** apply migration + verify end-to-end. If pattern proves out, placeholder substitution becomes a candidate Phase C.
+
 ## [2026-05-12] Clan tracking dashboard — Phase 1 (snapshot-driven deltas)
 - **Why:** cave dashboard read deltas from `allReports` (the weekly *scout* feed, which only contains an artist when scout surfaces them that week and dedupes one-track-per-artist) → headline showed `+0 THIS WEEK` permanently for every clan member. `data/snapshots/` was also empty: `clan_tracker.py` had never run here.
 - **Spec:** `wiki/spec/clan_tracking_dashboard.md` (Doug signed off three calls: ship without playlist-adds, seed via real tracker run, split into two phases).

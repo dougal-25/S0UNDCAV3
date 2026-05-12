@@ -797,7 +797,7 @@ BRAND_ASSET_ALLOWED_MIMES = {
     'application/octet-stream',  # browsers sometimes send fonts as this
 }
 
-BRAND_KIT_FIELDS = ('name', 'logo_url', 'display_font_url', 'body_font_url', 'palette', 'defaults')
+BRAND_KIT_FIELDS = ('name', 'logo_url', 'display_font_url', 'body_font_url', 'palette', 'defaults', 'templates')
 
 @app.route('/api/brand_kits', methods=['GET'])
 def brand_kits_list():

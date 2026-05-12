@@ -164,12 +164,164 @@ function populateBrandSelect() {
     sel.appendChild(opt);
   });
   if (previous && _brandKits.some(k => k.id === previous)) sel.value = previous;
+  // Refresh the template dropdown in case the loaded kits changed it.
+  populateTemplateSelect();
 }
 
 function _selectedBrandKit() {
   const sel = document.getElementById('forgeBrandSelect');
   if (!sel || !sel.value) return null;
   return _brandKits.find(k => k.id === sel.value) || null;
+}
+
+// ── Brand-bound caption templates (Phase B of Forge text rework) ──
+function _currentContentType() {
+  return document.getElementById('forgeContentType')?.value || '';
+}
+
+function _visibleTemplatesForCurrentContext() {
+  const brand = _selectedBrandKit();
+  if (!brand) return [];
+  const all = Array.isArray(brand.templates) ? brand.templates : [];
+  const ct = _currentContentType();
+  // Show templates tagged with current content type + any "general" (untagged) templates.
+  return all.filter(t => !t.content_type || t.content_type === ct);
+}
+
+function populateTemplateSelect() {
+  const row = document.getElementById('forgeTemplateRow');
+  const sel = document.getElementById('forgeTemplateSelect');
+  if (!row || !sel) return;
+  const brand = _selectedBrandKit();
+  if (!brand) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = '';
+  const visible = _visibleTemplatesForCurrentContext();
+  sel.replaceChildren();
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = visible.length ? '— No template —' : '— No templates saved yet —';
+  sel.appendChild(none);
+  if (!visible.length) {
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  visible.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.name;
+    sel.appendChild(opt);
+  });
+}
+
+async function _patchBrandTemplates(kitId, templates) {
+  const r = await scAuth.authedFetch(`${forgeApiUrl}/api/brand_kits/${kitId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ templates }),
+  });
+  if (!r.ok) throw new Error(`brand_kits PATCH ${r.status}`);
+  const j = await r.json();
+  if (j.kit) {
+    _brandKits = _brandKits.map(k => k.id === j.kit.id ? j.kit : k);
+  }
+  return j.kit;
+}
+
+async function saveDraftAsTemplate() {
+  const brand = _selectedBrandKit();
+  if (!brand) {
+    window.alert('Pick a brand first — templates are saved against the selected brand.');
+    return;
+  }
+  const ta = document.getElementById('forgeOutputText');
+  const text = (ta?.value || '').trim();
+  if (!text) {
+    window.alert('Nothing to save — generate or paste a draft first.');
+    return;
+  }
+  const ct = _currentContentType();
+  const suggested = (document.getElementById('forgeEvent')?.value || '').trim() || 'Untitled template';
+  const name = window.prompt('Template name:', suggested);
+  if (name == null) return;
+  const trimmed = name.trim().slice(0, 80);
+  if (!trimmed) { window.alert('Name cannot be empty.'); return; }
+  const next = (Array.isArray(brand.templates) ? brand.templates : []).concat([{
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name: trimmed,
+    text,
+    content_type: ct || null,
+    created_at: new Date().toISOString(),
+  }]);
+  try {
+    await _patchBrandTemplates(brand.id, next);
+    populateTemplateSelect();
+  } catch (e) {
+    console.error('saveDraftAsTemplate failed', e);
+    window.alert(`Save failed: ${e.message || e}`);
+  }
+}
+
+function _loadTemplateIntoDraft(template) {
+  if (!template) return;
+  const out = document.getElementById('forgeOutputArea');
+  let ta = document.getElementById('forgeOutputText');
+  // If a variant has been picked, confirm before clobbering edits.
+  if (ta && ta.value && ta.value !== _forgePickedSnapshot && ta.value.trim() !== '') {
+    if (!window.confirm('Replace the current draft with this template?')) return;
+  }
+  // If we were mid variant-picker (no textarea yet), drop the variant UI and render a fresh textarea.
+  if (!ta) {
+    out.replaceChildren();
+    ta = document.createElement('textarea');
+    ta.className = 'forge-output';
+    ta.id = 'forgeOutputText';
+    ta.addEventListener('input', () => {
+      forgeGeneratedContent = ta.value;
+      updateCharCount();
+    });
+    out.appendChild(ta);
+  }
+  ta.value = template.text || '';
+  forgeGeneratedContent = ta.value;
+  _forgeVariants = [];
+  _forgePickedIndex = null;
+  _forgePickedSnapshot = ta.value;
+  document.getElementById('forgeActions').style.display = 'block';
+  updateCharCount();
+}
+
+async function openManageTemplates() {
+  const brand = _selectedBrandKit();
+  if (!brand) return;
+  const templates = Array.isArray(brand.templates) ? brand.templates : [];
+  if (!templates.length) {
+    window.alert('No templates saved for this brand yet.');
+    return;
+  }
+  // v1: simple line-by-line prompt asking which to delete by number. No modal.
+  const lines = templates.map((t, i) => `${i + 1}. ${t.name}${t.content_type ? ` (${t.content_type})` : ''}`);
+  const choice = window.prompt(
+    `Templates for ${brand.name}:\n\n${lines.join('\n')}\n\nType a number to DELETE that template, or Cancel.`
+  );
+  if (choice == null) return;
+  const idx = Number(choice) - 1;
+  if (!Number.isInteger(idx) || idx < 0 || idx >= templates.length) {
+    window.alert('Invalid choice.');
+    return;
+  }
+  if (!window.confirm(`Delete "${templates[idx].name}"? This can't be undone.`)) return;
+  const next = templates.filter((_, i) => i !== idx);
+  try {
+    await _patchBrandTemplates(brand.id, next);
+    populateTemplateSelect();
+  } catch (e) {
+    console.error('delete template failed', e);
+    window.alert(`Delete failed: ${e.message || e}`);
+  }
 }
 
 function updateForgeFields() {
@@ -829,14 +981,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Re-apply brand kit when user changes the selector mid-flight
+  // Brand selector change → re-apply compositor brand AND repopulate the template dropdown.
   const brandSel = document.getElementById('forgeBrandSelect');
   if (brandSel) {
     brandSel.addEventListener('change', () => {
+      populateTemplateSelect();
       if (!_compositorActive || !window.scCompositor) return;
       const kit = _selectedBrandKit();
       if (kit) window.scCompositor.applyBrandKit(kit);
       else window.scCompositor.hide();
     });
+  }
+
+  // Content type change → templates filtered to that type, so repopulate.
+  const ctSel = document.getElementById('forgeContentType');
+  if (ctSel) {
+    ctSel.addEventListener('change', () => populateTemplateSelect());
+  }
+
+  // Template picker → load text into draft area.
+  const tplSel = document.getElementById('forgeTemplateSelect');
+  if (tplSel) {
+    tplSel.addEventListener('change', () => {
+      if (!tplSel.value) return;
+      const brand = _selectedBrandKit();
+      const tpl = (brand?.templates || []).find(t => t.id === tplSel.value);
+      _loadTemplateIntoDraft(tpl);
+      // Reset the selector so picking the same template again re-fires
+      tplSel.value = '';
+    });
+  }
+
+  // Manage templates (delete)
+  const manageBtn = document.getElementById('forgeManageTemplates');
+  if (manageBtn) {
+    manageBtn.addEventListener('click', openManageTemplates);
   }
 });

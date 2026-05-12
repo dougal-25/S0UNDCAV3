@@ -407,6 +407,17 @@
             </div>
           </div>
 
+          <!-- Brand-bound caption templates (Phase B of Forge text rework) -->
+          <div class="forge-input-group" id="forgeTemplateRow" style="display:none">
+            <label class="forge-label">Template</label>
+            <div class="forge-brand-selector">
+              <select class="input" id="forgeTemplateSelect">
+                <option value="">— No template —</option>
+              </select>
+              <button type="button" class="btn-outline" id="forgeManageTemplates" title="Manage templates for this brand">⋯</button>
+            </div>
+          </div>
+
           <div class="forge-input-group">
             <label class="forge-label">Content Type</label>
             <select class="input" id="forgeContentType" onchange="updateForgeFields()">
@@ -498,6 +509,7 @@
               <button class="btn-outline" type="button" onclick="generateVariation('shorter')">SHORTER</button>
               <button class="btn-outline" type="button" onclick="generateVariation('longer')">LONGER</button>
               <button class="btn-outline" type="button" onclick="generateVariation('tone')">CHANGE TONE</button>
+              <button class="btn-outline" type="button" id="btnSaveTemplate" onclick="saveDraftAsTemplate()" title="Save current draft as a template for the selected brand">SAVE TEMPLATE</button>
             </div>
             <div class="forge-actions" style="margin-top:8px">
               <button class="btn-red" type="button" onclick="copyForgeOutput()">COPY TEXT</button>
