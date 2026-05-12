@@ -3,7 +3,7 @@
 > Status: **Built (Phase 5 redesign).** Profile panel polish still outstanding.
 
 ## What it does
-Saved artist roster. Grid of cards with avatars; click into an artist profile with stats, follower/play sparklines, growth metrics, star/cut actions, and platform logos with hover-to-paste links.
+Saved artist roster. Grid of cards with avatars; click into an artist profile with stats, follower/play sparklines, growth metrics, star/cut actions, and a platform links section using inline brand SVG marks (mono in `--red` when linked, muted grey when not). Each row shows the linked URL or a `+ ADD LINK` CTA; click expands an inline editor. Platforms: Spotify, YouTube, Instagram, TikTok, Beatport, Bandcamp, Discogs. Source SoundCloud link sits at the top of the panel separately. Redesigned 2026-05-12 (was emoji glyphs in hover-to-paste pairs).
 
 `clan_tracker.py` runs daily and snapshots each tracked artist's stats into `data/snapshots/YYYY-MM-DD.json` so the sparklines have data.
 
