@@ -39,6 +39,7 @@ See [`kvs_studio.md`](./kvs_studio.md) for the canonical example.
 
 | Reference | Source | Captured | One-line hook |
 |---|---|---|---|
+| [Augen](./augen.md) | [augen.pro](https://augen.pro/) | 2026-05-08 | Apple-tier minimalism with cinematic GSAP+Lenis scroll choreography. Counterpoint to KVS — clinical/pro vs weird/dark. Full site mirror saved (504 files, 64MB). |
 | [KVS Studio](./kvs_studio.md) | [kvs.services](https://www.kvs.services/) | 2026-04-29 | CRT monitor + VHS tape + occult sigil, rendered in monospace. Black + white + single orange accent. The bar for "premium, weird, unmistakably *for music people*." |
 
 <!-- Add new entries above this line, newest first -->

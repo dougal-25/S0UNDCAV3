@@ -4,19 +4,34 @@
 let firepitMode = 'forge';
 let forgeGeneratedContent = '';
 let forgeGeneratedImageUrl = '';
-let forgeImageMode = false;
 let forgeApiUrl = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
+
+// Reference images uploaded for the current generation (base64 data URLs).
+let _forgeRefImages = [];
+const REF_IMAGES_MAX_COUNT = 5;
+const REF_IMAGES_MAX_BYTES = 5 * 1024 * 1024; // 5MB per image
+
+// Which content types should auto-generate an image alongside the text.
+const OUTPUT_MEDIA = {
+  social_post:     'image',
+  social_carousel: 'image',
+  social_short:    'image',
+  event_promo:     'image',
+  lineup_poster:   'image',
+  artist_bio:      'none',
+  press_release:   'none',
+};
 
 // Forge content types — slim set focused on Meta + TikTok + Reddit.
 // Captions are auto-generated inside the social types; no standalone "caption" type.
 const CONTENT_TYPES = {
-  social_post:     { label:'Post',                  icon:'📸', fields:['artist','freeform'], maxLength:2200 },
-  social_carousel: { label:'Carousel',              icon:'🗂️', fields:['artist','freeform'], maxLength:2200 },
-  social_short:    { label:'Short',                 icon:'🎬', fields:['artist','freeform'], maxLength:2200 },
-  event_promo:     { label:'Event Promotion',       icon:'🔥', fields:['event','artist','freeform'] },
-  lineup_poster:   { label:'Lineup Poster',         icon:'🎪', fields:['event','artist_list','freeform'] },
-  artist_bio:      { label:'Artist Spotlight / Bio', icon:'✨', fields:['artist','freeform'] },
-  press_release:   { label:'Press Release',         icon:'📰', fields:['artist','release','event','freeform'] },
+  social_post:     { label:'Post',                  icon:'', iconKey:'carousel',     fields:['artist','freeform'], maxLength:2200 },
+  social_carousel: { label:'Carousel',              icon:'', iconKey:'carousel',     fields:['artist','freeform'], maxLength:2200 },
+  social_short:    { label:'Short',                 icon:'', iconKey:'lineup',       fields:['artist','freeform'], maxLength:2200 },
+  event_promo:     { label:'Event Promotion',       icon:'', iconKey:'event_promo',  fields:['event','artist','freeform'] },
+  lineup_poster:   { label:'Lineup Poster',         icon:'', iconKey:'lineup',       fields:['event','artist_list','freeform'] },
+  artist_bio:      { label:'Artist Spotlight / Bio', icon:'', iconKey:'artist_bio',   fields:['artist','freeform'] },
+  press_release:   { label:'Press Release',         icon:'', iconKey:'press_release',fields:['artist','release','event','freeform'] },
 };
 
 // Stash storage moved from localStorage to Supabase via /api/stash backend proxy.
@@ -205,7 +220,8 @@ function gatherForgeContext() {
     if (el) ctx.release = el.value;
   }
   ctx.freeform = document.getElementById('forgeFreeform')?.value || '';
-  ctx.voice = document.getElementById('forgeVoice')?.value || 'default';
+  ctx.voice = document.getElementById('forgeVoice')?.value || 'underground';
+  if (_forgeRefImages.length) ctx.reference_images = _forgeRefImages.slice();
   return ctx;
 }
 
@@ -238,10 +254,11 @@ async function generateContent(variation) {
     actionsEl.style.display = 'block';
     updateCharCount();
     // Trigger image gen after text is ready (sequential — image prompt uses the text)
-    if (forgeImageMode) generateImage(ctx);
+    if (OUTPUT_MEDIA[ctx.content_type] === 'image') generateImage(ctx);
+    else document.getElementById('forgeImageArea').style.display = 'none';
   } catch(e) {
     outputArea.innerHTML = `<div class="forge-loading" style="border:1px dashed var(--border);border-radius:8px;flex-direction:column;gap:8px">
-      <span style="font-size:20px">⚠️</span>
+      <span style="font-family:var(--font-mono);color:var(--color-accent);font-weight:600">!</span>
       <span style="color:var(--red)">${e.message}</span>
       <span style="color:var(--muted);font-size:11px">Make sure content_api.py is running: <code>python content_api.py</code></span>
     </div>`;
@@ -257,11 +274,72 @@ function updateCreditsDisplay(n) {
 
 function generateVariation(type) { generateContent(type); }
 
-function toggleImageMode() {
-  forgeImageMode = !forgeImageMode;
-  const btn = document.getElementById('imageModeToggle');
-  btn.textContent = forgeImageMode ? '🖼️ Text + Image' : '📝 Text Only';
-  btn.classList.toggle('active', forgeImageMode);
+// ── Reference image upload ──────────────────────────────────
+function handleRefImagesChange(event) {
+  const errEl = document.getElementById('forgeRefImagesError');
+  errEl.style.display = 'none';
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+
+  if (_forgeRefImages.length + files.length > REF_IMAGES_MAX_COUNT) {
+    errEl.textContent = `Max ${REF_IMAGES_MAX_COUNT} images.`;
+    errEl.style.display = 'block';
+    event.target.value = '';
+    return;
+  }
+  const oversized = files.find(f => f.size > REF_IMAGES_MAX_BYTES);
+  if (oversized) {
+    errEl.textContent = `"${oversized.name}" is over 5MB.`;
+    errEl.style.display = 'block';
+    event.target.value = '';
+    return;
+  }
+  Promise.all(files.map(readFileAsDataURL))
+    .then(dataUrls => {
+      _forgeRefImages = _forgeRefImages.concat(dataUrls);
+      renderRefImageThumbs();
+      event.target.value = '';
+    })
+    .catch(err => {
+      errEl.textContent = `Read failed: ${err.message}`;
+      errEl.style.display = 'block';
+    });
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error || new Error('read error'));
+    r.readAsDataURL(file);
+  });
+}
+
+// Build thumbs via DOM methods (no innerHTML with dynamic content).
+function renderRefImageThumbs() {
+  const wrap = document.getElementById('forgeRefImagesPreview');
+  if (!wrap) return;
+  wrap.replaceChildren();
+  _forgeRefImages.forEach((src, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = `ref ${i + 1}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '×';
+    btn.setAttribute('aria-label', 'Remove');
+    btn.addEventListener('click', () => removeRefImage(i));
+    thumb.appendChild(img);
+    thumb.appendChild(btn);
+    wrap.appendChild(thumb);
+  });
+}
+
+function removeRefImage(i) {
+  _forgeRefImages.splice(i, 1);
+  renderRefImageThumbs();
 }
 
 async function generateImage(ctx) {
@@ -303,7 +381,7 @@ async function generateImage(ctx) {
     document.getElementById('btnDownloadImage').style.display = '';
   } catch(e) {
     imgArea.innerHTML = `<div class="forge-image-loading" style="flex-direction:column;gap:8px">
-      <span style="font-size:20px">⚠️</span>
+      <span style="font-family:var(--font-mono);color:var(--color-accent);font-weight:600">!</span>
       <span style="color:var(--red);font-size:12px">${e.message}</span>
       <span style="color:var(--muted);font-size:11px">Check FAL_KEY / REPLICATE_API_TOKEN in .env</span>
     </div>`;
@@ -382,7 +460,7 @@ function populateStashTypeFilter() {
   sel.innerHTML = '<option value="">All types</option>' +
     [...types].map(t => {
       const ct = CONTENT_TYPES[t];
-      return `<option value="${t}">${ct ? ct.icon + ' ' + ct.label : t}</option>`;
+      return `<option value="${t}">${ct ? ct.label : t}</option>`;
     }).join('');
   sel.value = existing;
 }
@@ -410,7 +488,7 @@ function renderStash() {
     return `<div class="stash-item">
       ${thumb}
       <div class="stash-info">
-        <div class="stash-type">${item.icon || '📝'} ${item.label || item.type}</div>
+        <div class="stash-type">${item.label || item.type}</div>
         <div class="stash-preview">${esc(preview)}</div>
         <div class="stash-date">${date}</div>
       </div>
@@ -470,3 +548,21 @@ async function deleteStashItem(id) {
     await scAuth.authedFetch(`${forgeApiUrl}/api/stash/${id}`, { method: 'DELETE' });
   } catch (e) { console.warn('stash delete failed', e); }
 }
+
+// ── Content-type picker (custom button grid) ──────────
+// Replaces the native <select> so we can render bespoke SVG icons
+// (browser <option> elements can't host SVGs). Hidden input keeps
+// the .value get/set API the rest of firepit.js depends on.
+document.addEventListener('DOMContentLoaded', () => {
+  const picker = document.getElementById('forgePicker');
+  if (!picker) return;
+  const hidden = document.getElementById('forgeContentType');
+  picker.querySelectorAll('.forge-picker-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      picker.querySelectorAll('.forge-picker-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      hidden.value = btn.dataset.value;
+      hidden.dispatchEvent(new Event('change'));
+    });
+  });
+});

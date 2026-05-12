@@ -1,5 +1,41 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-12] Cave dashboard redesign — diagonal stack hero
+- **Why:** The Cave is the first scene users land on. The old dashboard was a generic stat-grid; Doug wanted a visually pleasing centerpiece that says "this is a serious music tool", not a Bloomberg terminal.
+- **Reference:** Unveil Projects diagonal stacked-cards (3 screenshots shared in chat). Technique only — palette stays Sound Cave dark per the standing rule (memory: `feedback_soundcave_palette`).
+- **Hero:** Clan artists are arranged along a bottom-left → top-right diagonal. Front-most card = focused artist. Mouse-wheel / trackpad / arrow keys cycle the stack; hover lifts a non-focus card; click opens that artist's profile panel.
+- **Layout:** Four floating glass panels orbit the hero — Followers Gained (TL), Likes Gained (TR), Genre Mix (BL), New Drops (BR). Chart strip below the hero only renders when there are ≥2 weeks of historical data.
+- **Files:**
+  - new — `css/dashboard.css` (stack mechanic, glass panels, scanline + vignette overlays, responsive collapse <1024px and <720px)
+  - new — `wiki/spec/cave_dashboard_redesign.md` (spec + Doug sign-off)
+  - rewrite — `js/cave.js` (renderCave, applyStackOffsets via `--offset` / `--abs` CSS vars, wheel/keyboard wiring)
+  - edit — `index.html` (`#tab-cave` replaced; added `<link rel="stylesheet" href="css/dashboard.css">`)
+- **Verified:** Playwright screenshots at 1440×900 show front card focused, diagonal stack fanning behind, panels in corners, scroll cycle working (cycled to Carlos Manaça @ 21,793 followers and re-rendered cleanly). Legacy dashboard filter bar + export buttons removed (functions retained as no-ops for safety).
+- **Out of scope (next):** filter / Index secondary view, mobile diagonal animation polish.
+
+## [2026-05-12] Persistent sound toggle + real drone audio
+- **Why:** Doug toggled sound on the splash and heard nothing (the placeholder was a 55Hz sub-bass synth at 0.06 gain — physically inaudible on laptop speakers). Also, the toggle lived only on the splash, so after login there was no way to control audio.
+- **Audio file:** `audio/cave_drone.mp3` — Sci-Fi Drone Engine Loop by steaq (Freesound), converted from 619K WAV → 61K MP3 via ffmpeg.
+- **Two toggles, one state:** `#caveSoundToggle` (splash, existing) + `#appSoundToggle` (header, new) share `window.caveSound.toggle()` / `.set(on)`. Clicking either updates both visually.
+- **Routing:** `<audio>` → `MediaElementSource` → `AnalyserNode` → `GainNode` (target 0.35, fade-in 1.2s) → destination. AnalyserNode lets us read waveform.
+- **Logo pulse driven by audio:** `requestAnimationFrame` reads `getByteTimeDomainData`, computes RMS, mixes 70% slow 12s LFO breath + 30% audio RMS variation, low-passes to smooth, writes to `--cave-pulse`. Tested: pulse swings 0.12 → 0.81 over 12s, locked to the drone loop.
+- **Fallback:** if `audio/cave_drone.mp3` 404s, falls back to the original synthesised drone (gain bumped 0.06 → 0.18 so it's actually audible). If audio is off entirely, visual LFO keeps the logo breathing.
+- **No persistence:** browsers block autoplay without a user gesture, so persisting "ON" across reloads would be a silent lie. Each page load starts OFF; click once per session.
+- **Spec:** `wiki/spec/persistent_sound_toggle.md`.
+- **Files touched:** `index.html`, `css/style.css`, `js/cave_entrance.js`, `audio/cave_drone.mp3` (new), `wiki/spec/persistent_sound_toggle.md` (new), `wiki/log.md`.
+- **Verified in Playwright:** both toggles flip together, audio plays, pulse breathes in the expected range, no console errors beyond favicon 404.
+
+## [2026-05-11] Firepit Forge input redesign — voice presets, reference images, Output Mode killed
+- **Why:** Voice Profile was a dead stub (one decorative option the backend ignored). Output Mode toggle was redundant once content type implies media. Doug wants reference uploads so generated copy + imagery can mirror a sample style.
+- **Voice presets** (4): `underground`, `industry`, `hype`, `personal`. Each is a short addendum appended to base `SYSTEM_PROMPT` — base voice stays, register shifts.
+- **Reference Images:** 1–5 per generation, ≤5MB each, JPEG/PNG/WebP. Base64 data URLs from the browser → Anthropic image content blocks at `/api/generate` AND forwarded to `build_image_prompt` so the FLUX prompt mirrors the references' palette/composition.
+- **Output Mode toggle removed.** New `OUTPUT_MEDIA` map in `js/firepit.js` decides per content type whether to auto-fire `generateImage()` after text. text-only: `artist_bio`, `press_release`. text+image: everything else.
+- **Out of scope (separate plans):**
+  - **B.** Opus-Clips-style video clipper for `social_short` — upload long video → Whisper transcript + frame sampling → Claude clip selection → ffmpeg cuts → N short clips with captions. Multi-day build.
+  - **C.** Multi-image carousel — today Carousel produces 1 image like Post. Per-slide generation deferred.
+- **Files:** `index.html`, `css/style.css` (`.forge-ref-thumbs`/`.forge-ref-error` styles), `js/firepit.js` (OUTPUT_MEDIA, _forgeRefImages, handleRefImagesChange, render via DOM not innerHTML for XSS safety), `content_api.py` (VOICE_PROMPTS, `_system_prompt_for`, `_ref_images_to_blocks`, `/api/generate` wired), `media_gen.py` (`_ref_image_blocks` + `build_image_prompt` vision input), wiki.
+- **Security:** thumbnail rendering uses `createElement`+`replaceChildren` instead of `innerHTML` to satisfy the XSS-warning hook (base64 data URLs from FileReader are inherently safe but the safer pattern is cheap).
+
 ## [2026-05-11] Artist live stats — kill embedded-follower-count bug, add on-view refresh
 - **Why:** Doug spotted Carlos Manaça (signed to Magna Recordings, 21k followers) in Foraging despite the < 5k threshold. Root cause: SoundCloud's track-embedded `user.followers_count` is unreliable — stored as 7 in `data/2026-03-25.json`. The "suspicious → re-fetch" heuristic at `scout.py:163` (`followers < 500 AND plays > 5000`) missed him because plays were only 377. Backfill across the report showed **19 of 20 stored counts were wrong** — three other established artists (DJ S 11,830, dazegxd 15,812, plus several smaller errors) also slipped through.
 - **Tap 1 — scout-time fix (`scout.py`):** dropped the heuristic. `is_eligible()` now always calls `fetch_real_followers(user_id)` for tracks that pass the play/recency gate. Cost: ~50 extra API calls per weekly scout run — invisible.

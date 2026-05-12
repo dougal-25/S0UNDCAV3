@@ -68,7 +68,7 @@ function renderScheduledSearches() {
   const searches = getScheduledSearches();
   const el = document.getElementById('scheduledSearchList');
   if (!searches.length) {
-    el.innerHTML = `<div class="empty"><div class="ico">📅</div><p>No scheduled searches yet. Create one above.</p></div>`;
+    el.innerHTML = `<div class="empty"><p>No scheduled searches yet. Create one above.</p></div>`;
     return;
   }
   el.innerHTML = searches.map(s => `
@@ -83,8 +83,8 @@ function renderScheduledSearches() {
         </div>
       </div>
       <div style="display:flex;gap:6px">
-        <button class="btn-outline" style="padding:5px 10px;font-size:11px" onclick="toggleScheduledSearch('${s.id}')">${s.active ? '⏸ Pause' : '▶ Resume'}</button>
-        <button class="btn-outline" style="padding:5px 10px;font-size:11px;color:var(--muted)" onclick="deleteScheduledSearch('${s.id}')">🗑️</button>
+        <button class="btn-outline" style="padding:5px 10px;font-size:11px" onclick="toggleScheduledSearch('${s.id}')">${s.active ? 'PAUSE' : 'RESUME'}</button>
+        <button class="btn-outline" style="padding:5px 10px;font-size:11px;color:var(--muted)" onclick="deleteScheduledSearch('${s.id}')">DELETE</button>
       </div>
     </div>`).join('');
 }
@@ -93,7 +93,7 @@ function renderRunningSearches() {
   const searches = getScheduledSearches().filter(s => s.active);
   const el = document.getElementById('runningSearchList');
   if (!searches.length) {
-    el.innerHTML = `<div class="empty"><div class="ico">⚡</div><p>No active scheduled searches. Create and activate searches in the Scheduled tab.</p></div>`;
+    el.innerHTML = `<div class="empty"><p>No active scheduled searches. Create and activate searches in the Scheduled tab.</p></div>`;
     return;
   }
   el.innerHTML = `
@@ -103,7 +103,7 @@ function renderRunningSearches() {
     ${searches.map(s => `
       <div class="schedule-item">
         <div class="schedule-info">
-          <div class="schedule-name" style="color:var(--green)">⚡ ${esc(s.name)}</div>
+          <div class="schedule-name" style="color:var(--green)">${esc(s.name)}</div>
           <div class="schedule-details">
             ${s.genre ? esc(s.genre) : 'All genres'} · ${esc(s.frequency)} · Max ${s.limit}
             ${s.last_run ? ' · Last: '+s.last_run : ' · Not yet run'}
@@ -123,7 +123,7 @@ async function runLiveSearch() {
   const statusEl = document.getElementById('liveSearchStatus');
   statusEl.style.display = 'block';
   statusEl.innerHTML = `<div class="card" style="text-align:center;padding:30px;color:var(--secondary)">
-    <span>🔍 Searching SoundCloud<span class="dot">.</span><span class="dot" style="animation-delay:0.2s">.</span><span class="dot" style="animation-delay:0.4s">.</span></span>
+    <span>SEARCHING SOUNDCLOUD<span class="dot">.</span><span class="dot" style="animation-delay:0.2s">.</span><span class="dot" style="animation-delay:0.4s">.</span></span>
   </div>`;
 
   const apiUrl = localStorage.getItem('sc_api_url') || 'http://localhost:8000';
@@ -192,7 +192,7 @@ function renderForaging() {
 
   if (!allReports.length) {
     document.getElementById('foragingRotation').innerHTML = `
-      <div class="empty"><div class="ico">🏹</div><p>No reports yet. Run a live search above or run <code>scout.py</code> to generate the first weekly report.</p></div>`;
+      <div class="empty"><p>No reports yet. Run a live search above or run <code>scout.py</code> to generate the first weekly report.</p></div>`;
     document.getElementById('foragingPrevious').innerHTML = '';
     return;
   }

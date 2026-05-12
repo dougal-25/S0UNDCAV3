@@ -1,133 +1,286 @@
-/* ── Cave Entrance (unified splash + reveal) ─────────── */
+/* ── Cave Entrance (KVS×Augen redesign 2026-05-08) ────────
+   Spec: wiki/spec/splash_cave_entrance.md
+   CRT bezel + monospace + bracket microcopy + single accent.
+   Tokens live in tokens.css. Don't hardcode colors here.
+   ─────────────────────────────────────────────────────── */
 
-/* The cave mouth SVG shape — used as an inverted mask so the
-   dark "rock" surrounds an organic opening you peer through */
 .cave-entrance {
   position: fixed; inset: 0; z-index: 9999;
-  background: #1a1a1a;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
   pointer-events: auto;
   overflow: hidden;
 }
 .cave-entrance.hidden { display: none; }
 
-/* Inner layer that carries the mask and gets scaled up.
-   We animate transform (GPU-accelerated) instead of mask-size. */
+/* Cave mouth — irregular hole that scales open. Same trick as before:
+   the box-shadow IS the surrounding rock; transparent center is the hole. */
 .cave-entrance::before {
   content: '';
   position: absolute;
-  /* start centered, sized to cover viewport */
   top: 50%; left: 50%;
   width: 200vmax; height: 200vmax;
   transform: translate(-50%, -50%) scale(0);
   transform-origin: center;
-  /* Inverted mask trick: this is the "hole".
-     We use a radial with an irregular SVG shape via mask on the parent.
-     Instead, we make THIS element the hole — background transparent,
-     with a huge box-shadow that IS the dark rock. */
   border-radius: 45% 52% 48% 55% / 50% 45% 55% 48%;
   background: transparent;
-  box-shadow: 0 0 0 200vmax #1a1a1a;
-  transition: transform 2s cubic-bezier(0.16, 0.7, 0.3, 1);
+  box-shadow: 0 0 0 200vmax var(--color-bg);
+  transition: transform var(--motion-slow) var(--ease-cinematic);
+  z-index: 1;
 }
 
-/* Warm glow ring at the cave mouth edge */
-.cave-entrance::after {
+/* (Removed) Old elliptical rim glow — replaced by a triangle-hugging
+   drop-shadow halo on .logo-img--splash so illumination follows the
+   new 2026-05-11 mark's silhouette instead of an oval mouth ring. */
+
+/* CRT scanlines + grain + vignette layered above content via .cave-crt */
+.cave-crt {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.cave-crt::before {
+  /* scanlines */
   content: '';
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 45vmin; height: 50vmin;
-  transform: translate(-50%, -50%);
-  border-radius: 45% 52% 48% 55% / 50% 45% 55% 48%;
-  box-shadow:
-    0 0 40px 15px rgba(230,57,70,0.08),
-    0 0 80px 30px rgba(230,57,70,0.04);
-  opacity: 0;
-  transition: opacity 0.8s ease 0.3s;
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255, var(--scan-opacity)) 0 1px,
+    transparent 1px 3px
+  );
+  mix-blend-mode: overlay;
+}
+.cave-crt::after {
+  /* vignette */
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0,0,0, var(--vignette-strength)) 100%
+  );
+}
+.cave-grain {
+  /* film grain — animated translate via JS for natural shimmer */
+  position: absolute; inset: -10%;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  z-index: 4;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  animation: grainShift 1.6s steps(6) infinite;
+}
+@keyframes grainShift {
+  0%   { transform: translate(0, 0); }
+  20%  { transform: translate(-3%, 2%); }
+  40%  { transform: translate(2%, -2%); }
+  60%  { transform: translate(-2%, -3%); }
+  80%  { transform: translate(3%, 2%); }
+  100% { transform: translate(0, 0); }
 }
 
-/* Logo centered in the cave mouth */
+/* Sound toggle in top-right corner — KVS-style {bracket} chip */
+.cave-sound-toggle {
+  position: absolute;
+  top: var(--space-5); right: var(--space-5);
+  z-index: 6;
+  background: transparent;
+  border: 1px solid var(--color-faint);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-soft),
+              color var(--motion-fast) var(--ease-soft);
+}
+.cave-sound-toggle:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.cave-sound-toggle.is-on { color: var(--color-accent); border-color: var(--color-accent); }
+
+/* Persistent toggle in app shell header — same chip, smaller weight */
+.app-sound-toggle {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--color-faint);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-soft),
+              color var(--motion-fast) var(--ease-soft);
+}
+.app-sound-toggle:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.app-sound-toggle.is-on { color: var(--color-accent); border-color: var(--color-accent); }
+
+/* Bottom-left location/version stamp */
+.cave-stamp {
+  position: absolute;
+  bottom: var(--space-5); left: var(--space-5);
+  z-index: 6;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-mono);
+  color: var(--color-faint);
+  text-transform: uppercase;
+}
+
+/* Logo block centered in mouth */
 .cave-logo {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 2;
+  z-index: 5;
   text-align: center;
-  opacity: 0;
-  animation: caveLogoIn 0.6s ease 0.2s forwards;
+}
+.cave-entrance:not(.entering) .cave-logo { animation: caveLogoIn 0.6s ease 0.2s backwards; }
+/* New mark (2026-05-11): logo is a self-contained SVG on its own dark
+   ground. CRT scanlines + grain overlays sit on top of .cave-entrance,
+   so the grit is environmental — the mark itself stays crisp. */
+.logo-img { display: block; image-rendering: -webkit-optimize-contrast; }
+.logo-img--splash {
+  width: 400px; height: 400px;
+  max-width: 70vmin; height: auto;
+}
+
+/* Wrapper that hosts either the fallback <img> or the inlined <svg>.
+   Pulse halo + breathing live here so they apply regardless of which mounts. */
+.cave-logo-svg-mount {
+  display: block;
+  margin: 8px auto 0;
+  width: 400px; height: 400px;
+  max-width: 70vmin;
+  /* Pulse + dive both scale outward from the orange dot inside the mark.
+     SVG dot coords are 512/1024 × 553/1024 → 50% 54%. */
+  transform-origin: 50% 54%;
+  transform: scale(calc((1 + var(--cave-pulse, 0) * 0.04) * var(--dive-scale, 1)));
+  transition: transform 40ms linear;
+  filter:
+    drop-shadow(0 0 calc(14px + var(--cave-pulse, 0) * 14px) rgba(255, 69, 0, calc(0.55 + var(--cave-pulse, 0) * 0.25)))
+    drop-shadow(0 0 calc(36px + var(--cave-pulse, 0) * 24px) rgba(255, 69, 0, 0.30))
+    drop-shadow(0 0 80px rgba(255, 69, 0, 0.18));
+}
+.cave-logo-svg-mount > img,
+.cave-logo-svg-mount > svg {
+  display: block;
+  width: 100%; height: 100%;
+}
+
+/* Inlined SVG: per-path transitions so the entrance animation can swirl
+   each ribbon line independently around the central red dot. */
+.cave-logo-svg path {
+  transform-box: view-box;
+  transform-origin: 512px 553px;
+  transition: transform 3.5s cubic-bezier(.22, .9, .25, 1),
+              opacity 2s ease;
+  will-change: transform, opacity;
+}
+.logo-img--nav    { width: 44px;  height: 44px; }
+.logo-img--hero   { width: 260px; height: 260px; }
+.cave-logo-tag {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-mono);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  margin-top: var(--space-2);
 }
 .cave-logo-text {
-  font-family: 'DM Sans', system-ui, sans-serif;
-  font-weight: 700; font-size: 28px; letter-spacing: 0.15em;
-  color: #f5f5f5; text-transform: uppercase;
-  margin-top: 16px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 26px;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text);
+  text-transform: uppercase;
+  margin-top: -72px;
 }
-@keyframes caveLogoIn { to { opacity: 1; } }
+@keyframes caveLogoIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* Login form on splash (Phase B) */
+/* Login form */
 .cave-login {
-  margin-top: 24px;
+  margin-top: var(--space-5);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  opacity: 0;
-  animation: caveLoginIn 0.5s ease 0.5s forwards;
+  gap: var(--space-3);
+  animation: caveLoginIn 0.5s ease 0.5s backwards;
 }
-@keyframes caveLoginIn { to { opacity: 1; } }
+@keyframes caveLoginIn { from { opacity: 0; } to { opacity: 1; } }
+
 .cave-login-input {
   width: 280px;
   max-width: 80vw;
-  padding: 12px 14px;
-  border: 1px solid var(--border-lt);
+  padding: 11px 14px;
+  border: 1px solid var(--color-faint);
   background: rgba(0,0,0,0.35);
-  color: var(--heading);
-  font: inherit;
-  border-radius: 6px;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: var(--tracking-mono);
+  border-radius: 0; /* sharp edges, terminal feel */
   outline: none;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color var(--motion-fast) var(--ease-soft),
+              background var(--motion-fast) var(--ease-soft);
 }
+.cave-login-input::placeholder { color: var(--color-faint); text-transform: uppercase; font-size: 11px; }
 .cave-login-input:focus {
-  border-color: var(--red);
+  border-color: var(--color-accent);
   background: rgba(0,0,0,0.5);
 }
 .cave-login-input:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .cave-login-btn {
   width: 280px;
   max-width: 80vw;
-  padding: 11px 14px;
-  background: var(--red);
-  color: #fff;
-  border: 0;
-  border-radius: 6px;
-  font: inherit;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  padding: 12px 14px;
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--motion-fast) var(--ease-soft),
+              color var(--motion-fast) var(--ease-soft);
 }
-.cave-login-btn:hover:not(:disabled) { background: var(--red-dark); }
-.cave-login-btn:disabled { background: var(--red-darker); cursor: wait; }
+.cave-login-btn:hover:not(:disabled) { background: var(--color-accent); color: var(--color-bg); }
+.cave-login-btn:disabled { opacity: 0.6; cursor: wait; }
+
 .cave-login-msg {
   min-height: 18px;
-  font-size: 13px;
-  color: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tracking-mono);
+  color: var(--color-muted);
+  text-transform: uppercase;
   text-align: center;
   max-width: 320px;
 }
-.cave-login-msg.error { color: var(--red); }
-.cave-login-msg.success { color: var(--green); }
+.cave-login-msg.error   { color: var(--color-accent); }
+.cave-login-msg.success { color: var(--color-text); }
+
 .cave-login-toggle {
   background: transparent;
   border: 0;
-  color: var(--secondary);
-  font: inherit;
-  font-size: 12px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
   text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
 }
-.cave-login-toggle:hover { color: var(--heading); }
+.cave-login-toggle:hover { color: var(--color-text); }
 .account-pwd-form {
   display: flex; flex-direction: column; gap: 6px;
   padding: 8px 10px;
@@ -139,48 +292,61 @@
 .account-btn {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 10px;
-  background: var(--card);
+  background: transparent;
   border: 1px solid var(--border);
   color: var(--body);
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   font: inherit;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast) var(--ease-soft),
+              border-color var(--motion-fast) var(--ease-soft);
 }
-.account-btn:hover { background: var(--hover); border-color: var(--border-lt); }
+.account-btn:hover { background: var(--hover); border-color: var(--red); }
 .account-avatar {
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  background: var(--red);
-  color: #fff;
+  width: 24px; height: 24px;
+  border-radius: 0;                /* sharp edges, terminal feel */
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
   display: inline-flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 12px; text-transform: uppercase;
+  font-family: var(--font-mono);
+  font-weight: 500; font-size: 11px; text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
 }
 .account-email {
   max-width: 160px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tracking-mono);
+  color: var(--secondary);
 }
-.account-caret { font-size: 10px; color: var(--muted); }
+.account-caret { font-size: 9px; color: var(--muted); }
 .account-menu {
   position: absolute;
   top: calc(100% + 6px); right: 0;
   min-width: 220px;
   background: var(--elevated);
   border: 1px solid var(--border-lt);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   z-index: 50;
 }
 .account-row {
   display: flex; justify-content: space-between;
   padding: 6px 4px;
-  font-size: 13px;
+  font-size: 12px;
   border-bottom: 1px solid var(--border);
 }
 .account-row:last-of-type { border-bottom: 0; }
-.account-label { color: var(--muted); }
+.account-label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+}
 .account-link, .account-signout {
   width: 100%;
   margin-top: 8px;
@@ -188,16 +354,23 @@
   background: transparent;
   color: var(--body);
   border: 1px solid var(--border-lt);
-  border-radius: 6px;
-  font: inherit;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
   cursor: pointer;
   text-align: center;
+  transition: background var(--motion-fast) var(--ease-soft),
+              border-color var(--motion-fast) var(--ease-soft),
+              color var(--motion-fast) var(--ease-soft);
 }
-.account-link:hover { background: var(--hover); }
+.account-link:hover { background: var(--hover); border-color: var(--red); color: var(--red); }
 .account-signout {
   color: var(--red);
   border-color: var(--red-darker);
 }
+.account-signout:hover { background: var(--red); color: var(--bg); border-color: var(--red); }
 .account-signout:hover { background: var(--red-faint); }
 
 /* Billing modal (Phase D) */
@@ -218,7 +391,7 @@
   position: relative;
   background: var(--bg);
   border: 1px solid var(--border-lt);
-  border-radius: 12px;
+  border-radius: 2px;
   padding: 36px 32px 28px;
   max-width: 1080px;
   width: calc(100vw - 48px);
@@ -236,8 +409,20 @@
   cursor: pointer; border-radius: 50%;
 }
 .billing-close:hover { background: var(--card); color: var(--heading); }
-.billing-title { font-size: 24px; text-align: center; margin-bottom: 6px; color: var(--heading); }
-.billing-sub { text-align: center; color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+.billing-title {
+  font-family: var(--font-mono);
+  font-size: 18px; text-align: center; margin-bottom: 8px;
+  color: var(--heading);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.billing-sub {
+  text-align: center; color: var(--muted); margin-bottom: 24px; font-size: 12px;
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+}
 .billing-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -248,7 +433,7 @@
 .plan-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 22px 18px;
   position: relative;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
@@ -256,7 +441,7 @@
 .plan-card:hover {
   transform: translateY(-4px);
   border-color: var(--red);
-  box-shadow: 0 8px 28px rgba(230, 57, 70, 0.18);
+  box-shadow: 0 8px 28px rgba(255, 69, 0, 0.18);
 }
 .plan-card.highlighted {
   border-color: var(--red-dark);
@@ -306,58 +491,131 @@
 .billing-note { margin-top: 14px; font-size: 12px; color: var(--muted); text-align: center; }
 .billing-note.error { color: var(--red); }
 
-/* Phase 1: small cave mouth visible — you're looking at the entrance */
+/* Phase 1 — mouth-open: small cave mouth visible behind the logo */
 .cave-entrance.mouth-open::before {
   transform: translate(-50%, -50%) scale(0.12);
 }
-.cave-entrance.mouth-open::after {
-  opacity: 1;
-}
+.cave-entrance.mouth-open::after { opacity: 1; }
 
-/* Phase 2: entering — logo fades, cave opens fully around you */
-.cave-entrance.entering .cave-logo {
-  animation: caveLogoOut 0.5s ease forwards;
-}
-.cave-entrance.entering::before {
-  transform: translate(-50%, -50%) scale(1);
-}
-.cave-entrance.entering::after {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
+/* Phase 2 — entering: logo fades, cave opens fully around the user.
+   Shorter than before (1.4s vs 2s) — Augen-tier restraint.            */
+.cave-entrance.entering .cave-logo  { animation: caveLogoOut 0.5s ease forwards; }
+.cave-entrance.entering .cave-crt,
+.cave-entrance.entering .cave-grain { opacity: 0; transition: opacity 0.7s ease; }
+.cave-entrance.entering::before     { transform: translate(-50%, -50%) scale(1); }
+.cave-entrance.entering::after      { opacity: 0; transition: opacity 0.6s ease; }
 
 @keyframes caveLogoOut { to { opacity: 0; transform: translate(-50%, -50%) scale(0.95); } }
 
-/* Subtle depth zoom on the page content as you enter */
+/* Scroll-driven dive — scrolling on the re-shown splash zooms through the
+   logo as if entering it. Driven by --dive-scale (1 → 8) and
+   --dive-progress (0 → 1) set from JS. No transition: the JS frame loop
+   is what gives it physical scroll-locked motion. */
+.cave-entrance.diving .cave-logo {
+  animation: none;
+  transform: translate(-50%, -50%);
+  opacity: calc(1 - var(--dive-progress, 0) * 0.6);
+  will-change: opacity;
+}
+/* Brand text fades faster than the logo so the dot leads the dive */
+.cave-entrance.diving .cave-logo-text {
+  opacity: calc(1 - var(--dive-progress, 0) * 1.5);
+}
+.cave-entrance.diving .cave-stamp,
+.cave-entrance.diving .cave-sound-toggle {
+  opacity: calc(1 - var(--dive-progress, 0));
+}
+
+/* Re-show from brand pill — strip everything down to logo + wordmark.
+   No login form, no sound toggle, no stamp, no headphones tag. The
+   app-shell sound toggle stays accessible after dismiss anyway. */
+.cave-entrance.revisit .cave-stamp,
+.cave-entrance.revisit .cave-sound-toggle,
+.cave-entrance.revisit .cave-logo-tag,
+.cave-entrance.revisit .cave-login { display: none !important; }
+
+/* App-wrap reveal — depth zoom + halftone resolve.
+   The halftone overlay is a pseudo-element on .app-wrap that we fade out
+   while the cave mouth is opening. */
 .app-wrap {
+  position: relative;
   transform: scale(0.94);
   transform-origin: 50% 45%;
-  transition: transform 2s cubic-bezier(0.16, 0.7, 0.3, 1);
+  transition: transform var(--motion-slow) var(--ease-cinematic);
 }
-.app-wrap.revealed {
-  transform: scale(1);
+.app-wrap::before {
+  /* halftone dot-screen overlay — fades during reveal, leaves clean pixels */
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9000;
+  background-image: radial-gradient(circle, rgba(0,0,0,0.85) 1px, transparent 1.6px);
+  background-size: 4px 4px;
+  opacity: 0;
+  transition: opacity var(--motion-resolve) linear;
 }
+.app-wrap.halftoning::before { opacity: 1; }
+.app-wrap.revealed { transform: scale(1); }
+.app-wrap.revealed::before { opacity: 0; }
 
 /* ── Reset & Variables ────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --bg:         #4a4a4a;
-  --card:       #545454;
-  --elevated:   #5e5e5e;
-  --hover:      #666666;
-  --border:     #3a3a3a;
-  --border-lt:  #6e6e6e;
-  --red:        #e63946;
-  --red-dark:   #c1121f;
-  --red-darker: #a4161a;
-  --red-faint:  rgba(230,57,70,0.15);
+  /* App palette — lifted 2026-05-08 to KVS-aligned near-black + single orange accent.
+     Slightly warmer than the pure-black splash (#0a0a0a) for ambient comfort during
+     long-form data reading. Existing --red/--red-dark names kept so JS-set colours
+     (avatars, error states) auto-update without touching JS. */
+  --bg:         #0f0d0c;     /* near-black, faint warmth */
+  --card:       #161312;
+  --elevated:   #1d1916;
+  --hover:      #26201d;
+  --border:     #2a2421;
+  --border-lt:  #3a342f;
+  /* "red" is now the KVS orange-red — single accent across the app. */
+  --red:        #ff4500;
+  --red-dark:   #e63d00;
+  --red-darker: #aa2a00;
+  --red-faint:  rgba(255,69,0,0.15);
   --heading:    #f5f5f5;
-  --body:       #e8e8e8;
+  --body:       #e0dcd9;     /* slightly warm off-white for legibility */
   --secondary:  #aaaaaa;
-  --muted:      #888888;
+  --muted:      #777777;
   --green:      #00c896;
 }
-body { background: var(--bg); color: var(--body); font-family: 'DM Sans', system-ui, sans-serif; min-height: 100vh; }
+body {
+  background: var(--bg);
+  color: var(--body);
+  font-family: var(--font-body, 'DM Sans', system-ui, sans-serif);
+  min-height: 100vh;
+  position: relative;
+}
+/* Very subtle film grain over the app — much lighter than the splash.
+   2.5% opacity is enough texture to feel non-flat without distracting. */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 8500;
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+/* Display type — mono only for headings, labels, buttons. Body data stays sans for legibility. */
+h1, h2, h3, h4, h5, h6,
+.htab, .btn-red, button.btn-red,
+.section-title, .panel-title, .stat-label, .badge, .chip,
+.account-email, .account-label,
+.tab-label, .pill {
+  font-family: var(--font-mono, 'DM Mono', ui-monospace, monospace);
+  letter-spacing: var(--tracking-mono, 0.04em);
+}
+/* Small uppercase utility for section labels */
+.eyebrow, .stat-label {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide, 0.18em);
+  font-size: 11px;
+  color: var(--muted);
+}
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--card); }
 ::-webkit-scrollbar-thumb { background: var(--border-lt); border-radius: 3px; }
@@ -368,69 +626,253 @@ a:hover { text-decoration: underline; }
 /* ── Header ───────────────────────────────────────────── */
 header {
   position: sticky; top: 0; z-index: 200;
-  background: rgba(74,74,74,0.95); backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-  padding: 0 28px; height: 56px;
+  background: rgba(15,13,12,0.92); backdrop-filter: blur(10px);
+  padding: 0 28px;
   display: flex; align-items: center;
 }
 .logo { display: flex; align-items: center; gap: 10px; margin-right: 36px; flex-shrink: 0; }
 .logo-text {
-  font-weight: 700; font-size: 15px; letter-spacing: 0.15em;
+  font-family: var(--font-mono);
+  font-weight: 500; font-size: 13px; letter-spacing: var(--tracking-wide);
   color: var(--heading); text-transform: uppercase;
 }
 .header-tabs {
-  display: flex; gap: 4px;
+  display: flex; gap: 2px;
   overflow-x: auto; -webkit-overflow-scrolling: touch;
   scrollbar-width: none; flex: 1; min-width: 0;
 }
 .header-tabs::-webkit-scrollbar { display: none; }
+/* Boxed nav pills (Unveil-style). Each tab is its own outlined rect;
+   active = brighter border + slight elevated background. */
+.header-tabs { gap: 8px; align-items: center; padding: 14px 0; }
 .htab {
-  background: none; border: none; cursor: pointer;
-  padding: 0 14px; height: 56px;
-  display: flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 400;
+  background: var(--card);
+  border: 1px solid var(--border-lt);
+  cursor: pointer;
+  padding: 8px 16px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 400;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
   color: var(--secondary);
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
+  transition: color var(--motion-fast) var(--ease-soft),
+              border-color var(--motion-fast) var(--ease-soft),
+              background var(--motion-fast) var(--ease-soft);
   white-space: nowrap; flex-shrink: 0;
 }
-.htab:hover { color: var(--body); }
-.htab.active { color: var(--red); font-weight: 600; border-bottom-color: var(--red); }
-.htab .count {
-  background: var(--elevated); font-size: 10px; padding: 1px 6px;
-  border-radius: 10px; margin-left: 2px;
+.htab:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.htab.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--elevated);
 }
+/* Brand pill (top-left) — wordmark + sizeable logo. Borderless by default
+   so the logo reads as the mark, not a tab. Orange accent on hover. */
+.htab-brand {
+  color: var(--heading);
+  font-weight: 600;
+  font-size: 16px;
+  background: transparent;
+  border-color: transparent;
+  padding-left: 4px; padding-right: 16px;
+  gap: 14px;
+}
+.htab-brand:hover { color: var(--color-accent); border-color: transparent; background: transparent; }
+.htab-brand-logo {
+  display: inline-block; vertical-align: middle;
+  width: 56px; height: 56px;
+  filter: drop-shadow(0 0 10px rgba(255,69,0,0.4));
+}
+
+/* Bottom-right corner nav — OVERVIEW + INDEX.
+   Fixed to viewport so the artist-panel transform doesn't re-anchor it. */
+.corner-nav {
+  position: fixed;
+  bottom: var(--space-5);
+  right: var(--space-5);
+  z-index: 50;
+  display: flex;
+  gap: var(--space-4);
+}
+.corner-link {
+  background: var(--card);
+  border: 1px solid var(--border-lt);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 400;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--secondary);
+  padding: 7px 14px;
+  transition: color var(--motion-fast) var(--ease-soft),
+              border-color var(--motion-fast) var(--ease-soft),
+              background var(--motion-fast) var(--ease-soft);
+}
+.corner-link:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.corner-link.active { color: var(--color-accent); border-color: var(--color-accent); background: var(--elevated); }
+
+/* ── Bespoke inline-SVG icon set (js/icons.js) ─────────
+   Default: 16×16 in current text colour. .term-ico bumps size
+   and tints orange for the Home/Overview terminology grid. */
+.sc-icon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; flex-shrink: 0; }
+.term-ico { color: var(--color-accent); display: inline-flex; margin-bottom: 8px; }
+.term-ico .sc-icon { width: 22px; height: 22px; }
+.firepit-mode .sc-icon,
+.btn-outline .sc-icon,
+.btn-red .sc-icon { margin-right: 6px; }
+select.sc-iconified { /* future: native <select> can't render SVGs in options — handled via dropdown rewrite if needed */ }
+
+/* ════════════════════════════════════════════════════════
+   PHASE 3 — Global mono + UPPERCASE.
+   Everything in the app reads as UI text: mono font, caps, slight
+   tracking. Exempted below: Firepit writing surfaces (user prompts
+   + AI output) so creative copy reads in natural sentence case.
+   ════════════════════════════════════════════════════════ */
+html, body {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-mono);
+  font-size: 12px;                /* baseline — most UI text reads from this */
+}
+body { text-transform: uppercase; }
+
+/* Code / preformatted: keep readable as-typed. */
+code, pre, kbd, samp { text-transform: none; letter-spacing: normal; }
+
+/* Firepit OUTPUT only — natural sentence case, body sans.
+   User-typed inputs follow the global mono+uppercase rule (visual only —
+   actual stored text retains the case the user typed). */
+#forgeOutputArea, #forgeOutputArea *,
+#forgeImageArea, #forgeImageArea *,
+.forge-output, .forge-output *,
+.stash-card .stash-content,
+.stash-card .stash-text {
+  font-family: var(--font-body);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Native <select> shows option text in OS font by default. Force mono+caps
+   so artist names render consistently with the rest of the UI. */
+select, select option {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+}
+
+/* ════════════════════════════════════════════════════════
+   Typographic scale — everything trends toward the 12–14px
+   subtitle baseline. Big inline heights from the old design
+   are normalised here so the page reads consistently.
+   ════════════════════════════════════════════════════════ */
+.container h1 { font-size: 16px; font-weight: 600; letter-spacing: var(--tracking-mono); }
+.container h2 { font-size: 13px; font-weight: 600; letter-spacing: var(--tracking-mono); }
+.container h3 { font-size: 12px; font-weight: 600; letter-spacing: var(--tracking-mono); }
+
+/* Override inline font-size on legacy h1/h2 (cheap shim — beats hunting
+   down every inline style). Stat values stay slightly larger for legibility. */
+.container h1[style], .container h2[style] { font-size: 14px !important; }
+.stat-value { font-size: 18px; }
+.summary-card .stat-value { font-size: 14px; }
+.plan-price { font-size: 22px; }
+.artist-tile-name, .clan-card-name, .forage-name, .track-drop-title { font-size: 12px; }
+.plan-name, .panel-name { font-size: 14px; }
+.empty p, .panel-stat-val { font-size: 12px; }
+.trend-arrow, .action-btn .icon, .insight-icon, .fp-ico { font-size: 12px; }
+.stash-type { font-size: 11px; }
+/* Forge form-label baseline — was already mono 11px; keep it */
+.forge-label, .section-label { font-size: 11px; }
+
+/* Overview page — every inline-styled p shrinks to the subtitle baseline. */
+#tab-home p[style], #tab-home p { font-size: 11px !important; line-height: 1.6 !important; }
+#tab-home .home-step-num { width: 22px; height: 22px; font-size: 11px; }
+#tab-home .home-step h4 { font-size: 12px; }
+#tab-home .home-step p, #tab-home .home-step div:not(.home-step-num) { font-size: 11px; }
+#tab-home .card-elevated > div[style*="font-size"] { font-size: 12px !important; }
+
+/* INDEX page typography */
+.index-list { list-style: none; padding: 0; margin: 0; }
+.index-list li {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 24px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-lt);
+  align-items: baseline;
+}
+.index-list li:last-child { border-bottom: 1px solid var(--border-lt); }
+.index-key {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: var(--tracking-mono);
+  color: var(--heading);
+}
+.index-val {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--secondary);
+}
+.htab .count {
+  background: transparent;
+  border: 1px solid var(--border-lt);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px; padding: 1px 5px;
+  border-radius: 0;
+  margin-left: 4px;
+  letter-spacing: var(--tracking-mono);
+}
+.htab.active .count { border-color: var(--red); color: var(--red); }
 .htab .count:empty { display: none; }
 
 /* ── Layout ────────────────────────────────────────────── */
 .container { max-width: 1200px; margin: 0 auto; padding: 28px; }
-.section-title { font-size: 14px; font-weight: 600; color: var(--heading); margin: 0 0 14px; }
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 12px; font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--heading);
+  margin: 0 0 14px;
+}
 .subtitle { font-size: 13px; color: var(--secondary); margin: 4px 0 0; }
 
-/* ── Cards & Surfaces ──────────────────────────────────── */
+/* ── Cards & Surfaces — sharper edges, mono labels ─────── */
 .card {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; padding: 18px 20px;
+  border-radius: 2px; padding: 18px 20px;
 }
 .card-elevated {
   background: var(--elevated); border: 1px solid var(--border);
-  border-radius: 6px; padding: 12px 14px;
+  border-radius: 2px; padding: 12px 14px;
 }
 
 /* ── Stat Cards Row ────────────────────────────────────── */
 .stats-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
 .stat-card {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; padding: 18px 20px; flex: 1; min-width: 140px;
+  border-radius: 2px; padding: 18px 20px; flex: 1; min-width: 140px;
+  position: relative;
+}
+.stat-card::before {
+  /* corner-tick — KVS-style chrome */
+  content: '';
+  position: absolute; top: -1px; left: -1px;
+  width: 8px; height: 8px;
+  border-top: 1px solid var(--red);
+  border-left: 1px solid var(--red);
 }
 .stat-label {
-  font-size: 10px; letter-spacing: 0.1em; color: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: var(--tracking-wide);
+  color: var(--muted);
   text-transform: uppercase; margin-bottom: 10px;
 }
 .stat-row { display: flex; justify-content: space-between; align-items: flex-end; }
 .stat-value {
-  font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 600;
+  font-family: var(--font-mono); font-size: 28px; font-weight: 500;
   color: var(--heading); line-height: 1;
+  letter-spacing: var(--tracking-mono);
 }
 .stat-value.red { color: var(--red); }
 .stat-trend { font-size: 12px; margin-top: 6px; }
@@ -651,30 +1093,48 @@ header {
 .insight-name { font-size: 13px; color: var(--body); font-weight: 500; }
 .insight-detail { font-size: 11px; margin-top: 1px; }
 
-/* ── Form Elements ─────────────────────────────────────── */
+/* ── Form Elements — sharp edges, accent on focus ──────── */
 .input {
-  background: var(--elevated); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--body); padding: 8px 12px; font-size: 13px; outline: none;
-  width: 100%; box-sizing: border-box; transition: border-color 0.15s;
+  background: var(--elevated); border: 1px solid var(--border); border-radius: 2px;
+  color: var(--body); padding: 7px 10px; font-size: 11px; outline: none;
+  width: 100%; box-sizing: border-box;
+  transition: border-color var(--motion-fast) var(--ease-soft);
 }
-.input:focus { border-color: var(--red); }
+.input:focus { border-color: var(--color-accent); }
 .input::placeholder { color: var(--muted); }
-.input-sm { padding: 7px 10px; font-size: 12px; }
+.input-sm { padding: 6px 8px; font-size: 11px; }
 select.input { cursor: pointer; }
 textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
+
+/* Buttons — outlined accent-only, mono uppercase, sharp edges. */
 .btn-red {
-  background: var(--red); color: #fff; border: none; border-radius: 6px;
-  padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: background 0.15s;
+  background: transparent; color: var(--red);
+  border: 1px solid var(--red); border-radius: 2px;
+  padding: 9px 22px;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-soft),
+              color var(--motion-fast) var(--ease-soft);
 }
-.btn-red:hover { background: var(--red-dark); }
+.btn-red:hover { background: var(--red); color: var(--bg); }
+.btn-red:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-outline {
-  background: var(--elevated); border: 1px solid var(--border); color: var(--secondary);
-  border-radius: 6px; padding: 8px 16px; font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
+  background: transparent; border: 1px solid var(--border-lt); color: var(--secondary);
+  border-radius: 2px; padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-soft),
+              color var(--motion-fast) var(--ease-soft),
+              background var(--motion-fast) var(--ease-soft);
 }
 .btn-outline:hover { border-color: var(--red); color: var(--red); }
-.btn-outline.active { background: var(--red); border-color: var(--red); color: #fff; }
+.btn-outline.active { background: var(--red); border-color: var(--red); color: var(--bg); }
 
 /* ── Artist Detail Panel (slide-out) ───────────────────── */
 .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 300; display: none; }
@@ -744,11 +1204,41 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 /* ── Firepit Tab ──────────────────────────────────────── */
 .firepit-modes { display: flex; gap: 8px; margin-bottom: 24px; }
 .firepit-mode {
-  padding: 7px 18px; border-radius: 6px; font-size: 12px; font-weight: 600;
-  cursor: pointer; border: 1px solid var(--border); background: var(--elevated);
+  padding: 7px 14px; font-size: 11px; font-weight: 400;
+  font-family: var(--font-mono); letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  cursor: pointer; border: 1px solid var(--border-lt); background: var(--card);
   color: var(--secondary); transition: all 0.15s;
 }
-.firepit-mode.active { background: var(--red); color: #fff; border-color: var(--red); }
+.firepit-mode:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.firepit-mode.active { background: var(--elevated); color: var(--color-accent); border-color: var(--color-accent); }
+
+/* Content-type picker — custom button grid replacing the native <select>
+   so each option can host a bespoke SVG icon. */
+.forge-picker { display: flex; flex-direction: column; gap: 14px; }
+.forge-picker-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.forge-picker-group::before {
+  content: attr(data-label);
+  display: block; width: 100%;
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: var(--tracking-mono);
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 2px;
+}
+.forge-picker-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 400;
+  letter-spacing: var(--tracking-mono); text-transform: uppercase;
+  color: var(--secondary);
+  background: var(--card);
+  border: 1px solid var(--border-lt);
+  transition: all 0.15s;
+}
+.forge-picker-btn:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.forge-picker-btn.active { color: var(--color-accent); border-color: var(--color-accent); background: var(--elevated); }
+.forge-picker-ico { color: var(--color-accent); display: inline-flex; }
+.forge-picker-ico .sc-icon { width: 18px; height: 18px; }
 
 .forge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .forge-input-group { margin-bottom: 14px; }
@@ -777,16 +1267,32 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 .forge-loading .dot { animation: pulse 1.2s infinite; }
 @keyframes pulse { 0%,80%,100% { opacity: 0.3; } 40% { opacity: 1; } }
 
+/* ── Reference image upload ────────────────────────────── */
+.forge-ref-thumbs {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 8px;
+}
+.forge-ref-thumbs .thumb {
+  position: relative; width: 64px; height: 64px;
+  border: 1px solid var(--border); border-radius: 4px;
+  overflow: hidden; background: var(--elevated);
+}
+.forge-ref-thumbs .thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.forge-ref-thumbs .thumb button {
+  position: absolute; top: 2px; right: 2px;
+  width: 18px; height: 18px; border: none; border-radius: 50%;
+  background: rgba(0,0,0,0.7); color: #fff;
+  font-size: 12px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.forge-ref-error {
+  margin-top: 6px; font-size: 11px; color: var(--red);
+  font-family: 'DM Mono', monospace;
+}
+
 /* ── Image generation ──────────────────────────────────── */
-.forge-mode-toggle {
-  font-size: 11px; padding: 4px 12px; border-radius: 4px;
-  border: 1px solid var(--border); background: var(--elevated);
-  color: var(--secondary); cursor: pointer; transition: all 0.15s;
-}
-.forge-mode-toggle:hover { border-color: var(--border-lt); }
-.forge-mode-toggle.active {
-  background: var(--red-faint); border-color: var(--red); color: var(--red);
-}
 .forge-image-area { margin-top: 12px; }
 .forge-image-preview {
   width: 100%; max-height: 420px; object-fit: contain;
@@ -871,12 +1377,14 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 }
 .cave-subtab {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 500;
-  cursor: pointer; border: 1px solid var(--border); background: var(--card);
+  padding: 7px 14px; font-size: 11px; font-weight: 400;
+  font-family: var(--font-mono); letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  cursor: pointer; border: 1px solid var(--border-lt); background: var(--card);
   color: var(--secondary); transition: all 0.15s;
 }
-.cave-subtab:hover { color: var(--body); border-color: var(--secondary); }
-.cave-subtab.active { background: var(--red); color: #fff; border-color: var(--red); font-weight: 600; }
+.cave-subtab:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.cave-subtab.active { background: var(--elevated); color: var(--color-accent); border-color: var(--color-accent); }
 .cave-subtab .count {
   background: rgba(255,255,255,0.25); color: #fff; padding: 1px 7px;
   border-radius: 10px; font-size: 10px; font-weight: 700;
@@ -889,11 +1397,14 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 /* ── Foraging Sub-tabs ─────────────────────────────────── */
 .forage-tabs { display: flex; gap: 4px; margin-bottom: 20px; }
 .forage-tab {
-  padding: 8px 18px; border-radius: 6px; font-size: 12px; font-weight: 600;
-  cursor: pointer; border: 1px solid var(--border); background: var(--elevated);
+  padding: 7px 14px; font-size: 11px; font-weight: 400;
+  font-family: var(--font-mono); letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  cursor: pointer; border: 1px solid var(--border-lt); background: var(--card);
   color: var(--secondary); transition: all 0.15s;
 }
-.forage-tab.active { background: var(--red); color: #fff; border-color: var(--red); }
+.forage-tab:hover { color: var(--color-accent); border-color: var(--color-accent); }
+.forage-tab.active { background: var(--elevated); color: var(--color-accent); border-color: var(--color-accent); }
 .forage-search-form {
   background: var(--card); border: 1px solid var(--border); border-radius: 8px;
   padding: 18px; margin-bottom: 20px;
@@ -1081,3 +1592,91 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
   .snap-table { font-size: 10pt; }
   .snap-table th, .snap-table td { padding: 4px 6px; border: 1px solid #ddd; }
 }
+
+/* ─────────────────────────────────────────────────────────
+   APP-WIDE REDESIGN OVERRIDES — added 2026-05-08
+   Sweeping pattern fixes that keep every tab consistent with
+   the splash's KVS-aligned skin without surgical edits.
+   Each rule is intentionally low-specificity so individual
+   components can override if a layout breaks.
+   ───────────────────────────────────────────────────────── */
+
+/* Sharpen rounded chrome — KVS terminal feel.
+   Excludes: avatars (50%), pills/chips that are intentionally rounded. */
+.card, .card-elevated, .stat-card,
+.filter-panel, .filter-toggle,
+.clan-row, .clan-card,
+.snap-table, .insight-row,
+.forge-card, .stash-item, .stash-card,
+.account-menu, .account-btn, .account-link, .account-signout,
+.btn-red, .btn-outline, .input,
+.artist-panel, .billing-pack {
+  border-radius: 2px;
+}
+
+/* Section titles + headings — mono everywhere */
+.section-title, h1, h2, h3, h4 {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+h1 { font-size: 18px; }
+h2 { font-size: 15px; }
+h3 { font-size: 13px; }
+h4 { font-size: 12px; }
+
+/* Pills/badges/chips — mono micro-treatment */
+.pill, .badge, .chip, .stash-status, .insight-detail,
+.htab .count, .panel-stat-label, .panel-genre,
+.summary-suffix, .stat-trend {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+/* Filter panels — flat, no chunky background */
+.filter-panel { background: var(--card); border: 1px solid var(--border); }
+.filter-toggle { background: transparent; border: 0; }
+
+/* Hover states across rows — soft accent edge instead of bg flip */
+.clan-row:hover, .stash-item:hover, .insight-row:hover {
+  border-color: var(--red);
+}
+
+/* Genre bars / progress bars — accent fill */
+.genre-bar-fill,
+[class*="bar-fill"] { background: var(--red); }
+
+/* Form inputs in panels — match the new --input style */
+.panel-body .input,
+.panel-body select,
+.panel-body textarea {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--body);
+  border-radius: 2px;
+}
+
+/* Backdrop overlays — slightly warmer */
+.panel-overlay { background: rgba(10,8,7,0.65); }
+
+/* Numeric data — mono everywhere it appears */
+.stat-value, .panel-stat-val,
+[class*="-count"], [class*="-num"], [class*="-followers"], [class*="-plays"] {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-mono);
+}
+
+/* Empty-state dashed boxes — accent dashes, mono copy */
+[style*="dashed"] {
+  border-color: var(--border-lt) !important;
+}
+
+/* Ensure scrollbars feel native to the dark theme */
+* { scrollbar-color: var(--border-lt) transparent; scrollbar-width: thin; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-lt); border-radius: 0; }
+*::-webkit-scrollbar-thumb:hover { background: var(--red); }

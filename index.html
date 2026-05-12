@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/trail_map.css">
 </head>
 <body>
@@ -35,10 +36,11 @@
 
   <div class="cave-logo">
     <span class="cave-logo-tag">{HEADPHONES RECOMMENDED}</span>
-    <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="S0UNDCAV3"
-         class="logo-img logo-img--splash"
-         width="96" height="96"
-         style="display:block;margin:8px auto 0">
+    <div class="cave-logo-svg-mount" id="caveLogoMount">
+      <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="S0UNDCAV3"
+           class="logo-img logo-img--splash"
+           width="400" height="400">
+    </div>
     <div class="cave-logo-text">S0UNDCAV3</div>
 
     <!-- Login form (Phase B) — visible only when no auth session -->
@@ -60,18 +62,18 @@
      HEADER
      ═══════════════════════════════════════════════════════ -->
 <header>
-  <div class="logo">
-    <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="S0UNDCAV3"
-         class="logo-img logo-img--nav"
-         width="32" height="32"
-         style="display:block">
-    <span class="logo-text">S0UNDCAV3</span>
-  </div>
   <nav class="header-tabs">
-    <button class="htab active" data-tab="home">🏠 <span>Home</span></button>
-    <button class="htab" data-tab="cave" data-group="cave">🕳️ <span>The Cave</span></button>
-    <button class="htab" data-tab="firepit">🔥 <span>Firepit</span> <span class="count" id="firepitCount"></span></button>
+    <button class="htab htab-brand" type="button" data-action="splash">
+      <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="" class="htab-brand-logo" width="20" height="20">
+      <span>S0UNDCAV3</span>
+    </button>
+    <button class="htab active" type="button" data-tab="cave" data-group="cave">THE CAVE</button>
+    <button class="htab" type="button" data-tab="firepit">FIREPIT <span class="count" id="firepitCount"></span></button>
   </nav>
+  <button type="button" class="app-sound-toggle" id="appSoundToggle"
+          aria-pressed="false" aria-label="Toggle ambient sound">
+    {SOUND <span id="appSoundState">OFF</span>}
+  </button>
   <div class="account" id="account" hidden>
     <button class="account-btn" id="accountBtn" type="button" aria-haspopup="true" aria-expanded="false">
       <span class="account-avatar" id="accountAvatar">·</span>
@@ -103,10 +105,10 @@
 
   <!-- ─── CAVE SUB-NAV (visible only when in Cave group) ── -->
   <nav class="cave-subnav" id="caveSubnav" style="display:none">
-    <button class="cave-subtab active" data-tab="cave">📊 <span>Dashboard</span></button>
-    <button class="cave-subtab" data-tab="foraging">🏹 <span>Foraging</span></button>
-    <button class="cave-subtab" data-tab="clan">🦴 <span>Clan</span> <span class="count" id="clanCount"></span></button>
-    <button class="cave-subtab" data-tab="footprints"><span class="fp-ico">👣</span> <span>Footprints</span></button>
+    <button class="cave-subtab active" type="button" data-tab="cave">DASHBOARD</button>
+    <button class="cave-subtab" type="button" data-tab="foraging">FORAGING</button>
+    <button class="cave-subtab" type="button" data-tab="clan">CLAN <span class="count" id="clanCount"></span></button>
+    <button class="cave-subtab" type="button" data-tab="footprints">FOOTPRINTS</button>
   </nav>
 
   <!-- ─── HOME TAB ────────────────────────────────────── -->
@@ -116,40 +118,10 @@
       <div class="home-logo-glow">
         <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="S0UNDCAV3"
              class="logo-img logo-img--hero"
-             width="140" height="140"
+             width="260" height="260"
              style="display:block;margin:0 auto">
-        <svg width="0" height="0" viewBox="0 0 36 32" style="display:none">
-          <path d="M2,30 L8,6 L18,2 L28,6 L34,30 Z" fill="#6e6e6e" stroke="#3a3a3a" stroke-width="1"/>
-          <path d="M6,18 L10,16" stroke="#5a5a5a" stroke-width="0.5" opacity="0.6"/>
-          <path d="M26,14 L30,16" stroke="#5a5a5a" stroke-width="0.5" opacity="0.6"/>
-          <path d="M8,30 Q18,8 28,30 Z" fill="#4a4a4a"/>
-          <line x1="13" y1="29.5" x2="23" y2="29.5" stroke="#8B4513" stroke-width="1.2" stroke-linecap="round"/>
-          <line x1="13.5" y1="28.8" x2="22.5" y2="28.8" stroke="#6B3410" stroke-width="0.9" stroke-linecap="round"/>
-          <path d="M18,29.5 Q16.5,26.5 18,23.5 Q19.5,26.5 18,29.5 Z" fill="#e63946" opacity="0.95">
-            <animate attributeName="d" dur="0.8s" repeatCount="indefinite" values="M18,29.5 Q16.5,26.5 18,23.5 Q19.5,26.5 18,29.5 Z;M18,29.5 Q16,27 18,24 Q20,26.5 18,29.5 Z;M18,29.5 Q16.5,26.5 18,23.5 Q19.5,26.5 18,29.5 Z"/>
-          </path>
-          <path d="M16.5,29.5 Q15.5,27 17,25 Q17.5,27 16.8,29.5 Z" fill="#ff4444" opacity="0.8"/>
-          <path d="M19.5,29.5 Q20.5,27 19,25 Q18.5,27 19.2,29.5 Z" fill="#ff4444" opacity="0.8"/>
-          <path d="M17.8,28.5 Q17.6,27.5 18,26.5 Q18.4,27.5 18.1,28.5 Z" fill="#ffaa00" opacity="0.9"/>
-          <ellipse cx="18" cy="28" rx="5" ry="3" fill="#e63946" opacity="0.08"/>
-          <g transform="translate(16.5, 9.5) scale(0.5) translate(-16.5, -9.5)" opacity="0.95">
-            <ellipse cx="14.5" cy="13.5" rx="3" ry="2.2" transform="rotate(-15 14.5 13.5)" fill="#2a2a2a" opacity="0.7"/>
-            <rect x="17" y="5.3" width="1.8" height="8.7" rx="0.3" fill="#2a2a2a" opacity="0.7"/>
-            <path d="M18.6,5.3 Q23.3,3.8 23.3,6.3 Q23.3,8.8 18.6,7.8 Z" fill="#2a2a2a" opacity="0.7"/>
-            <ellipse cx="14.2" cy="13.2" rx="2.8" ry="2" transform="rotate(-15 14.2 13.2)" fill="#3a3a3a"/>
-            <rect x="16.7" y="5" width="1.6" height="8.5" rx="0.3" fill="#3a3a3a"/>
-            <path d="M18.3,5 Q23,3.5 23,6 Q23,8.5 18.3,7.5 Z" fill="#3a3a3a"/>
-            <ellipse cx="14.2" cy="13.2" rx="2.8" ry="2" transform="rotate(-15 14.2 13.2)" fill="#c1121f" opacity="0.45"/>
-            <rect x="16.7" y="5" width="1.6" height="8.5" rx="0.3" fill="#c1121f" opacity="0.45"/>
-            <path d="M18.3,5 Q23,3.5 23,6 Q23,8.5 18.3,7.5 Z" fill="#c1121f" opacity="0.45"/>
-            <ellipse cx="13.9" cy="12.9" rx="2.6" ry="1.8" transform="rotate(-15 13.9 12.9)" fill="none" stroke="#999" stroke-width="0.4" opacity="0.35"/>
-            <ellipse cx="14.2" cy="13.2" rx="2.8" ry="2" transform="rotate(-15 14.2 13.2)" fill="none" stroke="#1a1a1a" stroke-width="0.35" stroke-dasharray="0.6,1" opacity="0.45"/>
-            <rect x="16.7" y="5" width="1.6" height="8.5" rx="0.3" fill="none" stroke="#1a1a1a" stroke-width="0.35" stroke-dasharray="0.6,1" opacity="0.45"/>
-            <path d="M18.3,5 Q23,3.5 23,6 Q23,8.5 18.3,7.5 Z" fill="none" stroke="#1a1a1a" stroke-width="0.35" stroke-dasharray="0.6,1" opacity="0.45"/>
-          </g>
-        </svg>
       </div>
-      <h1 style="font-size:32px;font-weight:700;color:var(--heading);margin-top:20px">The Sound Cave</h1>
+      <h1 style="font-size:32px;font-weight:700;color:var(--heading);margin-top:20px">S0UNDCAV3</h1>
       <p style="font-size:16px;color:var(--secondary);margin-top:8px;max-width:500px;margin-left:auto;margin-right:auto">
         Discover, track and grow unsigned talent in European underground dance music.
       </p>
@@ -169,32 +141,32 @@
       <h3 class="section-title">Terminology</h3>
       <div class="home-terms-grid">
         <div class="card-elevated">
-          <div style="font-size:20px;margin-bottom:6px">🏹</div>
+          <div class="term-ico" data-icon="foraging"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Foraging</div>
           <p style="font-size:12px;color:var(--secondary);line-height:1.5">Live artist search. Hunt for new talent by genre, follower count and more. Schedule automated searches to run while you sleep.</p>
         </div>
         <div class="card-elevated">
-          <div style="font-size:20px;margin-bottom:6px">🦴</div>
+          <div class="term-ico" data-icon="clan"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Clan</div>
           <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your roster of tracked artists. View profiles, link platforms, star favourites and monitor their growth from one place.</p>
         </div>
         <div class="card-elevated">
-          <div style="font-size:20px;margin-bottom:6px">🔥</div>
+          <div class="term-ico" data-icon="cave"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">The Cave</div>
           <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your dashboard. See aggregate stats, genre breakdowns, weekly charts and new track drops from your Clan at a glance.</p>
         </div>
         <div class="card-elevated">
-          <div style="font-size:20px;margin-bottom:6px"><span class="fp-ico">👣</span></div>
+          <div class="term-ico" data-icon="footprints"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Footprints</div>
           <p style="font-size:12px;color:var(--secondary);line-height:1.5">Analytics deep dive. Per-artist growth charts, week-over-week metrics and insights on who's rising and who's fading.</p>
         </div>
         <div class="card-elevated">
-          <div style="font-size:20px;margin-bottom:6px">🪨</div>
+          <div class="term-ico" data-icon="firepit"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Firepit</div>
           <p style="font-size:12px;color:var(--secondary);line-height:1.5">AI content production. Generate social posts, press releases, event copy and more — powered by Claude, tuned for underground music culture.</p>
         </div>
         <div class="card-elevated">
-          <div style="font-size:20px;margin-bottom:6px">✂️</div>
+          <div class="term-ico" data-icon="cut"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Cut</div>
           <p style="font-size:12px;color:var(--secondary);line-height:1.5">Remove an artist from active tracking. Cut artists stop appearing in your dashboard and analytics but their data is preserved.</p>
         </div>
@@ -256,35 +228,27 @@
 
   <!-- ─── THE CAVE TAB ────────────────────────────────── -->
   <div id="tab-cave" style="display:none">
-    <div id="caveWelcome"></div>
-    <!-- Dashboard Filters -->
-    <div class="dash-filters">
-      <select class="input" id="dashGenreFilter" style="width:auto" onchange="renderCave()">
-        <option value="">All genres</option>
-      </select>
-      <input class="input" id="dashNameFilter" placeholder="Filter by artist..." style="max-width:180px" oninput="renderCave()">
-      <input class="input" id="dashMinFollow" type="number" placeholder="Min followers" style="max-width:130px" oninput="renderCave()">
-      <input class="input" id="dashMaxFollow" type="number" placeholder="Max followers" style="max-width:130px" oninput="renderCave()">
-      <button class="btn-outline" onclick="resetDashFilters()">Reset</button>
-      <div class="dash-export">
-        <button class="btn-outline" onclick="exportDashPDF()">📄 PDF</button>
-        <button class="btn-outline" onclick="exportDashEmail()">📧 Email</button>
-      </div>
+    <div id="caveWelcome" class="cave-welcome"></div>
+
+    <div class="cave-hero" id="caveHero">
+      <div class="cave-hero-panel panel-tl" id="caveFollowersPanel"></div>
+      <div class="cave-hero-panel panel-tr" id="caveLikesPanel"></div>
+      <div class="cave-hero-panel panel-bl" id="caveGenrePanel"></div>
+      <div class="cave-hero-panel panel-br" id="caveTracksPanel"></div>
+
+      <div class="stack-stage" id="caveStack"></div>
+      <div class="stack-meta" id="caveStackMeta"></div>
+      <div class="scroll-hint" id="caveScrollHint">scroll · click · explore</div>
     </div>
-    <div id="caveStats" class="stats-row"></div>
-    <div id="caveChart" class="card" style="margin-bottom:24px"></div>
-    <div class="two-col">
-      <div id="caveGenre" class="card"></div>
-      <div id="caveTracks" class="card"></div>
-    </div>
-    <div id="caveArtists" class="card"></div>
+
+    <div class="cave-chart-strip" id="caveChart" data-empty="true"></div>
   </div>
 
   <!-- ─── FORAGING TAB ────────────────────────────────── -->
   <div id="tab-foraging" style="display:none">
     <div class="foraging-header">
       <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">Foraging 🏹</h2>
+        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">FORAGING</h2>
         <p class="subtitle">Hunt for new talent. Rotate fast, decide faster.</p>
       </div>
       <div class="autocut-setting">
@@ -299,9 +263,9 @@
 
     <!-- Sub-tabs -->
     <div class="forage-tabs">
-      <button class="forage-tab active" onclick="setForageSubTab('manual', this)">🔍 Manual Search</button>
-      <button class="forage-tab" onclick="setForageSubTab('scheduled', this)">📅 Scheduled</button>
-      <button class="forage-tab" onclick="setForageSubTab('running', this)">⚡ Running</button>
+      <button class="forage-tab active" type="button" onclick="setForageSubTab('manual', this)">MANUAL SEARCH</button>
+      <button class="forage-tab" type="button" onclick="setForageSubTab('scheduled', this)">SCHEDULED</button>
+      <button class="forage-tab" type="button" onclick="setForageSubTab('running', this)">RUNNING</button>
     </div>
 
     <!-- Manual Search Sub-tab -->
@@ -320,7 +284,7 @@
             <button class="forage-limit-btn" onclick="setSearchLimit(50, this)">50</button>
             <button class="forage-limit-btn" onclick="setSearchLimit(100, this)">100</button>
           </div>
-          <button class="btn-red" onclick="runLiveSearch()">🔍 Search SoundCloud</button>
+          <button class="btn-red" type="button" onclick="runLiveSearch()">SEARCH SOUNDCLOUD</button>
         </div>
       </div>
       <div id="liveSearchStatus" style="display:none"></div>
@@ -370,7 +334,7 @@
   <div id="tab-clan" style="display:none">
     <div class="clan-header">
       <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">Clan 🦴</h2>
+        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">CLAN</h2>
         <p class="subtitle" id="clanSubtitle"></p>
       </div>
       <div class="clan-actions">
@@ -398,7 +362,7 @@
 
   <!-- ─── FOOTPRINTS TAB ─────────────────────────────── -->
   <div id="tab-footprints" style="display:none">
-    <h2 style="font-size:20px;font-weight:700;color:var(--heading);margin-bottom:6px">Footprints <span class="fp-ico">👣</span></h2>
+    <h2 style="font-size:20px;font-weight:700;color:var(--heading);margin-bottom:6px">FOOTPRINTS</h2>
     <p class="subtitle" style="margin-bottom:24px">Track how your artists move over time.</p>
     <div id="fpSummary" class="stats-row"></div>
     <div class="fp-layout" id="fpLayout">
@@ -412,7 +376,7 @@
   <div id="tab-firepit" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">Firepit 🪨</h2>
+        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">FIREPIT</h2>
         <p class="subtitle" style="margin-bottom:20px">Create, store and plan content for your artists, labels and events.</p>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -422,9 +386,9 @@
     </div>
 
     <div class="firepit-modes">
-      <button class="firepit-mode active" onclick="setFirepitMode('forge', this)">🔨 Forge</button>
-      <button class="firepit-mode" onclick="setFirepitMode('stash', this)">📦 Stash <span class="count" id="stashCount"></span></button>
-      <button class="firepit-mode" onclick="setFirepitMode('trailmap', this)">🗺️ Trail Map</button>
+      <button class="firepit-mode active" type="button" onclick="setFirepitMode('forge', this)">FORGE</button>
+      <button class="firepit-mode" type="button" onclick="setFirepitMode('stash', this)">STASH <span class="count" id="stashCount"></span></button>
+      <button class="firepit-mode" type="button" onclick="setFirepitMode('trailmap', this)">TRAIL MAP</button>
     </div>
 
     <!-- ── FORGE ──────────────────────────────────────── -->
@@ -435,21 +399,22 @@
 
           <div class="forge-input-group">
             <label class="forge-label">Content Type</label>
-            <select class="input" id="forgeContentType" onchange="updateForgeFields()">
-              <optgroup label="Social">
-                <option value="social_post">📸 Post</option>
-                <option value="social_carousel">🗂️ Carousel</option>
-                <option value="social_short">🎬 Short</option>
-              </optgroup>
-              <optgroup label="Events">
-                <option value="event_promo">🔥 Event Promotion</option>
-                <option value="lineup_poster">🎪 Lineup Poster</option>
-              </optgroup>
-              <optgroup label="Editorial">
-                <option value="artist_bio">✨ Artist Spotlight / Bio</option>
-                <option value="press_release">📰 Press Release</option>
-              </optgroup>
-            </select>
+            <input type="hidden" id="forgeContentType" value="social_post" onchange="updateForgeFields()">
+            <div class="forge-picker" id="forgePicker" role="radiogroup" aria-label="Content type">
+              <div class="forge-picker-group" data-label="Social">
+                <button type="button" class="forge-picker-btn active" data-value="social_post"><span class="forge-picker-ico" data-icon="carousel"></span><span>POST</span></button>
+                <button type="button" class="forge-picker-btn" data-value="social_carousel"><span class="forge-picker-ico" data-icon="carousel"></span><span>CAROUSEL</span></button>
+                <button type="button" class="forge-picker-btn" data-value="social_short"><span class="forge-picker-ico" data-icon="lineup"></span><span>SHORT</span></button>
+              </div>
+              <div class="forge-picker-group" data-label="Events">
+                <button type="button" class="forge-picker-btn" data-value="event_promo"><span class="forge-picker-ico" data-icon="event_promo"></span><span>EVENT PROMO</span></button>
+                <button type="button" class="forge-picker-btn" data-value="lineup_poster"><span class="forge-picker-ico" data-icon="lineup"></span><span>LINEUP</span></button>
+              </div>
+              <div class="forge-picker-group" data-label="Editorial">
+                <button type="button" class="forge-picker-btn" data-value="artist_bio"><span class="forge-picker-ico" data-icon="artist_bio"></span><span>BIO</span></button>
+                <button type="button" class="forge-picker-btn" data-value="press_release"><span class="forge-picker-ico" data-icon="press_release"></span><span>PRESS</span></button>
+              </div>
+            </div>
           </div>
 
           <div id="forgeDynamicFields"></div>
@@ -457,7 +422,10 @@
           <div class="forge-input-group">
             <label class="forge-label">Voice Profile</label>
             <select class="input" id="forgeVoice">
-              <option value="default">Default — Professional underground</option>
+              <option value="underground">Underground — authentic, scene-literate</option>
+              <option value="industry">Industry — measured, professional</option>
+              <option value="hype">Hype — high-energy promo voice</option>
+              <option value="personal">Personal — first-person, conversational</option>
             </select>
           </div>
 
@@ -466,12 +434,14 @@
             <textarea class="input" id="forgeFreeform" rows="3" placeholder="Anything else the AI should know — vibe, angle, specific details..."></textarea>
           </div>
 
-          <div class="forge-input-group" style="display:flex;align-items:center;gap:10px">
-            <label class="forge-label" style="margin:0">Output Mode</label>
-            <button class="forge-mode-toggle" id="imageModeToggle" onclick="toggleImageMode()">📝 Text Only</button>
+          <div class="forge-input-group">
+            <label class="forge-label">Reference Images <span style="color:var(--muted);font-weight:normal">(up to 5, ≤5MB each)</span></label>
+            <input type="file" class="input" id="forgeRefImages" multiple accept="image/jpeg,image/png,image/webp" onchange="handleRefImagesChange(event)">
+            <div id="forgeRefImagesPreview" class="forge-ref-thumbs"></div>
+            <div id="forgeRefImagesError" class="forge-ref-error" style="display:none"></div>
           </div>
 
-          <button class="btn-red" style="width:100%" onclick="generateContent()">🔨 Generate Content</button>
+          <button class="btn-red" type="button" style="width:100%" onclick="generateContent()">GENERATE CONTENT</button>
         </div>
 
         <div class="card">
@@ -490,16 +460,16 @@
 
           <div id="forgeActions" style="display:none">
             <div class="forge-actions">
-              <button class="btn-outline" onclick="generateContent()">🔄 Regenerate</button>
-              <button class="btn-outline" onclick="generateVariation('shorter')">✂️ Shorter</button>
-              <button class="btn-outline" onclick="generateVariation('longer')">📏 Longer</button>
-              <button class="btn-outline" onclick="generateVariation('tone')">🎭 Change Tone</button>
+              <button class="btn-outline" type="button" onclick="generateContent()">REGENERATE</button>
+              <button class="btn-outline" type="button" onclick="generateVariation('shorter')">SHORTER</button>
+              <button class="btn-outline" type="button" onclick="generateVariation('longer')">LONGER</button>
+              <button class="btn-outline" type="button" onclick="generateVariation('tone')">CHANGE TONE</button>
             </div>
             <div class="forge-actions" style="margin-top:8px">
-              <button class="btn-red" onclick="copyForgeOutput()">📋 Copy Text</button>
-              <button class="btn-outline" id="btnRegenImage" onclick="regenerateImage()" style="display:none">🖼️ New Image</button>
-              <button class="btn-outline" id="btnDownloadImage" onclick="downloadForgeImage()" style="display:none">⬇️ Download</button>
-              <button class="btn-red" onclick="saveToStash()" style="background:var(--card);border:1px solid var(--border);color:var(--body)">📦 Save to Stash</button>
+              <button class="btn-red" type="button" onclick="copyForgeOutput()">COPY TEXT</button>
+              <button class="btn-outline" type="button" id="btnRegenImage" onclick="regenerateImage()" style="display:none">NEW IMAGE</button>
+              <button class="btn-outline" type="button" id="btnDownloadImage" onclick="downloadForgeImage()" style="display:none">DOWNLOAD</button>
+              <button class="btn-red" type="button" onclick="saveToStash()" style="background:var(--card);border:1px solid var(--border);color:var(--body)">SAVE TO STASH</button>
             </div>
           </div>
         </div>
@@ -588,9 +558,38 @@
     </div>
   </div>
 
+  <!-- ─── INDEX TAB (tech stack & APIs powering the app) ──── -->
+  <div id="tab-index" style="display:none">
+    <div style="max-width:780px;margin:48px auto;padding:0 24px">
+      <h1 class="section-title" style="margin-bottom:8px">INDEX</h1>
+      <p style="color:var(--secondary);font-size:13px;margin-bottom:32px;letter-spacing:var(--tracking-mono)">TOOLS &amp; APIS POWERING THE SOUND CAVE</p>
+      <ul class="index-list">
+        <li><span class="index-key">SOUNDCLOUD API</span><span class="index-val">Artist discovery, track metadata, follower data — the source of every Foraging result.</span></li>
+        <li><span class="index-key">CLAUDE (HAIKU)</span><span class="index-val">Anthropic's fast model — powers the Firepit's text generation: bios, press, event copy, captions.</span></li>
+        <li><span class="index-key">FAL AI</span><span class="index-val">FLUX schnell image generation — primary engine for visual content in the Firepit.</span></li>
+        <li><span class="index-key">REPLICATE</span><span class="index-val">Fallback image generation provider when Fal is unavailable.</span></li>
+        <li><span class="index-key">SUPABASE</span><span class="index-val">Auth (magic links + password), user metadata, billing state, content stash persistence.</span></li>
+        <li><span class="index-key">FLASK</span><span class="index-val">Python backend (content_api.py) — proxies AI calls, manages credits, routes to Fal/Replicate.</span></li>
+        <li><span class="index-key">VANILLA JS</span><span class="index-val">Frontend is plain HTML/CSS/JS — no framework, no build step. Designed to stay readable.</span></li>
+        <li><span class="index-key">GITHUB PAGES</span><span class="index-val">Static hosting for the dashboard. Backend deploys separately to Vercel/Railway.</span></li>
+        <li><span class="index-key">GITHUB ACTIONS</span><span class="index-val">Scheduled jobs: weekly artist scout (Mondays) + daily clan tracker (every morning).</span></li>
+      </ul>
+    </div>
+  </div>
+
 </div>
 
 </div><!-- /.app-wrap -->
+
+<!-- ─── BOTTOM-RIGHT CORNER NAV ──────────────────────────
+     OVERVIEW = the existing tab-home content (rebranded).
+     INDEX    = the new tab-index above.
+     Fixed to viewport, sits OUTSIDE .app-wrap so the artist-
+     panel scale-transform doesn't re-anchor it. -->
+<nav class="corner-nav" id="cornerNav" hidden>
+  <button class="corner-link" type="button" data-tab="home">OVERVIEW</button>
+  <button class="corner-link" type="button" data-tab="index">INDEX</button>
+</nav>
 
 <!-- ═══════════════════════════════════════════════════════
      ARTIST DETAIL PANEL (slide-out)
@@ -601,7 +600,7 @@
 <div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
 <div class="artist-panel" id="artistPanel">
   <div class="panel-head">
-    <div class="panel-avatar" id="panelAvatar">🎵</div>
+    <div class="panel-avatar" id="panelAvatar"></div>
     <div>
       <div class="panel-name" id="panelName"></div>
       <div class="panel-genre" id="panelGenre"></div>
@@ -646,9 +645,9 @@
     </div>
     <div class="panel-section">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-outline" onclick="toggleCut()" id="cutBtn">✂️ Cut from tracking</button>
-        <button class="btn-outline" onclick="exportSingleArtist(activeArtist)">⬇ Export CSV</button>
-        <button class="btn-outline" onclick="removeFavourite()" style="color:#ff4444;border-color:#ff4444">🗑️ Remove</button>
+        <button class="btn-outline" type="button" onclick="toggleCut()" id="cutBtn">CUT FROM TRACKING</button>
+        <button class="btn-outline" type="button" onclick="exportSingleArtist(activeArtist)">EXPORT CSV</button>
+        <button class="btn-outline" type="button" onclick="removeFavourite()" style="color:#ff4444;border-color:#ff4444">REMOVE</button>
       </div>
     </div>
   </div>
@@ -672,6 +671,7 @@
 </div>
 
 <script src="js/lib/supabase.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/cave_entrance.js"></script>
 <script src="js/app.js"></script>
 <script src="js/cave.js"></script>

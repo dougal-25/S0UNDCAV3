@@ -1,0 +1,49 @@
+/* ──────────────────────────────────────────────────────────
+   tokens.css — Sound Cave design tokens
+   Locked 2026-05-08 for splash + cave entrance redesign.
+   See wiki/spec/splash_cave_entrance.md for direction.
+   Hybrid of KVS Studio (skin/microcopy) + Augen (motion grammar).
+   ────────────────────────────────────────────────────────── */
+
+:root {
+  /* Type */
+  --font-mono:        'DM Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display:     var(--font-mono);
+  --font-body:        'DM Sans', system-ui, sans-serif; /* app interior keeps sans for legibility */
+  --tracking-wide:    0.18em;
+  --tracking-mono:    0.04em;
+
+  /* Color — splash/entrance palette (KVS-derived) */
+  --color-bg:         #0a0a0a;
+  --color-bg-warm:    #120e0c;          /* a hair warmer than pure black for depth */
+  --color-text:       #e8e8e8;
+  --color-muted:      #888888;
+  --color-faint:      #4a4a4a;
+  --color-accent:     #ff4500;          /* single orange-red accent */
+  --color-accent-hot: #ff6a1f;
+  --color-accent-deep:#aa2a00;
+
+  /* CRT effect intensities */
+  --scan-opacity:     0.04;
+  --grain-opacity:    0.06;
+  --vignette-strength:0.55;
+
+  /* Spacing scale (4px base) */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-8:  48px;
+  --space-10: 64px;
+
+  /* Motion */
+  --motion-fast:      180ms;
+  --motion-mid:       600ms;
+  --motion-slow:      1400ms;
+  --motion-resolve:   1200ms;            /* halftone-print resolve */
+  --ease-cinematic:   cubic-bezier(0.16, 0.7, 0.3, 1);
+  --ease-soft:        cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-glitch:      steps(8, end);
+}

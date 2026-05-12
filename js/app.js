@@ -4,6 +4,86 @@
 (function initCaveEntrance() {
   const cave    = document.getElementById('caveEntrance');
   const appWrap = document.getElementById('appWrap');
+
+  // Public: brand pill click re-shows the splash overlay (logo + pulse).
+  // Dismiss = scroll/swipe progressively zooms INTO the logo as if diving
+  // through it. Click/keypress = instant finish. After login, the form
+  // never re-appears — brand pill is only visible inside the app shell,
+  // which means the user is already authenticated.
+  window.scShowSplash = function showSplash() {
+    if (!cave) return;
+    cave.classList.remove('hidden', 'entering', 'mouth-open', 'diving');
+    cave.classList.add('revisit');                     // minimalist re-show
+    cave.style.setProperty('--dive-progress', '0');
+    cave.style.setProperty('--dive-scale', '1');
+    document.body.style.overflow = 'hidden';
+
+    // Always hide login form on re-show — brand pill only exists post-login.
+    const loginForm = document.getElementById('caveLogin');
+    if (loginForm) loginForm.hidden = true;
+
+    const DIVE_BUDGET = 900;            // px of accumulated scroll = full dive
+    let progress = 0;
+    let finished = false;
+    let lastTouchY = null;
+
+    function apply() {
+      const eased = Math.min(1, progress / DIVE_BUDGET);
+      // Scale 1 → 8 with ease-in curve so the last bit accelerates.
+      const scale = 1 + Math.pow(eased, 1.6) * 7;
+      cave.style.setProperty('--dive-progress', eased.toFixed(3));
+      cave.style.setProperty('--dive-scale', scale.toFixed(3));
+      if (eased >= 1) finish();
+    }
+
+    function bump(deltaPx) {
+      if (finished) return;
+      progress = Math.max(0, progress + deltaPx);
+      apply();
+    }
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      cave.classList.add('entering');
+      setTimeout(() => {
+        cave.classList.add('hidden');
+        cave.classList.remove('diving', 'entering', 'revisit');
+        cave.style.removeProperty('--dive-progress');
+        cave.style.removeProperty('--dive-scale');
+        document.body.style.overflow = '';
+      }, 500);
+      cleanup();
+    }
+
+    // Reversed: gesture goes top → bottom (scroll up / swipe down) dives in.
+    function onWheel(e)  { bump(-e.deltaY); }
+    function onTouchStart(e) { lastTouchY = e.touches[0]?.clientY ?? null; }
+    function onTouchMove(e)  {
+      const y = e.touches[0]?.clientY;
+      if (lastTouchY != null && y != null) bump((y - lastTouchY) * 2.5);
+      lastTouchY = y;
+    }
+    function onClick()   { progress = DIVE_BUDGET; apply(); }
+    function onKeydown() { progress = DIVE_BUDGET; apply(); }
+
+    function cleanup() {
+      cave.removeEventListener('click', onClick);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('keydown', onKeydown);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+    }
+
+    setTimeout(() => {
+      cave.classList.add('diving');
+      cave.addEventListener('click', onClick);
+      window.addEventListener('wheel', onWheel, { passive: true });
+      window.addEventListener('keydown', onKeydown);
+      window.addEventListener('touchstart', onTouchStart, { passive: true });
+      window.addEventListener('touchmove', onTouchMove, { passive: true });
+    }, 150);
+  };
   const form     = document.getElementById('caveLogin');
   const emailEl  = document.getElementById('caveLoginEmail');
   const pwdEl    = document.getElementById('caveLoginPassword');
@@ -134,7 +214,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 let allReports  = [];
 let currentData = null;
-let currentTab  = 'home';
+let currentTab  = 'cave';
 let activeArtist = null;
 let reportMode  = false;
 let reportSelected = [];
@@ -251,7 +331,7 @@ function toggleCut() {
   if (!favs[activeArtist]) return;
   favs[activeArtist].status = favs[activeArtist].status === 'cut' ? 'active' : 'cut';
   saveFavourites(favs);
-  document.getElementById('cutBtn').textContent = favs[activeArtist].status === 'cut' ? '♻️ Restore to tracking' : '✂️ Cut from tracking';
+  document.getElementById('cutBtn').textContent = favs[activeArtist].status === 'cut' ? 'RESTORE TO TRACKING' : 'CUT FROM TRACKING';
   refreshCurrentTab();
 }
 
@@ -394,24 +474,34 @@ function buildLineChart(datasets, labels, width=600, height=220) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const CAVE_TABS = ['cave','foraging','clan','footprints'];
 
-document.querySelectorAll('.htab, .cave-subtab').forEach(btn => {
+document.querySelectorAll('.htab[data-tab], .cave-subtab, .corner-link').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
-// Logo click → Home
-document.querySelector('.logo').addEventListener('click', () => switchTab('home'));
-document.querySelector('.logo').style.cursor = 'pointer';
+// Brand pill (top-left) → re-show the splash overlay (logo + pulse).
+// Any click/scroll/keypress on the splash dismisses it back to the dashboard.
+document.querySelectorAll('.htab[data-action="splash"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (typeof window.scShowSplash === 'function') window.scShowSplash();
+  });
+});
 
 function switchTab(name) {
   currentTab = name;
-  ['home','cave','foraging','clan','footprints','firepit'].forEach(t => {
+  ['home','cave','foraging','clan','footprints','firepit','index'].forEach(t => {
     const el = document.getElementById(`tab-${t}`);
     if (el) el.style.display = t === name ? 'block' : 'none';
   });
-  // Top-level nav: Cave group stays "active" for any cave sub-section
-  const topGroup = CAVE_TABS.includes(name) ? 'cave' : name;
-  document.querySelectorAll('.htab').forEach(el => {
+  // Top-level nav: Cave group stays "active" for any cave sub-section.
+  // Home/Index are reached via the bottom-right corner-nav, not the top pills.
+  const TOP_TABS = ['cave','firepit'];
+  const topGroup = CAVE_TABS.includes(name) ? 'cave' : (TOP_TABS.includes(name) ? name : null);
+  document.querySelectorAll('.htab[data-tab]').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === topGroup);
+  });
+  // Corner-nav active state
+  document.querySelectorAll('.corner-link').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === name);
   });
   // Cave sub-nav visibility + active state
   const subnav = document.getElementById('caveSubnav');
@@ -486,7 +576,10 @@ async function init() {
     sel.innerHTML += `<option value="${esc(g)}">${esc(g)}</option>`;
   });
   updateCounts();
-  switchTab('home');
+  // Default landing = The Cave dashboard. Overview/Index live in the corner-nav.
+  const cornerNav = document.getElementById('cornerNav');
+  if (cornerNav) cornerNav.hidden = false;
+  switchTab('cave');
 }
 
 function syncFavouriteSnapshots() {
@@ -600,8 +693,8 @@ function renderPanel(username) {
   if (!a) return;
 
   const avatarHTML = a.avatar_url
-    ? `<img src="${a.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.innerHTML='🎵'">`
-    : '🎵';
+    ? `<img src="${a.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='·'">`
+    : '·';
   document.getElementById('panelAvatar').innerHTML = avatarHTML;
   document.getElementById('panelName').textContent = a.display_name;
   document.getElementById('panelGenre').textContent = a.genre;
@@ -642,7 +735,7 @@ function renderPanel(username) {
       </div>
       <div class="panel-growth-row">
         ${syncedHint}
-        ${daysTracked > 0 ? `<span class="panel-growth-tag">📅 Tracked ${daysTracked} days</span>` : ''}
+        ${daysTracked > 0 ? `<span class="panel-growth-tag">TRACKED ${daysTracked} DAYS</span>` : ''}
         ${fGrowth !== null ? `<span class="panel-growth-tag ${parseFloat(fGrowth)>=0?'up':'down'}">Followers ${parseFloat(fGrowth)>=0?'+':''}${fGrowth}%</span>` : ''}
         ${pGrowth !== null ? `<span class="panel-growth-tag ${parseFloat(pGrowth)>=0?'up':'down'}">Plays ${parseFloat(pGrowth)>=0?'+':''}${pGrowth}%</span>` : ''}
         ${lGrowth !== null ? `<span class="panel-growth-tag ${parseFloat(lGrowth)>=0?'up':'down'}">Likes ${parseFloat(lGrowth)>=0?'+':''}${lGrowth}%</span>` : ''}
@@ -697,7 +790,7 @@ function renderPanel(username) {
       : '<div style="color:var(--muted);font-size:13px">No tracks recorded yet.</div>'}`;
 
   document.getElementById('artistNotes').value = a.notes||'';
-  document.getElementById('cutBtn').textContent = a.status === 'cut' ? '♻️ Restore to tracking' : '✂️ Cut from tracking';
+  document.getElementById('cutBtn').textContent = a.status === 'cut' ? 'RESTORE TO TRACKING' : 'CUT FROM TRACKING';
 }
 
 function togglePanelStar(username) {

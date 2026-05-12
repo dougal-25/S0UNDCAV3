@@ -97,8 +97,8 @@ function renderClan() {
     const daysTracked = a.added_date ? daysBetween(a.added_date, today()) : 0;
 
     const avatarHTML = a.avatar_url
-      ? `<img src="${a.avatar_url}" alt="" onerror="this.parentElement.innerHTML='🎵'">`
-      : '🎵';
+      ? `<img src="${a.avatar_url}" alt="" onerror="this.parentElement.textContent='·'">`
+      : '·';
 
     return `<div class="clan-card ${inReport ? 'in-report' : ''}" onclick="${reportMode ? `clanRowClick('${esc(a.username)}')` : `openPanel('${esc(a.username)}')`}" style="${inReport ? 'border-color:var(--red)' : ''}">
       <span class="clan-card-star ${isStarred ? 'starred' : ''}" onclick="event.stopPropagation();toggleStar('${esc(a.username)}')">${isStarred ? '⭐' : '☆'}</span>

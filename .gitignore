@@ -22,3 +22,4 @@ bypass.html
 *.swp
 *.swo
 Thumbs.db
+brand/logo/*.bak

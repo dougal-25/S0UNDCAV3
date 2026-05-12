@@ -118,7 +118,12 @@ Rules:
 
 
 def build_image_prompt(content_type, ctx, generated_text=''):
-    """Use Claude to generate an optimised image prompt from content context."""
+    """Use Claude to generate an optimised image prompt from content context.
+
+    If ctx['reference_images'] is a list of data:image/... URLs, they're passed
+    to Claude as vision input so the generated prompt mirrors their visual
+    style (palette, composition, mood).
+    """
     style = STYLE_HINTS.get(content_type, 'Modern, clean, music-related.')
 
     parts = [f"Content type: {content_type}", f"Style direction: {style}"]
@@ -148,15 +153,46 @@ def build_image_prompt(content_type, ctx, generated_text=''):
         preview = generated_text[:300]
         parts.append(f"Generated copy (for mood reference): {preview}")
 
+    image_blocks = _ref_image_blocks(ctx.get('reference_images'))
+    if image_blocks:
+        parts.append('Visual references attached — mirror their palette, composition, and mood.')
+
     user_msg = '\n'.join(parts)
+    user_content = (
+        image_blocks + [{'type': 'text', 'text': user_msg}]
+        if image_blocks else user_msg
+    )
 
     message = client.messages.create(
         model='claude-haiku-4-5-20251001',
         max_tokens=300,
         system=IMAGE_PROMPT_SYSTEM,
-        messages=[{'role': 'user', 'content': user_msg}]
+        messages=[{'role': 'user', 'content': user_content}]
     )
     return message.content[0].text.strip()
+
+
+def _ref_image_blocks(reference_images):
+    """Convert data-URL reference images to Anthropic image blocks. Silent on
+    malformed input — boundary validation happens in content_api._ref_images_to_blocks."""
+    if not reference_images or not isinstance(reference_images, list):
+        return []
+    blocks = []
+    for data_url in reference_images:
+        if not isinstance(data_url, str) or not data_url.startswith('data:image/'):
+            continue
+        try:
+            header, b64 = data_url.split(',', 1)
+            media_type = header.split(';')[0].removeprefix('data:')
+        except (ValueError, AttributeError):
+            continue
+        if media_type not in ('image/jpeg', 'image/png', 'image/webp', 'image/gif'):
+            continue
+        blocks.append({
+            'type': 'image',
+            'source': {'type': 'base64', 'media_type': media_type, 'data': b64},
+        })
+    return blocks
 
 
 # ── Provider: Fal AI ───────────────────────────────────────

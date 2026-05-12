@@ -102,6 +102,77 @@ Your voice:
 Adapt your register to the content type and the channel — a TikTok caption hits different from a press release, and Reddit hates marketing speak."""
 
 
+# ── Voice presets ───────────────────────────────────────────
+# Appended to SYSTEM_PROMPT per request to shape register without
+# rewriting the base voice. Default = 'underground' (no addendum).
+VOICE_PROMPTS = {
+    'underground': '',
+    'industry': (
+        'Voice override — INDUSTRY: measured, professional, suitable for press releases, '
+        'artist bios, and B2B communication with labels, promoters, agents, and journalists. '
+        'Drop slang. Keep the cultural literacy but treat the reader as a peer in the industry, '
+        'not a club-goer.'
+    ),
+    'hype': (
+        'Voice override — HYPE: high-energy, urgent, exclamation-friendly. '
+        'Capslock OK in moderation. This is club-night promo voice — make people feel they '
+        'have to be there. Stay credible: no generic influencer phrases, no "absolute fire 🔥🔥🔥".'
+    ),
+    'personal': (
+        'Voice override — PERSONAL: first-person singular, conversational, like the artist '
+        'or promoter posting from their own account. Drop the industry-observer perspective. '
+        'Talk like a friend, not a brand.'
+    ),
+}
+
+
+def _system_prompt_for(voice):
+    """SYSTEM_PROMPT augmented by the chosen voice preset."""
+    addendum = VOICE_PROMPTS.get(voice, '')
+    if not addendum:
+        return SYSTEM_PROMPT
+    return SYSTEM_PROMPT + '\n\n' + addendum
+
+
+# ── Reference image handling ────────────────────────────────
+REF_IMAGES_MAX_COUNT = 5
+REF_IMAGES_MAX_BYTES = 5 * 1024 * 1024  # 5MB per image (base64-decoded size)
+
+
+def _ref_images_to_blocks(reference_images):
+    """Convert frontend data-URL strings to Anthropic image content blocks.
+
+    Returns (blocks, error_message). Blocks empty if no refs or on validation
+    failure. Validates count/size at the boundary, per CLAUDE.md guidance.
+    """
+    if not reference_images:
+        return [], None
+    if not isinstance(reference_images, list):
+        return [], 'reference_images must be a list'
+    if len(reference_images) > REF_IMAGES_MAX_COUNT:
+        return [], f'Max {REF_IMAGES_MAX_COUNT} reference images'
+
+    blocks = []
+    for i, data_url in enumerate(reference_images):
+        if not isinstance(data_url, str) or not data_url.startswith('data:image/'):
+            return [], f'reference_images[{i}] is not a data:image/... URL'
+        try:
+            header, b64 = data_url.split(',', 1)
+            media_type = header.split(';')[0].removeprefix('data:')
+        except (ValueError, AttributeError):
+            return [], f'reference_images[{i}] malformed'
+        if media_type not in ('image/jpeg', 'image/png', 'image/webp', 'image/gif'):
+            return [], f'reference_images[{i}] unsupported type: {media_type}'
+        # Rough size check on base64 length (decoded ≈ 0.75x).
+        if len(b64) * 0.75 > REF_IMAGES_MAX_BYTES:
+            return [], f'reference_images[{i}] exceeds 5MB'
+        blocks.append({
+            'type': 'image',
+            'source': {'type': 'base64', 'media_type': media_type, 'data': b64},
+        })
+    return blocks, None
+
+
 def build_user_prompt(ctx):
     """Build the user prompt from the request context."""
     content_type = ctx.get('content_type', 'social_post')
@@ -209,6 +280,18 @@ def generate():
     template = TEMPLATES.get(content_type, TEMPLATES['social_post'])
     user_prompt = build_user_prompt(ctx)
 
+    image_blocks, ref_err = _ref_images_to_blocks(ctx.get('reference_images'))
+    if ref_err:
+        return jsonify({'error': ref_err}), 400
+
+    voice = ctx.get('voice', 'underground')
+    system = _system_prompt_for(voice)
+
+    user_content = (
+        image_blocks + [{'type': 'text', 'text': user_prompt}]
+        if image_blocks else user_prompt
+    )
+
     balance, err = _debit(uid, 'text', f'gen:{content_type}')
     if err: return err
 
@@ -216,8 +299,8 @@ def generate():
         message = client.messages.create(
             model='claude-haiku-4-5-20251001',
             max_tokens=template.get('max_tokens', 500),
-            system=SYSTEM_PROMPT,
-            messages=[{'role': 'user', 'content': user_prompt}]
+            system=system,
+            messages=[{'role': 'user', 'content': user_content}]
         )
         content = message.content[0].text
         return jsonify({

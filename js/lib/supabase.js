@@ -70,6 +70,13 @@
     return error ? { error: error.message } : {};
   }
 
+  async function sendPasswordReset(email) {
+    await ready;
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+    return error ? { error: error.message } : {};
+  }
+
   async function setPassword(password) {
     await ready;
     const { error } = await client.auth.updateUser({ password });
@@ -99,6 +106,6 @@
   window.scAuth = {
     get ready() { return ready; },
     get client() { return client; },
-    session, user, token, signInWithEmail, signInWithPassword, setPassword, signOut, onChange, authedFetch,
+    session, user, token, signInWithEmail, signInWithPassword, sendPasswordReset, setPassword, signOut, onChange, authedFetch,
   };
 })();

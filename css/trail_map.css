@@ -362,3 +362,32 @@
   .trail-toolbar { gap: 6px; }
   .trail-period { min-width: 100px; font-size: 13px; }
 }
+
+/* ─────────────────────────────────────────────────────────
+   APP-WIDE REDESIGN OVERRIDES — added 2026-05-08
+   See css/style.css end-block for the full pattern.
+   ───────────────────────────────────────────────────────── */
+.trail-nav-btn,
+.trail-view-toggle,
+.trail-view-toggle button {
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+}
+.trail-period {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+[class*="trail-cell"], [class*="trail-day"], [class*="trail-event"] {
+  border-radius: 2px;
+}
+.trail-event, [class*="trail-pill"] {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-mono);
+}
