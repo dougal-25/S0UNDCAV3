@@ -647,7 +647,7 @@ header { padding: 10px 28px 0; gap: 8px; align-items: stretch; }
 .htab {
   background: var(--elevated);
   border: 1px solid var(--border-lt);
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   min-height: 68px;
   min-width: 180px;
@@ -673,29 +673,25 @@ header { padding: 10px 28px 0; gap: 8px; align-items: stretch; }
   border-color: var(--color-accent);
   background: var(--hover);
 }
-/* Brand pill: same tall shape, but logo + wordmark sit on one row,
-   bottom-left aligned. Wider so they don't crowd. */
+/* Brand "pill" — actually just the logo, no chrome. Sized to match pill height. */
 .htab-brand {
-  flex-direction: row;
-  align-items: flex-end;          /* sit on the same baseline as sibling pill labels */
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 10px 18px;
-  min-width: 240px;
-  color: var(--heading);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  min-width: 136px;
+  min-height: 136px;
+  width: 136px;
+  height: 136px;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
 }
-.htab-brand:hover { color: var(--color-accent); border-color: var(--color-accent); }
-.htab-brand .htab-label {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: var(--tracking-mono);
-}
+.htab-brand:hover { background: transparent; border-color: transparent; }
 .htab-brand-logo {
   display: block;
-  width: 32px; height: 32px;
+  width: 136px; height: 136px;
   filter: drop-shadow(0 0 8px rgba(255,69,0,0.4));
   flex-shrink: 0;
-  margin-bottom: -4px;            /* nudge so optical baseline matches the text */
 }
 
 /* Bottom-right corner nav — OVERVIEW + INDEX.
@@ -1001,6 +997,9 @@ select, select option {
 .action-btn.watch-btn:hover { border-color: var(--secondary); color: var(--body); }
 .action-btn.cut-btn:hover { border-color: var(--muted); color: var(--body); }
 .action-btn .icon { font-size: 14px; }
+/* Foraging card actions — brand-orange icon only, label keeps default */
+.forage-card .action-btn .icon { color: var(--red); }
+.forage-card .action-btn:hover { border-color: var(--red); background: rgba(255,69,0,0.10); }
 .section-label {
   font-size: 12px; letter-spacing: 0.08em; color: var(--secondary);
   text-transform: uppercase; margin-bottom: 8px;
