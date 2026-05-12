@@ -1,5 +1,12 @@
 # Sound Cave Wiki — Log
 
+## [2026-05-12] Foraging — brand-orange custom icons + typeable genre combobox
+- **Why:** the existing 🦴 / 👁️ / ✂️ emoji icons felt generic and off-brand against the S0UNDCAV3 wordmark + dark palette. Separately, the genre dropdown was built from past scout discoveries only, inheriting SoundCloud's free-text duplicates ("Tech House" / "tech house") and limiting Doug to the 16 hardcoded scout buckets — even though SoundCloud's `/tracks` endpoint accepts any genre string.
+- **Icons (Direction A — cave-explorer line set):** inline SVGs at 14×14, `--red` icon fill, label keeps default body colour. Clan = 3 solid dots over an arc (pack). Watch = eye with centered iris. Cut = dagger blade with handle (replaced parallel-slash v1 after Doug asked for "something more like a knife"). Hover bumps border to `--red` + warm-tinted bg.
+- **Genre combobox:** swapped `<select id="filterGenre">` and `<select id="schedGenre">` to `<input list="genreSuggestions">`. Shared `<datalist>` seeded by `renderForaging()` with ~75 curated cross-industry suggestions (electronic, hip-hop, R&B, global, rock, jazz…) merged with past-scout genres, case-folded via `new Map(lowercase → display)` so dupes collapse. Empty input = all genres (preserves prior behaviour). `.value` reads in `runLiveSearch` / `saveScheduledSearch` already worked unchanged for the new input.
+- **Files:** `index.html` (filter + sched inputs + shared datalist), `js/foraging.js` (icon SVGs in `buildForageCard`, datalist seed in `renderForaging`), `css/style.css` (`.forage-card .action-btn .icon` orange + hover tint), `wiki/features/foraging.md`.
+- **Open:** Watching empty-state copy still references `👁 Watch` (emoji in inline help text — out of scope for this commit, will sweep later).
+
 ## [2026-05-12] Brand Overlay Compositor — Phase 3 (Konva compositor in Forge)
 - **Why:** Phases 1 + 2 stored brand kits but never applied them. Phase 3 introduces the two-layer model in practice: the Fal-generated background becomes the bottom layer; logo + brand-fonted text are draggable Konva nodes on top. AI never touches text/logo — that's how the output stays "consistent" (the original ask).
 - **Locked UI calls:** compositor renders **inline** in the Forge output card (replaces the inline `<img>` preview when a brand kit is selected); brand-kit selector lives at the **top** of the Forge form (first decision, frames the whole generation).
@@ -362,3 +369,11 @@ Three small UX shifts in one pass:
 - Added feature pages: The Cave, Foraging, Clan, Footprints, Firepit Stash, Firepit Trail Map
 - Added persona stubs: Artist, Label, Promoter
 - Updated `index.md` with full catalogue
+
+## [2026-05-12] header — sharp corners + logo-only brand mark
+- All `.htab` pills: `border-radius` 10 → 0 for the editorial/terminal feel
+- Brand pill chrome stripped (no border, no padding); wordmark `S0UNDCAV3` removed from header (still in title + splash)
+- SVG `viewBox` cropped from `0 0 1024 1024` → `252 256 520 520` so the artwork fills its container instead of floating in dead canvas
+- Logo finalised at 56×56, vertically centered to pill row, 16px right gap before `THE CAVE`
+- Added `brand/fonts/DMMono-Regular.ttf` + `DMSans-Regular.ttf` as the canonical brand-kit upload assets for the in-progress Brand Kits feature
+- Commits: `2633e9f`, `9924a05`
