@@ -41,9 +41,9 @@ def _ai():
 # ── Per-post-type briefing ─────────────────────────────────
 POST_TYPE_BRIEFS = {
     'announcement': (
-        "Reveal post. The first public moment. The headliner MUST be named. "
-        "If there's a support act on the lineup, name at least one of them too. "
-        "Lead with the most striking artist OR the event hook, but never omit the lineup. "
+        "Reveal post. The first public moment. EVERY artist on the lineup MUST be named — "
+        "headliner and all support acts. This is non-negotiable; the whole point of an "
+        "announcement is the lineup reveal. Order the names by billing where natural. "
         "Tone: confident reveal."
     ),
     'headliner_spotlight': (
@@ -79,8 +79,14 @@ def _platform_targets_for(post_type):
     return ['instagram_grid', 'instagram_story', 'twitter']
 
 
-def _build_user_prompt(event, voice, post, profile):
-    """Construct the user message for one post's copy generation."""
+def _build_user_prompt(event, voice, post, profile, lineup_profiles=None):
+    """Construct the user message for one post's copy generation.
+
+    `lineup_profiles` is the full ordered list of artist_profiles dicts for
+    this event's lineup (headliner first). Available to every post type so
+    multi-artist posts (announcement, countdowns, recap) can name them.
+    `profile` is the single artist for spotlight posts.
+    """
     lines = [
         f"EVENT: {event.get('name')}",
         f"DATE: {event.get('event_date')}",
@@ -88,15 +94,33 @@ def _build_user_prompt(event, voice, post, profile):
     if event.get('venue_name'):
         lines.append(f"VENUE: {event['venue_name']}" + (f", {event['venue_city']}" if event.get('venue_city') else ''))
     if event.get('ticketing_url'):
-        lines.append(f"TICKETS: {event['ticketing_url']}")
+        lines.append("TICKETS: link in bio (do NOT print the URL itself in your output)")
     lines.append('')
+
+    # Always include the full lineup. The model needs it for the announcement
+    # and any multi-artist post type; spotlight posts get an extra focused block below.
+    if lineup_profiles:
+        lines.append('LINEUP (in billing order — headliner first):')
+        for i, p in enumerate(lineup_profiles):
+            tag = 'HEADLINER' if i == 0 else 'SUPPORT'
+            line = f"  [{tag}] {p.get('display_name') or 'unknown'}"
+            extras = []
+            if p.get('genre_tags'):
+                extras.append(', '.join(p['genre_tags']))
+            if p.get('location'):
+                extras.append(p['location'])
+            if extras:
+                line += f"  ({' · '.join(extras)})"
+            lines.append(line)
+        lines.append('')
+
     lines.append(f"POST TYPE: {post['post_type']}")
     lines.append(f"BRIEF: {POST_TYPE_BRIEFS.get(post['post_type'], '')}")
     lines.append(f"SCHEDULED: {post['scheduled_for']}")
     lines.append('')
 
     if profile:
-        lines.append(f"SPOTLIGHT ARTIST: {profile.get('display_name')}")
+        lines.append(f"SPOTLIGHT FOCUS — write THIS post primarily about: {profile.get('display_name')}")
         if profile.get('genre_tags'):
             lines.append(f"  Genres: {', '.join(profile['genre_tags'])}")
         if profile.get('location'):
@@ -105,8 +129,9 @@ def _build_user_prompt(event, voice, post, profile):
             lines.append(f"  Bio: {profile['bio_short']}")
         if profile.get('soundcloud_url'):
             lines.append(f"  SoundCloud: {profile['soundcloud_url']}")
-        if profile.get('follower_count_soundcloud'):
-            lines.append(f"  SoundCloud followers: {profile['follower_count_soundcloud']}")
+        # follower_count is intentionally omitted from the prompt — global rule
+        # 3 forbids printing it in copy, and giving it to the model invites
+        # leaks. The bio + genres + location are sufficient framing.
     lines.append('')
 
     lines.append(
@@ -189,14 +214,14 @@ def _parse_variants_json(raw):
     return [{'id': 'v1', 'text': raw.strip()[:600]}]
 
 
-def _generate_copy_for_post(event, voice, post, profile):
+def _generate_copy_for_post(event, voice, post, profile, lineup_profiles=None):
     """Call Claude for one post. Returns list of {id, text}. Raises on hard failure."""
     model = SONNET_MODEL if post['post_type'] in HERO_POST_TYPES else HAIKU_MODEL
     msg = _ai().messages.create(
         model=model,
         max_tokens=1024,
         system=system_prompt_for(voice),
-        messages=[{'role': 'user', 'content': _build_user_prompt(event, voice, post, profile)}],
+        messages=[{'role': 'user', 'content': _build_user_prompt(event, voice, post, profile, lineup_profiles)}],
     )
     raw = msg.content[0].text if msg.content else ''
     return _parse_variants_json(raw)
@@ -266,12 +291,16 @@ def generate_campaign(event_id):
 
     # Generate each post sequentially. Insert as we go so the UI can poll
     # for progress in a future iteration.
+    # Ordered lineup of profile dicts (headliner first) — passed to every
+    # post so the model can name artists even in non-spotlight posts.
+    lineup_profiles = [s['artist_profiles'] for s in slots if s.get('artist_profiles')]
+
     posts_created = []
     errors = []
     for plan_post in plan:
         profile = profiles_by_id.get(plan_post.get('linked_artist_profile_id')) if plan_post.get('linked_artist_profile_id') else None
         try:
-            variants = _generate_copy_for_post(event, voice, plan_post, profile)
+            variants = _generate_copy_for_post(event, voice, plan_post, profile, lineup_profiles)
         except Exception as e:
             variants = []
             errors.append({'post_type': plan_post['post_type'], 'error': str(e)})
@@ -379,8 +408,21 @@ def regenerate_post_copy(post_id):
         'scheduled_for': post['scheduled_for'],
         'linked_artist_profile_id': post.get('linked_artist_profile_id'),
     }
+    # Fetch the event's full lineup so regen has the same context as generate
+    event_id_for_lineup = (post.get('campaigns') or {}).get('event_id') or event.get('id')
+    lineup_profiles = []
+    if event_id_for_lineup:
+        slots = (
+            supabase().table('lineup_slots')
+            .select('artist_profile_id, billing_order, '
+                    'artist_profiles(id, display_name, soundcloud_url, soundcloud_handle, bio_short, '
+                    'genre_tags, location, follower_count_soundcloud, hero_image_url)')
+            .eq('event_id', event_id_for_lineup).order('billing_order').execute()
+        ).data or []
+        lineup_profiles = [s['artist_profiles'] for s in slots if s.get('artist_profiles')]
+
     try:
-        variants = _generate_copy_for_post(event, voice, plan_shape, profile)
+        variants = _generate_copy_for_post(event, voice, plan_shape, profile, lineup_profiles)
     except Exception as e:
         return jsonify({'error': f'regeneration failed: {e}'}), 502
 

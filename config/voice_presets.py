@@ -74,7 +74,12 @@ GLOBAL_RULES = (
     "(5) Never write vague venue/scene worship like 'changes everything about what's "
     "possible on a dancefloor' — make a concrete claim or stay quiet. "
     "(6) Don't add hashtags unless the user asks. "
-    "(7) Respect the target platform's character limit."
+    "(7) Respect the target platform's character limit. "
+    "(8) Tickets: ALWAYS direct readers to the link in bio — write 'tickets in bio', "
+    "'link in bio', or 'bio link' depending on cadence. NEVER print a literal URL in the "
+    "caption. Social platforms strip links anyway, and a raw URL looks unprofessional. "
+    "The ticketing URL is provided for your context only — to confirm tickets exist — "
+    "not for output."
 )
 
 
