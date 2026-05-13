@@ -81,27 +81,38 @@
       return h('div', null, [
         heading,
         h('div', { class: 'card', style: { borderColor: 'var(--red)', color: 'var(--red)', marginBottom: '10px', fontSize: '11px' } }, campaign.generation_error),
-        renderTimeline(posts),
+        renderTimeline(posts, event.id),
       ]);
     }
-    return h('div', null, [heading, renderTimeline(posts)]);
+    return h('div', null, [heading, renderTimeline(posts, event.id)]);
   }
 
-  function renderTimeline(posts) {
+  function renderTimeline(posts, eventId) {
     if (!posts.length) return h('div', { class: 'card', style: { color: 'var(--muted)', fontSize: '12px' } }, 'No posts in this campaign.');
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, posts.map(postCard));
+    // Stamp eventId on each post so postCard can trigger a re-fetch on modal save
+    const stamped = posts.map(p => ({ ...p, _eventId: eventId }));
+    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, stamped.map(postCard));
   }
 
   function postCard(p) {
     const selectedVariant = (p.copy_variants || []).find(v => v.id === p.selected_copy_variant_id) || (p.copy_variants || [])[0];
     const preview = selectedVariant ? selectedVariant.text : (p.generation_error ? '⚠ ' + p.generation_error : '(no copy yet)');
-    return h('div', { class: 'card', style: { padding: '12px 14px' } }, [
+    const eventIdForReload = (p._eventId);
+    return h('div', {
+      class: 'card',
+      style: { padding: '12px 14px', cursor: 'pointer' },
+      onClick: () => {
+        if (typeof E.openPostEditor === 'function') {
+          E.openPostEditor(p, () => { if (eventIdForReload) window.openEvent(eventIdForReload); });
+        }
+      },
+    }, [
       h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' } }, [
         h('div', { style: { ...MONO_LABEL, color: 'var(--red)' } }, p.post_type.replace(/_/g, ' ')),
         h('div', { style: { ...MONO_LABEL, fontSize: '9px' } }, fmtDate(p.scheduled_for)),
       ]),
       h('div', { style: { fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap', color: selectedVariant ? 'var(--body)' : 'var(--muted)' } }, preview),
-      (p.copy_variants || []).length > 1 ? h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginTop: '6px' } }, `${p.copy_variants.length} variants`) : null,
+      (p.copy_variants || []).length > 1 ? h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginTop: '6px' } }, `${p.copy_variants.length} variants · click to edit`) : h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginTop: '6px' } }, 'click to edit'),
     ]);
   }
 
