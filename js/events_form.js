@@ -73,6 +73,7 @@
       field('TICKETING LINK', inputs.ticketing_url),
       field('VOICE PRESET', inputs.voice_preset),
       draft.editing_id ? renderFlyerField(draft) : null,
+      draft.editing_id ? renderBrandReferencesField() : null,
       draft.editing_id ? null : field('LINEUP (ONE NAME PER LINE)', inputs.lineup_names),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '10px' } }, [
         h('button', { class: 'btn-red', type: 'submit' }, draft.editing_id ? '{SAVE CHANGES}' : '{MATCH LINEUP →}'),
@@ -200,6 +201,102 @@
         ]),
       ]),
     ]);
+  }
+
+  // ── Brand references library ────────────────────────────
+  // Manages the user's PRIMARY brand kit references. For v0.6 we expose
+  // this on the event edit form because it's where Doug needs them while
+  // setting up a campaign. Proper per-kit UI lands in the Brands tab in v0.7.
+  let _primaryKit = null;
+
+  function renderBrandReferencesField() {
+    const wrap = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+    const labelRow = h('span', { style: E.MONO_LABEL }, 'BRAND REFERENCES · STYLE DNA ACROSS ALL EVENTS');
+    const body = h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '8px' } }, 'Loading kit…');
+    const helper = h('div', { style: { fontSize: '10px', color: 'var(--muted)' } },
+      'Upload past flyers / promotional pieces to anchor your visual style. Each new event campaign pulls from these.');
+    wrap.appendChild(labelRow);
+    wrap.appendChild(body);
+    wrap.appendChild(helper);
+    loadPrimaryKitInto(body, helper);
+    return wrap;
+  }
+
+  async function loadPrimaryKitInto(body, helper) {
+    try {
+      const r = await E.authedFetch(`${API}/api/brand_kits`);
+      const list = (await r.json()) || [];
+      _primaryKit = list.find(k => k.is_primary) || list[0] || null;
+      if (!_primaryKit) {
+        body.replaceChildren(h('div', { style: { fontSize: '11px', color: 'var(--muted)' } },
+          'No brand kit yet. Create one from the BRANDS tab first.'));
+        return;
+      }
+      paintReferences(body, helper);
+    } catch (e) {
+      body.replaceChildren(h('div', { style: { fontSize: '11px', color: 'var(--red)' } }, `Could not load brand kit: ${e.message}`));
+    }
+  }
+
+  function paintReferences(body, helper) {
+    const refs = _primaryKit.reference_image_urls || [];
+    const tiles = refs.map(url => h('div', {
+      style: { position: 'relative', width: '88px', height: '88px', borderRadius: '2px', overflow: 'hidden' },
+    }, [
+      h('img', { src: url, style: { width: '100%', height: '100%', objectFit: 'cover' } }),
+      h('button', {
+        type: 'button',
+        style: { position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.7)', color: 'white', border: 'none', cursor: 'pointer', padding: '2px 6px', fontSize: '10px' },
+        onClick: () => removeReference(url, body, helper),
+      }, '✕'),
+    ]));
+
+    const fileInput = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', multiple: true, style: { display: 'none' } });
+    const plusTile = h('div', {
+      style: { width: '88px', height: '88px', border: '1px dashed var(--border)', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '24px', color: 'var(--muted)' },
+      onClick: () => fileInput.click(),
+    }, '+');
+    fileInput.addEventListener('change', () => uploadReferences(fileInput.files, body, helper));
+
+    body.replaceChildren(...tiles, plusTile, fileInput);
+    helper.textContent = refs.length
+      ? `${refs.length} reference${refs.length === 1 ? '' : 's'} in "${_primaryKit.name}" kit. Each new campaign pulls from these.`
+      : `No references yet in "${_primaryKit.name}" kit. Upload past flyers to anchor your visual style.`;
+  }
+
+  async function uploadReferences(files, body, helper) {
+    if (!files || !files.length || !_primaryKit) return;
+    const fd = new FormData();
+    for (const f of files) fd.append('files', f);
+    helper.textContent = `Uploading ${files.length} file${files.length === 1 ? '' : 's'}…`;
+    try {
+      const r = await E.authedFetch(`${API}/api/brand_kits/${_primaryKit.id}/references`, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!r.ok) { helper.textContent = `Upload failed: ${j.error || r.status}`; return; }
+      _primaryKit.reference_image_urls = j.reference_image_urls;
+      paintReferences(body, helper);
+      if ((j.skipped || []).length) {
+        helper.textContent += ` · skipped ${j.skipped.length} (${j.skipped[0].reason})`;
+      }
+    } catch (e) {
+      helper.textContent = `Upload failed: ${e.message}`;
+    }
+  }
+
+  async function removeReference(url, body, helper) {
+    if (!_primaryKit) return;
+    try {
+      const r = await E.authedFetch(`${API}/api/brand_kits/${_primaryKit.id}/references`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const j = await r.json();
+      if (!r.ok) { helper.textContent = `Remove failed: ${j.error || r.status}`; return; }
+      _primaryKit.reference_image_urls = j.reference_image_urls;
+      paintReferences(body, helper);
+    } catch (e) {
+      helper.textContent = `Remove failed: ${e.message}`;
+    }
   }
 
   E.startNew = startNew;

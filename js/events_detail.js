@@ -55,10 +55,21 @@
       ? h('img', { src: e.flyer_image_url, style: { width: '160px', height: '200px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 } })
       : h('div', { style: { width: '160px', height: '200px', background: 'var(--elevated)', border: '1px dashed var(--border)', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...MONO_LABEL, fontSize: '9px', textAlign: 'center', padding: '0 8px' } }, 'NO MEDIA YET — ADD VIA {EDIT}');
 
+    const genFlyerBtn = h('button', {
+      type: 'button', class: 'btn-outline',
+      style: { fontSize: '10px', padding: '6px 10px' },
+      onClick: (ev) => triggerGenerateFlyer(e.id, ev.target),
+    }, e.flyer_image_url ? '{REGEN FROM REFERENCE}' : '{GENERATE MASTER MEDIA}');
+
+    const mediaCol = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 } }, [
+      flyerThumb,
+      genFlyerBtn,
+    ]);
+
     mount(h('div', null, [
       topRow,
       h('div', { style: { display: 'flex', gap: '14px', marginBottom: '18px', alignItems: 'stretch' } }, [
-        flyerThumb,
+        mediaCol,
         metaCard,
       ]),
       h('div', { style: { ...MONO_LABEL, marginBottom: '8px' } }, 'LINEUP'),
@@ -134,6 +145,24 @@
     }, [
       h('div', { style: { display: 'flex', gap: '14px', alignItems: 'stretch' } }, [thumb, textBlock]),
     ]);
+  }
+
+  async function triggerGenerateFlyer(eventId, buttonEl) {
+    const original = buttonEl.textContent;
+    buttonEl.disabled = true; buttonEl.textContent = '{GENERATING… ~10s}';
+    try {
+      const r = await authedFetch(`${API}/api/events/${eventId}/generate-flyer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const j = await r.json();
+      if (!r.ok) { alert(j.error || `Generation failed (${r.status})`); buttonEl.disabled = false; buttonEl.textContent = original; return; }
+      window.openEvent(eventId);
+    } catch (e) {
+      alert(`Generation failed: ${e.message}`);
+      buttonEl.disabled = false; buttonEl.textContent = original;
+    }
   }
 
   async function triggerGenerate(eventId, buttonEl, regenerate) {
