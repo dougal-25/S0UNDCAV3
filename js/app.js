@@ -611,10 +611,10 @@ async function init() {
     sel.innerHTML += `<option value="${esc(g)}">${esc(g)}</option>`;
   });
   updateCounts();
-  // Default landing = The Cave dashboard. Overview/Index live in the corner-nav.
+  // Default landing comes from `currentTab` (line 217 — promoter-first = events).
   const cornerNav = document.getElementById('cornerNav');
   if (cornerNav) cornerNav.hidden = false;
-  switchTab('cave');
+  switchTab(currentTab);
 }
 
 function syncFavouriteSnapshots() {
