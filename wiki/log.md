@@ -446,3 +446,12 @@ Three small UX shifts in one pass:
 - Logo finalised at 56×56, vertically centered to pill row, 16px right gap before `THE CAVE`
 - Added `brand/fonts/DMMono-Regular.ttf` + `DMSans-Regular.ttf` as the canonical brand-kit upload assets for the in-progress Brand Kits feature
 - Commits: `2633e9f`, `9924a05`
+
+## [2026-05-13] Phase 2/3 pivot — promoter-first campaign engine (Day 1)
+- Strategic pivot from "AI tools for music industry" to **campaign engine for independent promoters**. Tagline: *"Turn one event into a month of content."*
+- Authoritative spec: `~/Downloads/Soundcave Phase 2.3 Mission.md`. Execution plan: `~/.claude/plans/the-sequenced-roadmap-to-floofy-bonbon.md`.
+- New wiki page `wiki/spec/phase_2_3_pivot.md` supersedes parts of `overview.md` (banner added to overview).
+- Decisions locked: build Supabase magic-link auth at start of Phase 2; Python background thread for async generation; Python + Pillow for image composition; single Promoter tier (~£39/mo) for beta; video gen deferred.
+- Phase plan: 1) Reframe; 2) Event entity (weeks 2-3); 3) Campaign generation (weeks 4-6); 4) Profile claim (weeks 7-8); 5) Ayrshare publishing (weeks 9-10); 6) Beta launch (weeks 11-12).
+- Code: scaffolded `events_api.py` and `artist_profiles_api.py` as empty Flask Blueprints; registered in `content_api.py`. No routes yet — Day 2 lands migrations and auth wiring.
+- Awaiting Doug sign-off on `phase_2_3_pivot.md` before Day 2.

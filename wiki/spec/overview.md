@@ -1,6 +1,8 @@
 # Sound Cave — Spec Overview
 
 > Status: **Approved 2026-04-28** by Doug.
+>
+> ⚠️ **Partially superseded 2026-05-13** by [`phase_2_3_pivot.md`](phase_2_3_pivot.md) — the product is pivoting to a promoter-first campaign engine. Read the pivot page first; the sections "What it is", "Who it's for", "Clan" (now Roster), "Firepit" (now Event-aware), and "Roadmap" below are out of date. Business model, architecture, and "what it explicitly is NOT" remain valid.
 
 ## What it is
 The Sound Cave is a **SoundCloud scouting tool** combined with a **bulk AI content creation and multi-platform distribution/scheduling tool** for music industry professionals. Find artists, generate content about them at scale, schedule and publish across platforms.
