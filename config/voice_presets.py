@@ -62,9 +62,19 @@ GLOBAL_RULES = (
     "(1) Never use AI-clichés: 'dive into', 'unlock', 'immerse yourself', "
     "'unleash', 'elevate', 'curated experience'. "
     "(2) Never invent facts not present in the event/lineup data provided. "
-    "(3) Never use generic openers: 'Join us', 'Get ready', 'Mark your calendars'. "
-    "(4) Don't add hashtags unless the user asks. "
-    "(5) Respect the target platform's character limit."
+    "This means: NEVER invent set times, opening DJs, support acts not on the lineup, "
+    "ticket prices, door staff, dress codes, or capacity numbers. If the data doesn't "
+    "include it, omit it — do not guess. "
+    "(3) NEVER print numeric stats in copy: follower counts, play counts, monthly listeners, "
+    "track counts. These are internal data only. Use them to INFORM your framing "
+    "(a 64-follower artist suggests early-discovery angle; a 50k-follower artist suggests "
+    "confidence/credibility angle) but never print the number itself — no real promoter "
+    "writes '64 SoundCloud followers' on a flyer. "
+    "(4) Never use generic openers: 'Join us', 'Get ready', 'Mark your calendars'. "
+    "(5) Never write vague venue/scene worship like 'changes everything about what's "
+    "possible on a dancefloor' — make a concrete claim or stay quiet. "
+    "(6) Don't add hashtags unless the user asks. "
+    "(7) Respect the target platform's character limit."
 )
 
 

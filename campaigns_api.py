@@ -40,15 +40,33 @@ def _ai():
 
 # ── Per-post-type briefing ─────────────────────────────────
 POST_TYPE_BRIEFS = {
-    'announcement': "Reveal post. The first public moment. Tone: confident reveal of the lineup and date. Lead with the headliner if striking; otherwise lead with the event itself.",
-    'headliner_spotlight': "Spotlight on the headliner. Tell us why they're worth showing up for, using their bio + recent releases. Don't summarise their whole career — pick the most compelling angle.",
-    'support_spotlight': "Spotlight on a support act. Same logic as headliner but with less weight. One specific reason to be excited.",
+    'announcement': (
+        "Reveal post. The first public moment. The headliner MUST be named. "
+        "If there's a support act on the lineup, name at least one of them too. "
+        "Lead with the most striking artist OR the event hook, but never omit the lineup. "
+        "Tone: confident reveal."
+    ),
+    'headliner_spotlight': (
+        "Spotlight on the headliner. Pick ONE compelling angle and write to it. "
+        "Use their bio, genre tags, location, and any pinned tracks to ground the claim. "
+        "Do NOT recite their whole career. Do NOT print follower numbers. "
+        "If you have very little real data on them, write briefly and concretely "
+        "rather than padding with vague hype."
+    ),
+    'support_spotlight': (
+        "Spotlight on a support act. Same logic as headliner but lighter weight. "
+        "One concrete reason to be excited, drawn from the data provided. "
+        "If data is thin, one tight sentence is better than a paragraph of filler."
+    ),
     'mid_campaign_push': "Two weeks out. Tickets still moving. Re-state the lineup, add some urgency without panic.",
-    'countdown_7d': "One week to go. Tone: anticipation. What to look forward to.",
+    'countdown_7d': "One week to go. Tone: anticipation. What to look forward to. Avoid hype about the venue or scene at large.",
     'countdown_3d': "Three days out. Final push. Tickets going.",
-    'countdown_1d': "Tomorrow night. Practical (door times, ID, what to bring).",
+    'countdown_1d': "Tomorrow night. Practical (door times, ID, what to bring) — but ONLY mention door times if the event data provides them.",
     'countdown_day_of': "Tonight. Short, urgent, last-call energy.",
-    'day_of_doors': "Doors open soon — what's first up. Set times if known.",
+    'day_of_doors': (
+        "Doors open soon. Mention door open time ONLY if provided in the event data above. "
+        "Do not invent set times, opening DJs, or who's playing first — that data isn't provided."
+    ),
     'recap': "24 hours after. Gratitude + a moment from the night. Tone: warm reflection. Open the door to the next event without naming it.",
     'throwback': "Looking back at a moment. Use sparingly.",
     'ticket_push': "Tickets-only push. Direct.",
