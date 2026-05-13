@@ -110,38 +110,83 @@ def _build_user_prompt(event, voice, post, profile):
     lines.append('')
 
     lines.append(
-        "Return ONLY a JSON object — no prose, no markdown — with this shape:\n"
+        "Output format — STRICT:\n"
+        "Return ONLY a JSON object matching this exact shape. No prose before. No prose after. "
+        "No code fences. No commentary. No 'flagging' or 'noting' anything to the operator. "
+        "If the data provided is insufficient for one of the variants, do your best with what's "
+        "there and write a shorter variant — do NOT explain that to me in the output.\n"
         "{\n"
         '  "variants": [\n'
-        '    {"id": "v1", "text": "<caption for Instagram, ≤2200 chars>"},\n'
+        '    {"id": "v1", "text": "<caption for Instagram, ≤600 chars>"},\n'
         '    {"id": "v2", "text": "<alternative angle, same constraints>"},\n'
         '    {"id": "v3", "text": "<third angle, same constraints>"}\n'
         '  ]\n'
         "}\n"
-        "Three distinct angles — not three rewrites of the same line. "
-        "Default target: Instagram caption. Keep each variant under 600 characters."
+        "Three distinct angles — not three rewrites of the same line."
     )
     return '\n'.join(lines)
 
 
+def _extract_first_json_object(s):
+    """Pull the first balanced {...} block out of arbitrary text.
+
+    Robust to: ```json fences, trailing prose ("FLAGGING SOMETHING…"),
+    leading commentary, mixed quoting. Returns the substring or None.
+    """
+    if not s:
+        return None
+    start = s.find('{')
+    if start < 0:
+        return None
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(s)):
+        c = s[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == '\\':
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return s[start:i + 1]
+    return None
+
+
 def _parse_variants_json(raw):
-    s = raw.strip()
-    if s.startswith('```'):
-        s = s.strip('`')
-        if s.lower().startswith('json'):
-            s = s[4:].lstrip()
-    try:
-        parsed = json.loads(s)
-        variants = parsed.get('variants') or []
-        out = []
-        for i, v in enumerate(variants):
-            text = (v.get('text') or '').strip()
-            if not text:
-                continue
-            out.append({'id': v.get('id') or f'v{i+1}', 'text': text})
-        return out
-    except Exception:
-        return [{'id': 'v1', 'text': raw.strip()[:600]}] if raw.strip() else []
+    """Best-effort parse of the model's variants JSON. Always returns a list."""
+    if not raw or not raw.strip():
+        return []
+
+    block = _extract_first_json_object(raw)
+    if block:
+        try:
+            parsed = json.loads(block)
+            variants = parsed.get('variants') or parsed.get('VARIANTS') or []
+            out = []
+            for i, v in enumerate(variants):
+                text = (v.get('text') or v.get('TEXT') or '').strip()
+                if not text:
+                    continue
+                vid = v.get('id') or v.get('ID') or f'v{i + 1}'
+                out.append({'id': vid, 'text': text})
+            if out:
+                return out
+        except Exception:
+            pass
+
+    # Fallback: model returned something we can't parse. Don't dump
+    # JSON-with-prose into the UI — return one clean text variant.
+    return [{'id': 'v1', 'text': raw.strip()[:600]}]
 
 
 def _generate_copy_for_post(event, voice, post, profile):
