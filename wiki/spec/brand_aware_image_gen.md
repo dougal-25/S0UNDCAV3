@@ -1,122 +1,213 @@
 # Spec — Brand-Aware Image Generation (Phase 3 v0.6)
 
-> Status: **Proposed 2026-05-13.** Awaiting Doug sign-off before code.
+> Status: **Proposed v2 — 2026-05-13.** Rewritten after Doug's architectural reframe (Firepit-as-asset-factory + "regenerate, don't reuse"). Supersedes v1 of this page. Awaiting sign-off before code.
+>
 > Supersedes the "Fal FLUX abstract backgrounds" idea sketched in [`phase_2_3_pivot.md`](phase_2_3_pivot.md).
 > Related: [`features/campaigns.md`](../features/campaigns.md), [`features/events.md`](../features/events.md).
 
-## Problem
+## The shift in one paragraph
 
-The v0.5 image composer produces a competent but **generic-looking** image per post. There's no consistency across a promoter's catalogue — every event's posts look like they were made by the same tool, not by the same brand.
+Generated post images are **not the promoter's flyer with text slapped on**. The promoter's uploaded media (past flyers, brand references) is **inspiration**, not asset. The system generates **new** imagery that holds the brand's visual DNA — fonts, palette, photographic style, layout language — and customises each output for its specific job (announcement, headliner spotlight, countdown, recap). **One brand design language; ten textual angles across the timeline.** Outputs ship as the promoter's brand alone — **never with any Sound Cave branding on them.**
 
-Real promoters have a **visual identity** that spans dozens of events: a consistent font, palette, photographic treatment, layout language. A field day-style event vs. a basement-techno event should produce visually different posts even from the same promoter, but both should still "look like that promoter."
+## Architectural reframe — Firepit becomes the asset factory
 
-Generic AI imagery (Fal FLUX with no style reference) won't solve this — it'll just produce *different generic AI looks* per event. We need style transfer / brand-anchored generation.
+Today:
+- `Brands` is a top-level tab managing brand kits (logo, fonts, colours, caption templates).
+- `Firepit` has Forge (text) / Stash (library) / Trail Map (calendar).
+- Image generation lives implicitly inside campaign generation.
 
-## What we're building
+Doug's reframe:
+- **Firepit becomes the home for all asset creation** — brand kits, master event flyers, derivative post images all generated here.
+- **Events becomes the orchestration layer** — it consumes assets created in Firepit and arranges them into a campaign timeline.
 
-Promoters build a **reference library** in their brand kit — a collection of past flyers and promotional pieces. When a new event is created, it links to a brand kit, and image generation uses those references to anchor the visual style of every post.
+```
+FIREPIT (asset factory)
+├── Brand Kits        ← moves here from the top-nav Brands tab
+├── Forge             ← existing (text generation)
+├── Asset Generator   ← NEW (master event flyer, standalone exploration)
+├── Stash             ← existing (library of all generated content + assets)
+└── Trail Map         ← existing (scheduling)
 
-- The brand kit becomes the **visual DNA** of the promoter.
-- Each event inherits a kit (with optional per-event override of colours).
-- Image generation uses Fal FLUX with style reference (IP-Adapter or equivalent), passing 1–3 reference images alongside the event-specific prompt.
+EVENTS (orchestration)
+├── Pick / default a brand kit
+├── Upload or generate a master flyer (delegates to Firepit's Asset Generator)
+└── Generate campaign → 10 posts as derivatives of the master flyer
+```
 
-The output: posts that look like **your last 30 flyers**, customised for the new event's details.
+The top-nav **Brands** tab folds into Firepit. Trade-off: one less top-level concept; clearer mental model (Firepit = make, Events = deploy).
+
+> **NB:** This spec focuses on the image-generation pipeline. The Brands→Firepit subtab migration is a related but separate UX task and gets its own spec page (`firepit_factory_layout.md`, TBD). For v0.6 we add the image-gen pipeline; the Brands tab can keep existing for one cycle and gets relocated in v0.7.
+
+## Hard rules (non-negotiable in every output)
+
+1. **No Sound Cave branding in any generated asset** — no `S0UNDCAV3` wordmark, no Sound Cave red (`#dc2626` / `#e11d48` / `#ef4444` etc.) as a fallback accent. **The S0UNDCAV3 leak in v0.5 has been fixed (commit `08d4147`).** This rule is now and forever — every code path that draws or generates an image must read as the promoter's brand alone.
+2. **Outputs are new media, not the source flyer with text on top.** "Reuse the upload" is a v0.5 stopgap that disappears in v0.6.
+3. **Brand kit references and event flyer are style anchors, not assets to be embedded.** Both feed FLUX as IP-Adapter / style-reference inputs.
+4. **One design language per event** — the 10 posts vary in text/angle but share the visual DNA. Posts should feel like a series, not 10 unrelated designs.
+
+## Mental model — three layers of style anchoring
+
+| Layer | Where it lives | Role |
+|---|---|---|
+| **Brand kit references** | `brand_kits.reference_image_urls[]` | Long-running style DNA across many events. The promoter's last ~30 promotional pieces. Strongest when the kit has 5+ references. |
+| **Event flyer (uploaded or generated)** | `events.flyer_image_url` | THIS event's master flyer. Either uploaded by the promoter as a finished poster, or generated by us from the brand kit + event details. Carries the most weight at gen time — it's the "current mood." |
+| **Per-post angle** | `POST_TYPE_BRIEFS` (existing) + scheduled timing | The textual hook for each derivative — announcement / countdown / recap. Doesn't change the visual design, just the copy and prominence of elements. |
+
+At image-gen time, FLUX receives: `[event.flyer_image_url, ...brand_kit.reference_image_urls[:3]]` as style references, plus a per-post prompt.
 
 ## Data model
 
 **`brand_kits` (existing — extend):**
-- Existing: `id`, `owner_id`, `name`, `logo_url`, `display_font_url`, `body_font_url`, `colors` (jsonb), `templates` (jsonb, caption templates).
-- **Add:** `reference_image_urls text[]` — ordered list of past flyer URLs in the brand library. ≤24 entries (we don't need more for style; FLUX uses top-N).
-- **Add:** `is_primary boolean default false` — one per owner. Used as the default when an event doesn't specify a kit.
+- Existing: `id`, `owner_id`, `name`, `logo_url`, `display_font_url`, `body_font_url`, `colors` (jsonb), `templates` (jsonb).
+- **Add:** `reference_image_urls text[] default '{}'` — ordered library of past promotional pieces. ≤24 entries.
+- **Add:** `is_primary boolean default false` — one per owner. Used as the default when an event has no `brand_kit_id`.
 
 **`events` (existing — extend):**
 - **Add:** `brand_kit_id uuid references public.brand_kits(id) on delete set null`.
-- Behaviour: nullable. If null at generation time, the system picks the owner's primary brand kit. If still null (no kits exist), falls back to the v0.5 Pillow-only composer.
+- Keep `flyer_image_url text` — now explicitly defined as "the event's master flyer (uploaded or generated)". Used as the top-priority style anchor at gen time.
+
+**`stash_items` (existing — extend semantically):**
+- No schema change. Generated master flyers and derivative post images are written as `stash_items` rows with `kind='image'` and `metadata` linking back to the event/campaign/post.
+- Means: everything generated is browsable in Stash regardless of which surface fired it.
 
 **Storage:**
-- Reuse the `brand_assets` bucket for reference image uploads (it already exists from Phase B). Path convention: `{owner_id}/references/{ts}_{rand}{ext}`.
+- `brand_assets` bucket — reference image uploads. Path: `{owner_id}/references/{ts}_{rand}{ext}`.
+- `event_flyers` bucket — event master flyers (uploaded or generated). Existing.
+- `campaign_images` bucket — derivative post images. Existing.
 
 **Migration:** `db/0015_brand_kit_references.sql`.
 
 ## UI
 
-**Brands tab (existing — extend):**
-- Each brand kit card gets a **REFERENCE LIBRARY** section underneath the existing logo/fonts/colours.
-- Grid of reference image thumbnails with a + tile to add more.
-- Drag-and-drop multi-file upload accepted (PNG/JPG/WEBP, ≤10MB each).
-- Reorder by drag (the first 1–3 are the strongest style anchors — order matters).
-- Delete per-image via hover ✕.
+**"Drop media here" — language change everywhere.**
+Replace every "drop a flyer" copy with "drop media" — the dashed zone accepts past flyers, finished posters, brand-reference imagery, anything visual that anchors style.
+
+**Brand Kits (lives in Firepit eventually; in current Brands tab for v0.6):**
+- Each kit card gets a **REFERENCE LIBRARY** section under the existing logo/fonts/colours.
+- Grid of reference image thumbnails with a `+` tile to add more.
+- Drag-and-drop multi-file upload (PNG/JPG/WEBP, ≤10MB each).
+- Reorder by drag (top 1–3 are the strongest anchors).
+- Delete via hover ✕.
 
 **Event create / edit form:**
-- New field: `BRAND KIT` dropdown — populated with the owner's kits + "None" as a fallback. Default to the kit marked `is_primary`.
-- Below the dropdown, a tiny preview: kit name, swatch of the primary colour, count of reference images.
+- New field: **BRAND KIT** dropdown — the owner's kits + "None". Defaults to `is_primary`.
+- Below: tiny preview — kit name, swatch of the primary colour, count of reference images.
+- Existing **FLYER** field (added 2026-05-13) gets a sibling **{GENERATE MASTER FLYER}** button — pops a generation modal (see below). Output saves to `events.flyer_image_url` and to Stash.
+
+**Master flyer generation modal (new):**
+- Triggered from the event detail page or edit form.
+- Shows: brand kit name + the top 3 references that will be used as style anchors.
+- Optional **freeform prompt** input (e.g. "Field Day vibe, sun, open-air, golden hour").
+- `{GENERATE}` button → 5–10s FLUX call → preview → `{KEEP}` or `{REGENERATE}` or `{CANCEL}`.
+- On keep: the URL is written to `events.flyer_image_url`, a Stash row is created, the modal closes, the event detail reloads.
 
 **Event detail page:**
-- Add a "BRAND KIT" line in the metadata card alongside `status · voice_preset`.
+- "BRAND KIT" line in the metadata card alongside `status · voice_preset`.
+- Flyer thumb (already shipped) gets a `{GENERATE FRESH}` overlay button — re-runs the master-flyer gen modal.
 
-## Generation pipeline (image composer rewrite)
+## Generation pipeline
 
-For each post, the composer picks a path based on data availability:
+For each generated image, the composer picks a path:
 
 | Path | Trigger | Output |
 |---|---|---|
-| **Brand-aware (v0.6)** | Event's brand kit has ≥1 reference image | Fal FLUX with style reference + Pillow overlay (typography, post-type label). The FLUX output becomes the background/canvas; Pillow adds typography per existing layout. |
-| **Pillow v0.5 fallback** | No brand kit OR kit has no references | Current dark-slab + photo + typography composition. Unchanged. |
+| **Brand-aware (v0.6)** | Event has a brand kit with ≥1 reference, OR the event has a `flyer_image_url` | FLUX with style refs + Pillow typography overlay. Style refs = `[event.flyer, ...brand_kit.refs[:3]]`. |
+| **Pillow v0.5 fallback** | No brand kit references AND no event flyer | Current dark canvas + photo (artist hero) + typography. Used when there's literally no visual data to anchor on. |
 
-**Brand-aware path detail:**
-1. Build the FLUX prompt from event data: `"Promotional flyer for {event.name} at {venue}, {date}. Underground music. Photographic style consistent with reference images."` (Tuneable in `config/image_prompts.py`.)
-2. Pass the top 3 reference images from `brand_kit.reference_image_urls` as style anchors.
-3. FLUX returns a 1080×1350 image — the "branded canvas."
-4. Pillow overlays: post_type label (top-left corner), event/artist name (lower third), date/venue (below the name), bottom rule + S0UNDCAV3 mark.
-5. Same dimensions, same upload path, same storage bucket as v0.5.
+### Brand-aware path — per-post-type
 
-**Cost / latency expectations:**
-- FLUX schnell call: ~3-5s per image. Campaign of 10 posts = +30-50s on top of copy gen.
-- Fal cost: ~£0.003 per image × 10 posts = ~£0.03 per campaign. Sustainable.
-- For v0.6 we keep generation synchronous; if total time crosses ~90s, move to background thread (was already planned).
+The 10 posts share one design language. What varies:
+
+| Post type | FLUX prompt focus | Pillow overlay |
+|---|---|---|
+| `announcement` | Whole-lineup reveal mood. Hero composition. | Event name (large), full lineup, date. |
+| `headliner_spotlight` | Anchor on the headliner; profile photo influences composition. | Artist name (large), event name (small), date. |
+| `support_spotlight` | Same as headliner, lower weight. | Same shape. |
+| `mid_campaign_push` / `countdown_*` | Same brand style, urgency framing in prompt. | Countdown copy + date. |
+| `recap` | Reflective; warmer treatment. | "Thank you" framing. |
+
+All outputs are 1080×1350 in v0.6. Multiple sizes (story 1080×1920, twitter 1200×675) is v0.7.
+
+### Master flyer generation (NEW vs. derivative posts)
+
+The **master flyer** is generated first when the promoter chooses; subsequent derivative posts can use it as their primary style anchor.
+
+```
+Brand kit refs + event details (name, lineup, date, venue)
+       │
+       ▼
+   FLUX (style refs + master flyer prompt)
+       │
+       ▼
+    events.flyer_image_url  +  stash_items row
+       │
+       ▼
+For each of the 10 posts:
+   [flyer, ...brand_kit.refs[:2]] + post-type prompt
+       │
+       ▼
+   FLUX → derivative image → Pillow overlay → posts.image_asset_urls
+```
+
+If the promoter uploaded their own master flyer instead of generating one, the same pipeline runs with their upload as the strongest style anchor.
+
+## Cost / latency
+
+- FLUX schnell call: ~3–5s per image. Master flyer + 10 derivatives = 11 calls = ~35–55s.
+- Fal cost: ~£0.003 per image × 11 = ~£0.033 per full campaign.
+- Doug's existing FAL_KEY in `.env` already covers it.
+- v0.6 keeps generation synchronous; if total time crosses ~90s, move to background thread (already planned for v0.7).
 
 ## API surface (additions only)
 
 | Verb | Path | Purpose |
 |---|---|---|
-| POST | `/api/brand-kits/<id>/references` | Multipart upload, returns updated `reference_image_urls`. Up to 10 files per request. |
+| POST | `/api/brand-kits/<id>/references` | Multipart upload to brand_assets bucket; appends to `reference_image_urls`. |
 | DELETE | `/api/brand-kits/<id>/references` | Body `{ url }`. Removes one reference. |
-| PATCH | `/api/brand-kits/<id>/references/order` | Body `{ urls: [...] }`. Replaces the array (used on drag reorder). |
+| PATCH | `/api/brand-kits/<id>/references/order` | Body `{ urls: [...] }`. Replaces the array. |
+| POST | `/api/events/<id>/generate-flyer` | Body `{ prompt?: string }`. Runs FLUX with brand kit refs + event context; writes `events.flyer_image_url`; returns `{ flyer_image_url, stash_item_id }`. |
 | PATCH | `/api/events/<id>` | Add `brand_kit_id` to the editable allow-list. |
 
-No new top-level entity routes — references live inside brand kits.
+No new top-level entity routes; references live inside brand kits.
 
 ## Order of operations (build sequence)
 
 1. **Spec sign-off** (this page).
-2. **Migration `0015`** — `brand_kits.reference_image_urls`, `brand_kits.is_primary`, `events.brand_kit_id`. Backfill: mark each owner's existing kit as primary.
-3. **Backend** — three brand-kit reference endpoints + extend events PATCH allow-list.
-4. **Frontend (Brands tab)** — reference library grid + multi-upload + reorder/delete.
-5. **Frontend (events form/detail)** — brand-kit picker + display line.
-6. **Image composer rewrite** — split into `compose_brand_aware()` and the existing `compose_pillow_fallback()`. Selection logic at the call site.
-7. **Fal FLUX wiring** — extend `media_gen.py` (or write a sibling `media_gen_style_ref.py`) to call FLUX with `image_input` style refs. Use existing FAL_KEY.
-8. **End-to-end test** on BUCKINGHAM PALACE with 3 reference flyers attached.
+2. **Migration `0015`** — extend `brand_kits` + `events`. Backfill: mark each owner's existing kit as primary.
+3. **Backend** — three brand-kit reference endpoints + `/events/<id>/generate-flyer` + events PATCH allow-list update.
+4. **Frontend (current Brands tab)** — reference library grid + multi-upload + reorder/delete. Adds a `+ REFERENCE LIBRARY` block to each kit card.
+5. **Frontend (events form)** — brand-kit dropdown + `{GENERATE MASTER FLYER}` button next to the existing flyer field. Generation modal.
+6. **Frontend (events detail)** — `BRAND KIT` line in meta; `{GENERATE FRESH}` overlay on the flyer thumb.
+7. **`media_gen.py` extension** — Fal FLUX with `image_input` style references (`fal-ai/flux/dev/redux` or whichever current FLUX endpoint supports IP-Adapter; spec'd loosely so we can swap when Fal's API moves).
+8. **`image_composer.py` split** — `compose_brand_aware(event, brand_kit, profile, post_type)` (new) + retain `compose_pillow_fallback(...)` for the no-references path. Selection logic moves to the call site in `campaigns_api.py`.
+9. **"Drop media here" copy pass** — find/replace `flyer` UI copy → `media` where it refers to the input concept (the data field stays `flyer_image_url` to avoid a rename storm).
+10. **End-to-end test** on BUCKINGHAM PALACE with 3 references attached + a generated master flyer.
 
 ## Out of scope (v0.7+)
 
-- **Style cloning per genre** — different references per post_type (announcement vs spotlight). v0.7.
-- **Reference categorisation** — letting the promoter tag references as "lineup poster" / "story" / "throwback". v0.7.
-- **Auto-extracted brand palette from references** — vision call that reads the dominant colours/fonts from uploaded refs to seed the brand kit. v0.8.
-- **Field-day-style overlay** (Doug's mental example) — a brand-kit-level optional graphic overlay (e.g. a logo lockup) that gets composited on every output. v0.7.
-- **Reference-driven Sonnet prompts** — passing the visual mood to the copy generator. Probably never needed; voice presets already cover this.
-- **Image variants** (two per post with seed/layout variance). Currently one per post. v0.7.
+- **Auto-extracted brand palette from references** — vision call reads dominant colours + font hints from uploads and seeds the brand kit. v0.7.
+- **Per-post-type layout templates** — different overlay layouts per post type instead of one. v0.7.
+- **Two variants per post** (seed/layout variance). Currently one. v0.7.
+- **Multiple sizes** — story 1080×1920, twitter 1200×675. v0.7.
+- **Reference categorisation** — tag references as "lineup poster" / "story" / "throwback". v0.8.
+- **Logo lockup as fixed overlay** — graphic element from brand kit always composited on output. v0.7 (Doug's "field day touch" idea — keep brand marks consistent across all derivatives).
+- **Firepit full subtab reshuffle** (Brands moves in, Asset Generator added). Tracked separately as `firepit_factory_layout.md`. v0.7.
+- **Self-improving design language** — system learns which derivative templates promoters keep vs regen, and shifts defaults. v0.8+.
+- **Voice training from past campaigns** — Doug's earlier north-star ask, tracked separately. Post-beta.
 
 ## Definition of done (v0.6)
 
-- Doug attaches ≥3 reference flyers to his primary brand kit via the Brands tab.
+- Doug attaches ≥3 reference images to his primary brand kit.
 - BUCKINGHAM PALACE event has `brand_kit_id` set (auto-defaulted from primary).
-- Regenerate campaign → 10 composed images, each visibly anchored in the reference style (consistent palette, photographic feel, typography mood) — not generic Fal FLUX abstract.
-- Doug says: "this looks like my brand."
+- He can click `{GENERATE MASTER FLYER}` from the event detail; ≤10s later a brand-anchored flyer is attached to the event.
+- He can click `{REGENERATE}` on the campaign; ≤90s later 10 derivative post images appear, all visibly carrying the same brand DNA, none carrying Sound Cave branding.
+- Doug says: "this looks like my nights."
 
 ## Sign-off
 
 - [ ] Doug — data model approved (`brand_kits` + `events` extensions)
-- [ ] Doug — UI approach approved (reference library inside existing Brands tab)
-- [ ] Doug — generation pipeline approved (FLUX with style refs + Pillow overlay)
+- [ ] Doug — UI approach approved (reference library in current Brands tab; master-flyer generation modal triggered from events)
+- [ ] Doug — generation pipeline approved (FLUX with style refs; master flyer first, derivatives second; no Sound Cave branding in output)
+- [ ] Doug — copy change approved ("drop media" everywhere it currently says "drop a flyer")
 
 Once ticked, this page becomes the live spec and the build sequence above kicks off.
