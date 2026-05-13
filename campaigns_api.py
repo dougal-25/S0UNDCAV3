@@ -22,6 +22,7 @@ from flask import Blueprint, jsonify, request
 
 from campaign_template import build_campaign
 from config.voice_presets import VOICE_PRESETS, system_prompt_for
+from image_composer import compose_post_image, store_post_image
 from sb_helpers import maybe_one, require_user, supabase
 
 campaigns_bp = Blueprint('campaigns', __name__)
@@ -299,11 +300,13 @@ def generate_campaign(event_id):
     errors = []
     for plan_post in plan:
         profile = profiles_by_id.get(plan_post.get('linked_artist_profile_id')) if plan_post.get('linked_artist_profile_id') else None
+        copy_err = None
         try:
             variants = _generate_copy_for_post(event, voice, plan_post, profile, lineup_profiles)
         except Exception as e:
             variants = []
-            errors.append({'post_type': plan_post['post_type'], 'error': str(e)})
+            copy_err = str(e)
+            errors.append({'post_type': plan_post['post_type'], 'error': copy_err})
 
         row = {
             'campaign_id': camp['id'],
@@ -314,11 +317,27 @@ def generate_campaign(event_id):
             'copy_variants': variants,
             'selected_copy_variant_id': variants[0]['id'] if variants else None,
             'publish_status': 'draft',
-            'generation_error': errors[-1]['error'] if errors and errors[-1]['post_type'] == plan_post['post_type'] else None,
+            'generation_error': copy_err,
         }
         inserted = supabase().table('posts').insert(row).execute().data
-        if inserted:
-            posts_created.append(inserted[0])
+        if not inserted:
+            continue
+        post_row = inserted[0]
+
+        # Image composition (v0.5) — best-effort, never blocks the campaign
+        try:
+            png = compose_post_image(event, profile, plan_post['post_type'])
+            image_url = store_post_image(uid, post_row['id'], png)
+            supabase().table('posts').update({
+                'image_asset_urls': [image_url],
+                'selected_image_url': image_url,
+            }).eq('id', post_row['id']).execute()
+            post_row['image_asset_urls'] = [image_url]
+            post_row['selected_image_url'] = image_url
+        except Exception as e:
+            errors.append({'post_type': plan_post['post_type'], 'error': f'image: {e}'})
+
+        posts_created.append(post_row)
 
     # Finalise campaign
     completed = datetime.now(timezone.utc).isoformat()

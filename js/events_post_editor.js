@@ -155,6 +155,13 @@
         h('div', { style: { display: 'flex', gap: '8px' } }, [cancelBtn, saveBtn]),
       ]);
 
+      const imageUrl = post.selected_image_url || (post.image_asset_urls || [])[0];
+      const imagePreview = imageUrl
+        ? h('div', { style: { marginBottom: '14px', display: 'flex', justifyContent: 'center' } }, [
+            h('img', { src: imageUrl, style: { maxWidth: '320px', width: '100%', borderRadius: '2px' } }),
+          ])
+        : null;
+
       return h('div', {
         class: 'card',
         style: {
@@ -163,6 +170,7 @@
         },
       }, [
         header,
+        imagePreview,
         h('div', { style: { ...MONO_LABEL, marginBottom: '6px' } },
           variants.length > 1 ? `VARIANTS — pick one (${variants.length} options)` : 'VARIANT'),
         variantCards,

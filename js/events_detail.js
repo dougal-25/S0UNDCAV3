@@ -98,6 +98,22 @@
     const selectedVariant = (p.copy_variants || []).find(v => v.id === p.selected_copy_variant_id) || (p.copy_variants || [])[0];
     const preview = selectedVariant ? selectedVariant.text : (p.generation_error ? '⚠ ' + p.generation_error : '(no copy yet)');
     const eventIdForReload = (p._eventId);
+    const imageUrl = p.selected_image_url || (p.image_asset_urls || [])[0];
+
+    const textBlock = h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 } }, [
+      h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' } }, [
+        h('div', { style: { ...MONO_LABEL, color: 'var(--red)' } }, p.post_type.replace(/_/g, ' ')),
+        h('div', { style: { ...MONO_LABEL, fontSize: '9px' } }, fmtDate(p.scheduled_for)),
+      ]),
+      h('div', { style: { fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap', color: selectedVariant ? 'var(--body)' : 'var(--muted)' } }, preview),
+      h('div', { style: { fontSize: '10px', color: 'var(--muted)' } },
+        (p.copy_variants || []).length > 1 ? `${p.copy_variants.length} variants · click to edit` : 'click to edit'),
+    ]);
+
+    const thumb = imageUrl
+      ? h('img', { src: imageUrl, style: { width: '88px', height: '110px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 } })
+      : null;
+
     return h('div', {
       class: 'card',
       style: { padding: '12px 14px', cursor: 'pointer' },
@@ -107,12 +123,7 @@
         }
       },
     }, [
-      h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' } }, [
-        h('div', { style: { ...MONO_LABEL, color: 'var(--red)' } }, p.post_type.replace(/_/g, ' ')),
-        h('div', { style: { ...MONO_LABEL, fontSize: '9px' } }, fmtDate(p.scheduled_for)),
-      ]),
-      h('div', { style: { fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap', color: selectedVariant ? 'var(--body)' : 'var(--muted)' } }, preview),
-      (p.copy_variants || []).length > 1 ? h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginTop: '6px' } }, `${p.copy_variants.length} variants · click to edit`) : h('div', { style: { fontSize: '10px', color: 'var(--muted)', marginTop: '6px' } }, 'click to edit'),
+      h('div', { style: { display: 'flex', gap: '14px', alignItems: 'stretch' } }, [thumb, textBlock]),
     ]);
   }
 
