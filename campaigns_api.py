@@ -296,6 +296,17 @@ def generate_campaign(event_id):
     # post so the model can name artists even in non-spotlight posts.
     lineup_profiles = [s['artist_profiles'] for s in slots if s.get('artist_profiles')]
 
+    # Resolve the brand kit for image gen — explicit on event, else primary
+    brand_kit = None
+    if event.get('brand_kit_id'):
+        brand_kit = maybe_one(
+            supabase().table('brand_kits').select('*').eq('id', event['brand_kit_id']).eq('user_id', uid)
+        )
+    if not brand_kit:
+        brand_kit = maybe_one(
+            supabase().table('brand_kits').select('*').eq('user_id', uid).eq('is_primary', True)
+        )
+
     posts_created = []
     errors = []
     for plan_post in plan:
@@ -324,9 +335,9 @@ def generate_campaign(event_id):
             continue
         post_row = inserted[0]
 
-        # Image composition (v0.5) — best-effort, never blocks the campaign
+        # Image composition — brand-aware if references exist, else Pillow fallback
         try:
-            png = compose_post_image(event, profile, plan_post['post_type'])
+            png = compose_post_image(event, profile, plan_post['post_type'], brand_kit=brand_kit)
             image_url = store_post_image(uid, post_row['id'], png)
             supabase().table('posts').update({
                 'image_asset_urls': [image_url],

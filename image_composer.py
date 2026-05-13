@@ -139,14 +139,130 @@ def _draw_image_card(canvas, photo_url, area):
         canvas.paste(placeholder, (x0, y0))
 
 
-def compose_post_image(event, profile, post_type):
+def compose_post_image(event, profile, post_type, brand_kit=None):
     """Build one PNG for a post. Returns raw bytes.
 
-    event:        dict with name, event_date, venue_name, venue_city,
-                  flyer_image_url, brand_color_primary, brand_color_secondary
-    profile:      dict or None — for spotlight posts, the linked artist profile
-    post_type:    string from post_type enum
+    v0.6 routing:
+    - If a style reference is available (event.flyer_image_url or
+      brand_kit.reference_image_urls), call FLUX Redux for a brand-anchored
+      canvas + Pillow typography overlay.
+    - Otherwise fall back to the v0.5 Pillow-only composition.
+
+    Image gen errors fall through to Pillow — the post still ships.
     """
+    style_ref = _pick_style_reference(event, brand_kit)
+    if style_ref:
+        try:
+            return _compose_brand_aware(event, profile, post_type, style_ref)
+        except Exception as e:
+            print(f'[image_composer] brand-aware path failed ({e}); falling back to Pillow')
+    return _compose_pillow_fallback(event, profile, post_type)
+
+
+def _pick_style_reference(event, brand_kit):
+    """Return the first available reference image URL or None."""
+    if event and event.get('flyer_image_url'):
+        return event['flyer_image_url']
+    if brand_kit and brand_kit.get('reference_image_urls'):
+        refs = brand_kit['reference_image_urls']
+        if refs:
+            return refs[0]
+    return None
+
+
+# Per-post-type prompts for the FLUX content variation. Voice is implicit in
+# the style reference; these just direct WHAT the canvas should depict.
+_POST_FLUX_PROMPT = {
+    'announcement': "lineup reveal poster mood, full event composition, atmospheric",
+    'headliner_spotlight': "single artist focus, portrait composition, atmospheric",
+    'support_spotlight': "single artist focus, portrait composition, atmospheric",
+    'mid_campaign_push': "event promotional design, building anticipation",
+    'countdown_7d': "event countdown poster, anticipation",
+    'countdown_3d': "event countdown poster, urgency, three days away",
+    'countdown_1d': "event countdown poster, urgency, tomorrow night",
+    'countdown_day_of': "event poster, tonight, urgency",
+    'day_of_doors': "event poster, doors opening, atmospheric",
+    'recap': "post-event reflection mood, warm, looking back",
+    'throwback': "throwback nostalgic event mood",
+    'ticket_push': "ticket sales push, direct, urgent",
+    'custom': "promotional event imagery",
+}
+
+
+def _compose_brand_aware(event, profile, post_type, style_ref):
+    """Brand-aware path — FLUX Redux for the canvas + Pillow for typography."""
+    from media_gen import generate_fal_with_reference
+
+    post_brief = _POST_FLUX_PROMPT.get(post_type, _POST_FLUX_PROMPT['custom'])
+    prompt_parts = [
+        "Promotional event flyer, modern design",
+        post_brief,
+        "matching the visual style of the reference image — same palette, typography mood, photographic feel, layout language",
+        "portrait orientation, no text (text will be added in post-processing)",
+    ]
+    if event.get('name'):
+        prompt_parts.append(f"for the event '{event['name']}'")
+    prompt = ', '.join(prompt_parts) + '.'
+
+    flux_bytes, _, _ = generate_fal_with_reference(prompt, style_ref, WIDTH, HEIGHT)
+    canvas = Image.open(io.BytesIO(flux_bytes)).convert('RGB')
+    canvas = _cover_crop(canvas, WIDTH, HEIGHT)  # ensure exact dimensions
+    draw = ImageDraw.Draw(canvas)
+
+    # Typography overlay — minimal, no Sound Cave branding
+    accent = _hex_to_rgb(event.get('brand_color_primary'), ACCENT_DEFAULT)
+
+    # Subtle dark gradient at the bottom so text is always legible over the
+    # generated canvas. We don't know what FLUX returned; play it safe.
+    grad_h = 480
+    grad = Image.new('RGBA', (WIDTH, grad_h), (0, 0, 0, 0))
+    g_draw = ImageDraw.Draw(grad)
+    for y in range(grad_h):
+        alpha = int(180 * (y / grad_h))
+        g_draw.rectangle([(0, y), (WIDTH, y + 1)], fill=(0, 0, 0, alpha))
+    canvas.paste(grad, (0, HEIGHT - grad_h), grad)
+    draw = ImageDraw.Draw(canvas)
+
+    # Post type label (top-left)
+    label_font = _font(FONT_MONO, 26)
+    label_text = post_type.replace('_', ' ').upper()
+    draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=accent)
+
+    # Heading (artist or event name) — bottom block
+    is_spotlight = bool(profile)
+    heading_text = ((profile.get('display_name') if is_spotlight else event.get('name', '')) or '').upper()
+    heading_font = _font(FONT_SANS, 64)
+    heading_lines = _wrap_text(draw, heading_text, heading_font, WIDTH - 2 * MARGIN)[:2]
+
+    line_h = 76
+    detail_y_offset = 40
+    detail_font = _font(FONT_MONO, 26)
+    detail_bits = [_format_event_date(event.get('event_date'))]
+    venue_str = event.get('venue_name') or ''
+    if event.get('venue_city'):
+        venue_str = (venue_str + ', ' + event['venue_city']).strip(', ')
+    if venue_str:
+        detail_bits.append(venue_str.upper())
+    detail = '  ·  '.join(b for b in detail_bits if b)
+
+    # Compute bottom-anchored Y for the text block
+    text_block_h = line_h * len(heading_lines) + (detail_y_offset + 30 if detail else 0)
+    text_top = HEIGHT - MARGIN - text_block_h
+    y = text_top
+    for line in heading_lines:
+        draw.text((MARGIN, y), line, font=heading_font, fill=TEXT_HEADING)
+        y += line_h
+    if detail:
+        draw.text((MARGIN, y + 12), detail, font=detail_font, fill=TEXT_BODY)
+
+    buf = io.BytesIO()
+    canvas.save(buf, format='PNG', optimize=True)
+    return buf.getvalue()
+
+
+def _compose_pillow_fallback(event, profile, post_type):
+    """v0.5 fallback — dark canvas + photo + typography. Used when there's
+    no style reference available."""
     accent = _hex_to_rgb(event.get('brand_color_primary'), ACCENT_DEFAULT)
     bg = _hex_to_rgb(event.get('brand_color_secondary'), BG_DEFAULT)
 

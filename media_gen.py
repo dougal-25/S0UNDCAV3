@@ -226,6 +226,46 @@ def _generate_fal(prompt, width, height):
     return img_r.content, 'fal-ai', 'flux-schnell'
 
 
+def generate_fal_with_reference(prompt, reference_image_url, width, height, timeout=60):
+    """Generate image via Fal AI FLUX Redux — takes a style reference URL.
+
+    Used by Phase 3 v0.6 brand-aware image gen: feed in one of the
+    promoter's past flyers or their event master flyer as the style anchor,
+    plus a per-post prompt for content variation.
+
+    Returns (image_bytes, provider, model). Raises on failure — callers
+    decide whether to fall back to the Pillow-only composer.
+    """
+    api_key = os.getenv('FAL_KEY')
+    if not api_key:
+        raise RuntimeError('FAL_KEY not set')
+    if not reference_image_url:
+        raise ValueError('reference_image_url is required')
+
+    r = http_requests.post(
+        'https://fal.run/fal-ai/flux/dev/redux',
+        headers={
+            'Authorization': f'Key {api_key}',
+            'Content-Type': 'application/json',
+        },
+        json={
+            'prompt': prompt,
+            'image_url': reference_image_url,
+            'image_size': {'width': width, 'height': height},
+            'num_inference_steps': 28,
+            'num_images': 1,
+            'enable_safety_checker': True,
+        },
+        timeout=timeout,
+    )
+    r.raise_for_status()
+    data = r.json()
+    out_url = data['images'][0]['url']
+    img_r = http_requests.get(out_url, timeout=timeout)
+    img_r.raise_for_status()
+    return img_r.content, 'fal-ai', 'flux-dev-redux'
+
+
 # ── Provider: Replicate ────────────────────────────────────
 
 def _generate_replicate(prompt, width, height):

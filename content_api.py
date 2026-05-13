@@ -30,9 +30,11 @@ CORS(app)
 from events_api import events_bp
 from artist_profiles_api import artist_profiles_bp
 from campaigns_api import campaigns_bp
+from brand_kits_api import brand_kits_bp
 app.register_blueprint(events_bp)
 app.register_blueprint(artist_profiles_bp)
 app.register_blueprint(campaigns_bp)
+app.register_blueprint(brand_kits_bp)
 
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 

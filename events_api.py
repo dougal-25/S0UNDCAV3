@@ -142,6 +142,109 @@ Rules:
 """
 
 
+@events_bp.route('/<event_id>/generate-flyer', methods=['POST'])
+def generate_flyer(event_id):
+    """Generate a master flyer for the event using FLUX with style references.
+
+    Pulls style anchors from (a) the event's brand kit reference library,
+    (b) any existing event flyer_image_url. Fal FLUX Redux generates fresh
+    imagery anchored on the first available reference. Writes the result to
+    events.flyer_image_url and to a stash_items row.
+
+    Body: { "prompt": optional freeform addition }
+    Returns: { flyer_image_url, stash_item_id, model }
+    """
+    uid, err = require_user()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    extra_prompt = (body.get('prompt') or '').strip()
+
+    ev = maybe_one(
+        supabase().table('events').select('*').eq('id', event_id).eq('owner_id', uid)
+    )
+    if not ev:
+        return jsonify({'error': 'event not found'}), 404
+
+    # Resolve brand kit: explicit on the event, else the user's primary
+    brand_kit = None
+    if ev.get('brand_kit_id'):
+        brand_kit = maybe_one(
+            supabase().table('brand_kits').select('*').eq('id', ev['brand_kit_id']).eq('user_id', uid)
+        )
+    if not brand_kit:
+        brand_kit = maybe_one(
+            supabase().table('brand_kits').select('*').eq('user_id', uid).eq('is_primary', True)
+        )
+
+    # Resolve style anchor — prefer existing flyer, fall back to first ref
+    style_ref = ev.get('flyer_image_url')
+    if not style_ref and brand_kit and brand_kit.get('reference_image_urls'):
+        style_ref = brand_kit['reference_image_urls'][0]
+    if not style_ref:
+        return jsonify({
+            'error': 'no style reference available — upload a flyer to this event '
+                     'or add references to your brand kit before generating',
+        }), 422
+
+    # Compose the FLUX prompt
+    parts = [f"Promotional event flyer, modern design"]
+    if ev.get('name'):
+        parts.append(f"for the event '{ev['name']}'")
+    if ev.get('venue_name'):
+        parts.append(f"at {ev['venue_name']}")
+    if ev.get('venue_city'):
+        parts.append(f"in {ev['venue_city']}")
+    parts.append("matching the visual style of the reference image — same typography mood, palette, photographic feel, layout language")
+    if extra_prompt:
+        parts.append(extra_prompt)
+    parts.append("portrait orientation, no text (text will be added in post-processing)")
+    prompt = ', '.join(parts) + '.'
+
+    from media_gen import generate_fal_with_reference
+    try:
+        png_bytes, provider, model = generate_fal_with_reference(prompt, style_ref, 1080, 1350)
+    except Exception as e:
+        return jsonify({'error': f'flyer generation failed: {e}'}), 502
+
+    # Upload to event_flyers bucket
+    import os as _os
+    import time as _time
+    object_path = f"{uid}/generated_flyer_{int(_time.time())}_{_os.urandom(3).hex()}.png"
+    try:
+        supabase().storage.from_(FLYER_BUCKET).upload(
+            path=object_path, file=png_bytes,
+            file_options={'content-type': 'image/png', 'upsert': 'true'},
+        )
+        flyer_image_url = supabase().storage.from_(FLYER_BUCKET).get_public_url(object_path)
+    except Exception as e:
+        return jsonify({'error': f'storage upload failed: {e}'}), 500
+
+    # Persist on the event
+    supabase().table('events').update({'flyer_image_url': flyer_image_url}).eq('id', event_id).eq('owner_id', uid).execute()
+
+    # Stash row so it's browsable
+    stash_row = (supabase().table('stash_items').insert({
+        'user_id': uid,
+        'kind': 'image',
+        'media_url': flyer_image_url,
+        'prompt': prompt,
+        'metadata': {
+            'source': 'generate_flyer',
+            'event_id': event_id,
+            'brand_kit_id': brand_kit['id'] if brand_kit else None,
+            'style_reference_url': style_ref,
+            'model': model,
+        },
+    }).execute()).data or [None]
+
+    return jsonify({
+        'flyer_image_url': flyer_image_url,
+        'stash_item_id': stash_row[0]['id'] if stash_row[0] else None,
+        'model': model,
+    })
+
+
 @events_bp.route('/<event_id>/flyer', methods=['POST'])
 def attach_flyer(event_id):
     """Upload a flyer to an existing event (no vision extraction).
@@ -307,7 +410,7 @@ def patch_event(event_id):
     EDITABLE = {
         'name', 'event_date', 'venue_name', 'venue_city', 'ticketing_url',
         'flyer_image_url', 'hero_track_url', 'status', 'voice_preset',
-        'brand_color_primary', 'brand_color_secondary',
+        'brand_color_primary', 'brand_color_secondary', 'brand_kit_id',
     }
     update = {k: body[k] for k in body if k in EDITABLE}
     if 'status' in update and update['status'] not in ALLOWED_STATUS:
