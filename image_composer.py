@@ -27,11 +27,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 FONT_MONO = str(PROJECT_ROOT / 'brand' / 'fonts' / 'DMMono-Regular.ttf')
 FONT_SANS = str(PROJECT_ROOT / 'brand' / 'fonts' / 'DMSans-Regular.ttf')
 
+# IMPORTANT: this module is the asset factory for promoter campaigns.
+# NO Sound Cave branding is allowed in any output — no S0UNDCAV3 wordmark,
+# no Sound Cave red as a fallback accent. Outputs must read as the
+# promoter's brand alone. If the promoter hasn't set brand colours, we
+# default to neutral white — never our brand.
 BUCKET = 'campaign_images'
 WIDTH = 1080
 HEIGHT = 1350
-BG_DEFAULT = (10, 10, 12)        # near-black, matches the dark palette
-ACCENT_DEFAULT = (220, 38, 38)   # var(--red) approx
+BG_DEFAULT = (10, 10, 12)         # neutral near-black
+ACCENT_DEFAULT = (240, 240, 240)  # neutral off-white — NOT Sound Cave red
 TEXT_HEADING = (245, 245, 245)
 TEXT_BODY = (180, 180, 180)
 MARGIN = 64
@@ -197,11 +202,8 @@ def compose_post_image(event, profile, post_type):
     if detail:
         draw.text((MARGIN, y + 12), detail, font=detail_font, fill=TEXT_BODY)
 
-    # Bottom accent bar with project signature
-    sig_y = HEIGHT - 70
-    draw.rectangle([(0, sig_y), (WIDTH, sig_y + 2)], fill=accent)
-    sig_font = _font(FONT_MONO, 18)
-    draw.text((MARGIN, sig_y + 18), 'S0UNDCAV3', font=sig_font, fill=accent)
+    # NB: deliberately no project signature or watermark on output.
+    # Generated assets carry the promoter's brand alone (see module docstring).
 
     buf = io.BytesIO()
     canvas.save(buf, format='PNG', optimize=True)
