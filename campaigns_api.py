@@ -389,7 +389,7 @@ def generate_campaign(event_id):
 
         # Image composition — brand-aware if references exist, else Pillow fallback
         try:
-            png = compose_post_image(event, profile, plan_post['post_type'], brand_kit=brand_kit)
+            png = compose_post_image(event, profile, plan_post['post_type'], brand_kit=brand_kit, campaign_id=camp['id'])
             image_url = store_post_image(uid, post_row['id'], png)
             supabase().table('posts').update({
                 'image_asset_urls': [image_url],

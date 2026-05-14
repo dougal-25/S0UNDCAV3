@@ -12,6 +12,7 @@ Minimal viable composition for campaign post images.
 
 Returns the public Supabase Storage URL of the composed image.
 """
+import hashlib
 import io
 import os
 import re
@@ -139,7 +140,7 @@ def _draw_image_card(canvas, photo_url, area):
         canvas.paste(placeholder, (x0, y0))
 
 
-def compose_post_image(event, profile, post_type, brand_kit=None):
+def compose_post_image(event, profile, post_type, brand_kit=None, campaign_id=None):
     """Build one PNG for a post. Returns raw bytes.
 
     v0.6 routing:
@@ -148,15 +149,119 @@ def compose_post_image(event, profile, post_type, brand_kit=None):
       canvas + Pillow typography overlay.
     - Otherwise fall back to the v0.5 Pillow-only composition.
 
+    v0.7 (regen variance fix):
+    - `campaign_id` pins a deterministic FLUX seed so a campaign's posts are
+      drawn from adjacent latent space and regen is reproducible.
+    - The brand kit logo is composited server-side (fixed, never drifts) —
+      see `_draw_logo_overlay`.
+
     Image gen errors fall through to Pillow — the post still ships.
     """
     style_ref = _pick_style_reference(event, brand_kit)
     if style_ref:
         try:
-            return _compose_brand_aware(event, profile, post_type, style_ref)
+            return _compose_brand_aware(event, profile, post_type, style_ref, brand_kit, campaign_id)
         except Exception as e:
             print(f'[image_composer] brand-aware path failed ({e}); falling back to Pillow')
-    return _compose_pillow_fallback(event, profile, post_type)
+    return _compose_pillow_fallback(event, profile, post_type, brand_kit)
+
+
+# ── v0.7 — deterministic seed ──────────────────────────────
+
+# Stable per-post-type offset so post types differ slightly while every
+# regen of the SAME campaign stays identical. Order is fixed; new post
+# types append at the end so existing offsets never shift.
+_POST_TYPE_SEED_OFFSET = {
+    pt: i for i, pt in enumerate([
+        'announcement', 'headliner_spotlight', 'support_spotlight',
+        'mid_campaign_push', 'countdown_7d', 'countdown_3d', 'countdown_1d',
+        'countdown_day_of', 'day_of_doors', 'recap', 'throwback',
+        'ticket_push', 'custom',
+    ])
+}
+
+
+def _campaign_seed(campaign_id, post_type):
+    """Deterministic FLUX seed for a post. Same campaign + post_type → same
+    seed every time. Returns None if there's no campaign_id (non-campaign
+    callers keep random-seed behaviour)."""
+    if not campaign_id:
+        return None
+    base = int(hashlib.sha256(str(campaign_id).encode()).hexdigest()[:8], 16)
+    return base + _POST_TYPE_SEED_OFFSET.get(post_type, 0)
+
+
+# ── v0.7 — logo lockup overlay ─────────────────────────────
+
+# 9-position grid matches the Brand Kits UI selector (#bfPositionGrid).
+# Values are (anchor_x, anchor_y) as fractions; the logo is then nudged
+# inward by MARGIN on whichever edges it touches.
+_LOGO_ANCHORS = {
+    'top_left': (0.0, 0.0), 'top_center': (0.5, 0.0), 'top_right': (1.0, 0.0),
+    'center_left': (0.0, 0.5), 'center': (0.5, 0.5), 'center_right': (1.0, 0.5),
+    'bottom_left': (0.0, 1.0), 'bottom_center': (0.5, 1.0), 'bottom_right': (1.0, 1.0),
+}
+
+
+def _draw_logo_overlay(canvas, brand_kit):
+    """Composite the brand kit logo at a fixed position. Pure server-side —
+    FLUX never renders the logo, so it can't drift between posts.
+
+    Position + scale come from brand_kit.defaults (logo_position, logo_scale),
+    matching the Brand Kits UI. Missing logo or any failure → skip silently;
+    the post still ships."""
+    if not brand_kit or not brand_kit.get('logo_url'):
+        return
+    logo = _fetch_image_rgba(brand_kit['logo_url'])
+    if logo is None:
+        return
+
+    defaults = brand_kit.get('defaults') or {}
+    pos = defaults.get('logo_position', 'bottom_right')
+    if pos not in _LOGO_ANCHORS:
+        pos = 'bottom_right'
+    scale = defaults.get('logo_scale', 0.18)
+    try:
+        scale = float(scale)
+    except (TypeError, ValueError):
+        scale = 0.18
+    scale = max(0.05, min(0.5, scale))
+
+    # Scale logo to `scale` fraction of canvas width, preserving aspect.
+    max_w = int(WIDTH * scale)
+    lw, lh = logo.size
+    new_w = max_w
+    new_h = max(1, int(lh * (new_w / lw)))
+    logo = logo.resize((new_w, new_h), Image.LANCZOS)
+
+    ax, ay = _LOGO_ANCHORS[pos]
+    x = int((WIDTH - new_w) * ax)
+    y = int((HEIGHT - new_h) * ay)
+    # Nudge inward by MARGIN on touched edges.
+    if ax == 0.0:
+        x += MARGIN
+    elif ax == 1.0:
+        x -= MARGIN
+    if ay == 0.0:
+        y += MARGIN
+    elif ay == 1.0:
+        y -= MARGIN
+
+    canvas.paste(logo, (x, y), logo)
+
+
+def _fetch_image_rgba(url):
+    """Like _fetch_image but preserves alpha — used for the logo so PNG
+    transparency composites correctly."""
+    if not url:
+        return None
+    try:
+        r = requests.get(url, timeout=10, stream=True)
+        if r.status_code != 200:
+            return None
+        return Image.open(io.BytesIO(r.content)).convert('RGBA')
+    except Exception:
+        return None
 
 
 def _pick_style_reference(event, brand_kit):
@@ -189,8 +294,11 @@ _POST_FLUX_PROMPT = {
 }
 
 
-def _compose_brand_aware(event, profile, post_type, style_ref):
-    """Brand-aware path — FLUX Redux for the canvas + Pillow for typography."""
+def _compose_brand_aware(event, profile, post_type, style_ref, brand_kit=None, campaign_id=None):
+    """Brand-aware path — FLUX Redux for the canvas + Pillow for typography.
+
+    v0.7: FLUX gets a deterministic per-campaign seed; the brand logo is
+    composited server-side (never asked of FLUX) so it can't drift."""
     from media_gen import generate_fal_with_reference
 
     post_brief = _POST_FLUX_PROMPT.get(post_type, _POST_FLUX_PROMPT['custom'])
@@ -198,13 +306,14 @@ def _compose_brand_aware(event, profile, post_type, style_ref):
         "Promotional event flyer, modern design",
         post_brief,
         "matching the visual style of the reference image — same palette, typography mood, photographic feel, layout language",
-        "portrait orientation, no text (text will be added in post-processing)",
+        "portrait orientation, no text, no logos, no wordmarks (text and logo are added in post-processing)",
     ]
     if event.get('name'):
         prompt_parts.append(f"for the event '{event['name']}'")
     prompt = ', '.join(prompt_parts) + '.'
 
-    flux_bytes, _, _ = generate_fal_with_reference(prompt, style_ref, WIDTH, HEIGHT)
+    seed = _campaign_seed(campaign_id, post_type)
+    flux_bytes, _, _ = generate_fal_with_reference(prompt, style_ref, WIDTH, HEIGHT, seed=seed)
     canvas = Image.open(io.BytesIO(flux_bytes)).convert('RGB')
     canvas = _cover_crop(canvas, WIDTH, HEIGHT)  # ensure exact dimensions
     draw = ImageDraw.Draw(canvas)
@@ -221,6 +330,9 @@ def _compose_brand_aware(event, profile, post_type, style_ref):
         alpha = int(180 * (y / grad_h))
         g_draw.rectangle([(0, y), (WIDTH, y + 1)], fill=(0, 0, 0, alpha))
     canvas.paste(grad, (0, HEIGHT - grad_h), grad)
+
+    # Brand logo — fixed server-side composite (v0.7), never drifts.
+    _draw_logo_overlay(canvas, brand_kit)
     draw = ImageDraw.Draw(canvas)
 
     # Post type label (top-left)
@@ -260,9 +372,10 @@ def _compose_brand_aware(event, profile, post_type, style_ref):
     return buf.getvalue()
 
 
-def _compose_pillow_fallback(event, profile, post_type):
+def _compose_pillow_fallback(event, profile, post_type, brand_kit=None):
     """v0.5 fallback — dark canvas + photo + typography. Used when there's
-    no style reference available."""
+    no style reference available. v0.7: gets the same logo overlay so brand
+    consistency holds even on the no-reference path."""
     accent = _hex_to_rgb(event.get('brand_color_primary'), ACCENT_DEFAULT)
     bg = _hex_to_rgb(event.get('brand_color_secondary'), BG_DEFAULT)
 
@@ -318,8 +431,10 @@ def _compose_pillow_fallback(event, profile, post_type):
     if detail:
         draw.text((MARGIN, y + 12), detail, font=detail_font, fill=TEXT_BODY)
 
+    # Brand logo — fixed server-side composite (v0.7).
     # NB: deliberately no project signature or watermark on output.
     # Generated assets carry the promoter's brand alone (see module docstring).
+    _draw_logo_overlay(canvas, brand_kit)
 
     buf = io.BytesIO()
     canvas.save(buf, format='PNG', optimize=True)

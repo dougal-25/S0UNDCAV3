@@ -226,12 +226,16 @@ def _generate_fal(prompt, width, height):
     return img_r.content, 'fal-ai', 'flux-schnell'
 
 
-def generate_fal_with_reference(prompt, reference_image_url, width, height, timeout=60):
+def generate_fal_with_reference(prompt, reference_image_url, width, height, timeout=60, seed=None):
     """Generate image via Fal AI FLUX Redux — takes a style reference URL.
 
     Used by Phase 3 v0.6 brand-aware image gen: feed in one of the
     promoter's past flyers or their event master flyer as the style anchor,
     plus a per-post prompt for content variation.
+
+    `seed` (v0.7): when set, pins FLUX to a fixed seed so a campaign's posts
+    are drawn from adjacent latent space and regen is deterministic. When
+    None, Fal picks a random seed (unchanged behaviour).
 
     Returns (image_bytes, provider, model). Raises on failure — callers
     decide whether to fall back to the Pillow-only composer.
@@ -242,20 +246,24 @@ def generate_fal_with_reference(prompt, reference_image_url, width, height, time
     if not reference_image_url:
         raise ValueError('reference_image_url is required')
 
+    payload = {
+        'prompt': prompt,
+        'image_url': reference_image_url,
+        'image_size': {'width': width, 'height': height},
+        'num_inference_steps': 28,
+        'num_images': 1,
+        'enable_safety_checker': True,
+    }
+    if seed is not None:
+        payload['seed'] = int(seed)
+
     r = http_requests.post(
         'https://fal.run/fal-ai/flux/dev/redux',
         headers={
             'Authorization': f'Key {api_key}',
             'Content-Type': 'application/json',
         },
-        json={
-            'prompt': prompt,
-            'image_url': reference_image_url,
-            'image_size': {'width': width, 'height': height},
-            'num_inference_steps': 28,
-            'num_images': 1,
-            'enable_safety_checker': True,
-        },
+        json=payload,
         timeout=timeout,
     )
     r.raise_for_status()
