@@ -214,7 +214,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 let allReports  = [];
 let currentData = null;
-let currentTab  = 'events';
+let currentTab  = 'firepit';
 let activeArtist = null;
 let reportMode  = false;
 let reportSelected = [];
@@ -504,9 +504,29 @@ function buildLineChart(datasets, labels, width=600, height=220) {
 // TAB SWITCHING
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const CAVE_TABS = ['cave','foraging','clan','footprints'];
+// Tabs that live inside the Firepit pill — switching to any of these keeps
+// the FIREPIT top-pill active and the firepit subnav visible.
+const FIREPIT_TABS = ['firepit','events','brands'];
 
 document.querySelectorAll('.htab[data-tab], .cave-subtab, .corner-link').forEach(btn => {
+  // Firepit subnav buttons use data-subtab instead of data-tab — handled below.
+  if (btn.dataset.subtab) return;
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// Firepit subnav dispatch: SUMMONS→events, FORGE/STASH/TRAILMAP→firepit+mode,
+// BRAND KITS→brands. Each click routes to switchTab + optionally sets the
+// firepit internal mode.
+document.querySelectorAll('#firepitSubnav .cave-subtab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const sub = btn.dataset.subtab;
+    if (sub === 'summons')         { switchTab('events'); }
+    else if (sub === 'brandkits')  { switchTab('brands'); }
+    else { // forge | stash | trailmap
+      switchTab('firepit');
+      if (typeof setFirepitMode === 'function') setFirepitMode(sub, null);
+    }
+  });
 });
 
 // Brand pill (top-left) → re-show the splash overlay (logo + pulse).
@@ -524,9 +544,12 @@ function switchTab(name) {
     if (el) el.style.display = t === name ? 'block' : 'none';
   });
   // Top-level nav: Cave group stays "active" for any cave sub-section.
+  // Firepit group keeps FIREPIT pill active for events + brands subtabs too.
   // Home/Index are reached via the bottom-right corner-nav, not the top pills.
-  const TOP_TABS = ['events','cave','firepit','brands','reflection'];
-  const topGroup = CAVE_TABS.includes(name) ? 'cave' : (TOP_TABS.includes(name) ? name : null);
+  const TOP_TABS = ['cave','firepit','reflection'];
+  const topGroup = CAVE_TABS.includes(name) ? 'cave'
+                  : FIREPIT_TABS.includes(name) ? 'firepit'
+                  : (TOP_TABS.includes(name) ? name : null);
   document.querySelectorAll('.htab[data-tab]').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === topGroup);
   });
@@ -540,6 +563,19 @@ function switchTab(name) {
     subnav.style.display = CAVE_TABS.includes(name) ? 'flex' : 'none';
     subnav.querySelectorAll('.cave-subtab').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === name);
+    });
+  }
+  // Firepit sub-nav visibility + active state.
+  // SUMMONS=events, BRAND KITS=brands; FORGE/STASH/TRAILMAP all map to firepit
+  // (the specific mode is set by setFirepitMode).
+  const fpsub = document.getElementById('firepitSubnav');
+  if (fpsub) {
+    fpsub.style.display = FIREPIT_TABS.includes(name) ? 'flex' : 'none';
+    const subFor = name === 'events' ? 'summons'
+                 : name === 'brands' ? 'brandkits'
+                 : (window._firepitMode || 'forge');
+    fpsub.querySelectorAll('.cave-subtab').forEach(el => {
+      el.classList.toggle('active', el.dataset.subtab === subFor);
     });
   }
   if (name === 'home')       renderHome();

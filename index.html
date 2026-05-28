@@ -68,17 +68,11 @@
     <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="" class="htab-brand-logo">
   </button>
   <nav class="header-tabs">
-    <button class="htab" type="button" data-tab="events">
-      <span class="htab-label">EVENTS <span class="count" id="eventsCount"></span></span>
-    </button>
-    <button class="htab" type="button" data-tab="firepit">
+    <button class="htab active" type="button" data-tab="firepit">
       <span class="htab-label">FIREPIT <span class="count" id="firepitCount"></span></span>
     </button>
-    <button class="htab active" type="button" data-tab="cave" data-group="cave">
+    <button class="htab" type="button" data-tab="cave" data-group="cave">
       <span class="htab-label">THE CAVE</span>
-    </button>
-    <button class="htab" type="button" data-tab="brands">
-      <span class="htab-label">BRANDS</span>
     </button>
     <button class="htab" type="button" data-tab="reflection">
       <span class="htab-label">REFLECTION</span>
@@ -103,6 +97,15 @@
     <button class="cave-subtab" type="button" data-tab="footprints">FOOTPRINTS</button>
   </nav>
 
+  <!-- ─── FIREPIT SUB-NAV (visible when in Firepit group) ── -->
+  <nav class="cave-subnav" id="firepitSubnav" style="display:none">
+    <button class="cave-subtab" type="button" data-subtab="summons">SUMMONS</button>
+    <button class="cave-subtab active" type="button" data-subtab="forge">FORGE</button>
+    <button class="cave-subtab" type="button" data-subtab="trailmap">TRAIL MAP</button>
+    <button class="cave-subtab" type="button" data-subtab="stash">STASH <span class="count" id="stashCountSubnav"></span></button>
+    <button class="cave-subtab" type="button" data-subtab="brandkits">BRAND KITS</button>
+  </nav>
+
   <!-- ─── HOME TAB ────────────────────────────────────── -->
   <div id="tab-home">
     <!-- Hero -->
@@ -117,7 +120,7 @@
       <p style="font-size:16px;color:var(--secondary);margin-top:8px;max-width:500px;margin-left:auto;margin-right:auto">
         Discover, track and grow unsigned talent in European underground dance music.
       </p>
-      <button class="btn-red" style="margin-top:24px;padding:12px 32px;font-size:14px" onclick="switchTab('cave')">Enter The Cave</button>
+      <button class="btn-red" style="margin-top:24px;padding:12px 32px;font-size:14px" onclick="switchTab('firepit')">Enter Firepit</button>
     </div>
 
     <!-- Philosophy -->
@@ -392,11 +395,8 @@
       </div>
     </div>
 
-    <div class="firepit-modes">
-      <button class="firepit-mode active" type="button" onclick="setFirepitMode('forge', this)">FORGE</button>
-      <button class="firepit-mode" type="button" onclick="setFirepitMode('stash', this)">STASH <span class="count" id="stashCount"></span></button>
-      <button class="firepit-mode" type="button" onclick="setFirepitMode('trailmap', this)">TRAIL MAP</button>
-    </div>
+    <!-- (internal firepit-modes strip removed 2026-05-28 — replaced by global #firepitSubnav, see spec/firepit_headline.md) -->
+    <span style="display:none" id="stashCount"></span>
 
     <!-- ── FORGE ──────────────────────────────────────── -->
     <div id="firepit-forge">

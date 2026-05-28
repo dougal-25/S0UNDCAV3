@@ -115,12 +115,20 @@ async function migrateLocalStorageStash() {
 
 function setFirepitMode(mode, btn) {
   firepitMode = mode;
+  window._firepitMode = mode; // exposed for global firepitSubnav active-state sync
   document.querySelectorAll('.firepit-mode').forEach(el => el.classList.remove('active'));
   if (btn) btn.classList.add('active');
   ['forge','stash','trailmap'].forEach(m => {
     const el = document.getElementById(`firepit-${m}`);
     if (el) el.style.display = m === mode ? 'block' : 'none';
   });
+  // Sync the global firepit subnav active state too.
+  const fpsub = document.getElementById('firepitSubnav');
+  if (fpsub) {
+    fpsub.querySelectorAll('.cave-subtab').forEach(el => {
+      el.classList.toggle('active', el.dataset.subtab === mode);
+    });
+  }
   if (mode === 'stash') renderStash();
   if (mode === 'trailmap' && typeof renderTrailMap === 'function') renderTrailMap();
 }
