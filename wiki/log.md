@@ -9,6 +9,17 @@
 - **NOT verified:** actual fal endpoint slugs + per-model payload shapes. Doug confirmed model names exist on fal.ai 2026-05-28; the exact wire format must be checked against fal docs at Phase 3 wiring time (when Forge UI fires real requests).
 - **Phases ahead:** 2 — `avatars` table + API; 3 — Forge UI for generation; 4 — Composer (Fabric.js); 5 — templates.
 
+## [2026-05-28] Image Gen v2 — Phase 2 (avatars + /api/generate) shipped
+- **Migration:** `db/0016_avatars.sql` — new `avatars` table (id, user_id, name, description, reference_image_urls, preview_url, lora_weights_id, timestamps), RLS owner-scoped, updated_at trigger guarded on the helper existing.
+- **Storage:** new `avatar_refs` + `generated_assets` buckets — bootstrap scripts at `scripts/create_avatar_refs_bucket.py` and `scripts/create_generated_assets_bucket.py`.
+- **API (`avatars_api.py`):** GET /api/avatars (list), POST /api/avatars (multipart create with name+description+files), PATCH /api/avatars/<id> (JSON for name/description + multipart for additional refs), DELETE /api/avatars/<id>/references (single URL), DELETE /api/avatars/<id>. Mirrors brand_kits reference patterns. Owner-scoped via RLS + service-role helper.
+- **Unified generation entry:** POST /api/generate — body `{job_type, prompt, avatar_id?, style_ref_urls?, width, height, seed?}`. Resolves avatar references → calls media_gen.generate_for_job → stores output in generated_assets → returns `{image_url, provider, model, refs_used}`.
+- **Wired:** both blueprints registered in content_api.py; imports verified.
+- **Manual ops Doug needs before live testing:** (1) apply `db/0016_avatars.sql` to Supabase, (2) run the two bucket scripts, (3) restart content_api.py.
+- **NOT yet working end-to-end:** the fal endpoint slugs in media_gen.py's `_JOB_REGISTRY` are best-guess. Generation will return 502 until the slugs + per-model payload shapes are verified against fal docs. That's a Phase 3 prerequisite.
+- **Next:** Phase 3 (Forge UI) is blocked on fal endpoint verification. Doug to decide: verify-then-build, or proceed to Forge UI scaffolding in parallel.
+
+
 ## [2026-05-28] Firepit-headline restructure — 2 top-level pills, Events folds in as Summons
 - **Why:** industry feedback (May 2026) said the app felt like 2–3 products in one. Firepit has the broadest wedge ("we make your event content") so it becomes the headline. Cave splits off as a separate / premium-tier product surface (artist discovery & tracking — distinct buyer/job). See `wiki/spec/firepit_headline.md` (signed off 2026-05-28).
 - **Nav before:** EVENTS · FIREPIT · THE CAVE · BRANDS · REFLECTION (5 top-level pills).
