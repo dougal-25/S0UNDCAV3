@@ -214,7 +214,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 let allReports  = [];
 let currentData = null;
-let currentTab  = 'firepit';
+let currentTab  = 'cave';
 let activeArtist = null;
 let reportMode  = false;
 let reportSelected = [];

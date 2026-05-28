@@ -29,7 +29,7 @@ Industry feedback (May 2026) said Sound Cave felt like 2–3 products in one. **
 
 **Cave sub-nav:** unchanged — DASHBOARD · FORAGING · ROSTER · FOOTPRINTS
 
-**Default landing tab:** **Firepit → Forge** (Doug overruled Summons-default 2026-05-28 — Forge is the most visual / demo-friendly first impression, replaces "Events as default landing" from 2026-05-13).
+**Default landing tab:** **The Cave** (Doug's call 2026-05-28 — Cave is first in nav order, default-landing matches. Earlier this session he chose Firepit → Forge; that's been superseded.)
 
 ## Rationale per decision
 
