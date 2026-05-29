@@ -19,6 +19,13 @@
 - **NOT yet working end-to-end:** the fal endpoint slugs in media_gen.py's `_JOB_REGISTRY` are best-guess. Generation will return 502 until the slugs + per-model payload shapes are verified against fal docs. That's a Phase 3 prerequisite.
 - **Next:** Phase 3 (Forge UI) is blocked on fal endpoint verification. Doug to decide: verify-then-build, or proceed to Forge UI scaffolding in parallel.
 
+## [2026-05-29] Image Gen v2 — fal endpoint slugs verified
+- **Verified against fal.ai docs:** Seedream v5 Lite slug is `fal-ai/bytedance/seedream/v5/lite/text-to-image` (not the guessed `fal-ai/seedream-v5`); seed input is stripped by ByteDance so `_payload_for_seedream` no longer sends it. FLUX.2 [pro] slug `fal-ai/flux-2-pro` was correct. Nano Banana Pro `/edit` is the right endpoint for avatars (built-in character consistency + multi-ref).
+- **Avatar default swapped:** `JOB_AVATAR` now routes to `fal-ai/nano-banana-pro/edit` instead of FLUX.2. Nano Banana Pro's "character consistency" feature is the explicit fit for our recurring-mascot use; FLUX.2 stays for `hero_art`.
+- **`safe_commercial` dropped:** Adobe Firefly isn't hosted on fal.ai. The Adobe×fal partnership runs the other way (fal models inside Adobe Express). Re-introduce when Firefly opens an API.
+- Files: `media_gen.py` (_JOB_REGISTRY, _payload_for_seedream, dropped Firefly), `wiki/spec/image_gen_v2.md` (verified table).
+
+
 
 ## [2026-05-28] Firepit-headline restructure — 2 top-level pills, Events folds in as Summons
 - **Why:** industry feedback (May 2026) said the app felt like 2–3 products in one. Firepit has the broadest wedge ("we make your event content") so it becomes the headline. Cave splits off as a separate / premium-tier product surface (artist discovery & tracking — distinct buyer/job). See `wiki/spec/firepit_headline.md` (signed off 2026-05-28).

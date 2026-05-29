@@ -344,26 +344,28 @@ def _aspect_ratio(width, height):
 # Principle: pixels vs text are separated. Text overlay happens client-side
 # in the Composer (Fabric.js); this layer only produces the underlying art.
 #
-# IMPORTANT: model SLUGS below are best-guess based on Doug confirming the
-# model NAMES exist on fal.ai (2026-05-28). The exact fal endpoint paths
-# + per-model payload shapes must be VERIFIED against fal docs before going
-# live. Each model gets its own _payload_for_*() to isolate per-model quirks.
+# Slugs verified against fal.ai docs 2026-05-29:
+#   Seedream v5 Lite → fal-ai/bytedance/seedream/v5/lite/text-to-image
+#                      (no seed input — endpoint strips negatives + seed + steps)
+#   FLUX.2 [pro]     → fal-ai/flux-2-pro (text-to-image) / .../edit (multi-ref)
+#   Nano Banana Pro  → fal-ai/nano-banana-pro (text-to-image) / .../edit (refs)
+# Adobe Firefly is NOT on fal yet (partnership runs the other way — fal
+# models hosted inside Adobe Express), so safe_commercial is dropped from v2.
 
-JOB_BACKGROUND       = 'background'
-JOB_HERO_ART         = 'hero_art'
-JOB_AVATAR           = 'avatar'
-JOB_EDIT             = 'edit'
-JOB_SAFE_COMMERCIAL  = 'safe_commercial'
+JOB_BACKGROUND  = 'background'
+JOB_HERO_ART    = 'hero_art'
+JOB_AVATAR      = 'avatar'
+JOB_EDIT        = 'edit'
 
 # job_type → (model_slug, payload_builder). Changing a model = swap the slug
 # (and possibly the builder). One-line swap point as required by the spec.
+# Avatar uses Nano Banana Pro's /edit endpoint — its explicit "character
+# consistency" feature is the strongest fit for our recurring-mascot use.
 _JOB_REGISTRY = {
-    # slug guesses pending fal-docs verification:
-    JOB_BACKGROUND:      ('fal-ai/seedream-v5',     '_payload_for_seedream'),
-    JOB_HERO_ART:        ('fal-ai/flux-2-pro',      '_payload_for_flux2'),
-    JOB_AVATAR:          ('fal-ai/flux-2-pro',      '_payload_for_flux2'),
-    JOB_EDIT:            ('fal-ai/nano-banana-pro', '_payload_for_nano_banana'),
-    JOB_SAFE_COMMERCIAL: ('fal-ai/adobe-firefly',   '_payload_for_firefly'),
+    JOB_BACKGROUND: ('fal-ai/bytedance/seedream/v5/lite/text-to-image', '_payload_for_seedream'),
+    JOB_HERO_ART:   ('fal-ai/flux-2-pro',                                '_payload_for_flux2'),
+    JOB_AVATAR:     ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
+    JOB_EDIT:       ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
 }
 
 
@@ -383,15 +385,15 @@ def _payload_for_flux2(prompt, image_refs, width, height, seed):
 
 
 def _payload_for_seedream(prompt, image_refs, width, height, seed):
-    """Seedream v5.0 — backdrop / textured-scene workhorse. No refs in v1."""
-    p = {
+    """Seedream v5.0 Lite — backdrop / textured-scene workhorse.
+    ByteDance stripped seed/negatives/steps from this endpoint — model
+    chooses internally — so `seed` and `image_refs` are intentionally ignored
+    here. If you need deterministic seedreams, switch to FLUX.2."""
+    return {
         'prompt': prompt,
         'image_size': {'width': width, 'height': height},
         'num_images': 1,
     }
-    if seed is not None:
-        p['seed'] = int(seed)
-    return p
 
 
 def _payload_for_nano_banana(prompt, image_refs, width, height, seed):
@@ -408,23 +410,10 @@ def _payload_for_nano_banana(prompt, image_refs, width, height, seed):
     return p
 
 
-def _payload_for_firefly(prompt, image_refs, width, height, seed):
-    """Adobe Firefly — licensed-data, commercial-safe fallback."""
-    p = {
-        'prompt': prompt,
-        'image_size': {'width': width, 'height': height},
-        'num_images': 1,
-    }
-    if seed is not None:
-        p['seed'] = int(seed)
-    return p
-
-
 _PAYLOAD_BUILDERS = {
     '_payload_for_flux2':       _payload_for_flux2,
     '_payload_for_seedream':    _payload_for_seedream,
     '_payload_for_nano_banana': _payload_for_nano_banana,
-    '_payload_for_firefly':     _payload_for_firefly,
 }
 
 

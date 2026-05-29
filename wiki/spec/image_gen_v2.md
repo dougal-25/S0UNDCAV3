@@ -47,11 +47,14 @@ Single function in `media_gen.py`: `generate_for_job(job_type, prompt, **opts) �
 
 | Job type | Model | Provider | ~Cost/img | Why |
 |---|---|---|---|---|
-| `background` | Seedream v5.0 | fal.ai | ~$0.026 | Value play, high-vol base art, no subject/text needed |
-| `hero_art` | FLUX.2 [pro] | fal.ai | ~$0.05–0.08 | Best photoreal + prompt adherence + up to 10 ref images |
-| `avatar` | FLUX.2 / Nano Banana Pro | fal.ai | ~$0.05–0.15 | Character consistency via reference passing |
-| `edit` (conversational) | Nano Banana Pro | fal.ai | ~$0.15 | "Make the car blue" / "remove smoke" / surgical compositional edits |
-| `safe_commercial` (optional) | Adobe Firefly | fal.ai | ~$0.04 | When client legal posture matters (trained on licensed data) |
+| `background` | Seedream v5 Lite | fal.ai · `fal-ai/bytedance/seedream/v5/lite/text-to-image` | ~$0.035/img | Value play; backdrops + textured scenes. **No seed support** — model picks internally. |
+| `hero_art` | FLUX.2 [pro] | fal.ai · `fal-ai/flux-2-pro` | ~$0.03/MP | Best photoreal + prompt adherence; up to 10 refs via `/edit` variant when needed. |
+| `avatar` | Nano Banana Pro (edit) | fal.ai · `fal-ai/nano-banana-pro/edit` | ~$0.15/img | Built-in **character consistency** feature, up to 5 people per scene — beats FLUX.2 for recurring mascots. |
+| `edit` | Nano Banana Pro (edit) | fal.ai · `fal-ai/nano-banana-pro/edit` | ~$0.15/img | "Make the car blue" / "remove smoke" / conversational edits with multi-ref. |
+
+**Slugs verified 2026-05-29 against fal.ai docs.**
+
+**`safe_commercial` dropped** — Adobe Firefly is not currently hosted on fal.ai. The partnership runs the other way (fal models inside Adobe Express). Re-evaluate when Firefly opens an API or fal hosts it.
 
 **Ideogram v3 deliberately not used** — its main differentiator is in-image typography, which our text-overlay decision makes irrelevant.
 
