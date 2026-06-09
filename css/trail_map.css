@@ -348,6 +348,7 @@
   border-radius: 16px; font-size: 12px; font-weight: 500;
   cursor: pointer; transition: all 0.15s;
   display: flex; align-items: center; gap: 5px;
+  text-transform: uppercase; letter-spacing: 0.04em;
 }
 .trail-platform-pill:hover { border-color: var(--border-lt); color: var(--body); }
 .trail-platform-pill.selected {
@@ -363,6 +364,7 @@
   color: var(--secondary); padding: 5px 10px;
   border-radius: 12px; font-size: 11px; font-weight: 500;
   cursor: pointer; transition: all 0.15s;
+  text-transform: uppercase; letter-spacing: 0.04em;
 }
 .trail-status-pill.selected {
   background: var(--elevated); color: var(--heading);
@@ -378,6 +380,7 @@
   font-size: 13px; font-weight: 500; cursor: pointer;
   border: 1px solid var(--border);
   transition: all 0.15s;
+  text-transform: uppercase; letter-spacing: 0.04em;
 }
 .trail-btn-secondary {
   background: var(--card); color: var(--body);
