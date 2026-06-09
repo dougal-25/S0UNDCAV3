@@ -608,6 +608,21 @@ After eyeballing round 1 ("looking much better"):
 - **Scheduled stays visible (reverses round-1 hide):** scheduled items remain in the Stash with a `scheduled` badge; in the Trail Map drawer they're dimmed + non-draggable; folders show `N of M to schedule`. Doug's call — clarity over hiding.
 - **Parked:** `posted`→`archived`→auto-delete lifecycle (badge styles added; logic TBD).
 
+## [2026-06-04] Cleanup — close stale Phase-B auth TODO
+The `// TODO(phase-B): drop DEV_USER_ID gating in content_api.py and pass real auth JWT`
+marker at the top of `js/firepit.js` was already satisfied: Phase B auth lockdown
+(see 2026-04-29 entries) moved every protected route to `_require_user()` (JWT →
+Supabase `auth.get_user`, 401 on miss) and the frontend onto `scAuth.authedFetch`.
+The only residue was a dead `from media_gen import DEV_USER_ID` import in
+`content_api.py` (unused — grep confirmed) and the stale comments.
+- Removed the dead import; rewrote the stash-section comment to state the real
+  access boundary (service key bypasses RLS, so the `.eq('user_id', uid)` filters
+  are the control).
+- Replaced the firepit.js TODO with a note that requests carry the JWT via
+  `scAuth.authedFetch` and 401 without it (no DEV_USER_ID fallback).
+- `DEV_USER_ID` still lives in `media_gen.py` purely as a default for direct/CLI
+  calls; content_api always passes the JWT-resolved `uid`, so no behaviour change.
+
 ## [2026-06-09] Stack inventory page
 - New `wiki/stack.md` — source-of-truth inventory of every tool/API/model, pulled from code not memory. Covers text-gen (Claude Haiku 4.5 + Sonnet 4.6), image-gen (v2 router: Seedream v5 Lite / FLUX.2 pro / Nano Banana Pro, plus legacy v0.6 FLUX-Redux paths), video-gen (3 tiers: FFmpeg / Fal LTX+Hunyuan / Fal Kling+Replicate Veo), and infra (Supabase, Stripe, Ayrshare, SoundCloud).
 - Flagged: no music-gen; Apollo/EchoTik/Perplexity/Notion/Meta keys are workspace-wide and NOT Sound Cave deps; two image-gen generations coexist (v0.6 + v2) — retirement decision pending; single text provider = SPOF.
