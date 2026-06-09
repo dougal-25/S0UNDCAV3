@@ -1,5 +1,8 @@
 # Sound Cave Wiki — Index
 
+## Stack
+- [Stack & Integrations](stack.md) — every tool, API & model the product uses (text-gen, image-gen, video-gen, infra). **Reviewed 2026-06-09.**
+
 ## Spec
 - [Overview](spec/overview.md) — what Sound Cave is, who for, what it's NOT. **Approved 2026-04-28.**
 - [Splash + Cave Entrance](spec/splash_cave_entrance.md) — KVS×Augen redesign. **Doug-confirmed 2026-05-08.**
