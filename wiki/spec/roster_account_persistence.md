@@ -1,6 +1,7 @@
 # Spec — Roster Account Persistence
 
 > Status: **Approved — 2026-06-08** by Doug.
+> **Terminology:** the UI label for this feature is **CLAN** (see [glossary](../glossary.md)). The persistence layer — table, API, and `js/roster_sync.js` — keeps the name `roster`. "Roster" in this spec = the Clan's data layer.
 > Related: [`../features/clan.md`](../features/clan.md) (the Roster feature), [`auth_login_ui.md`](auth_login_ui.md) (Supabase auth this builds on), [`image_gen_v2.md`](image_gen_v2.md) (the `avatars` table/API pattern we copy).
 
 ## Problem

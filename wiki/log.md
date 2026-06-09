@@ -1,5 +1,12 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-09] UI rename — Dashboard → Mural, Roster → Clan (+ glossary)
+- **Doug's calls:** the dashboard/overview tab is now **MURAL** (his "cave wall where paintings/markings live" idea); the saved-artists tab reverts to **CLAN** (caveman-fit, was briefly "Roster"). **The Cave ≠ Mural** — The Cave is the umbrella section (Mural · Foraging · Clan · Footprints); the Mural is just its dashboard scene.
+- **Changed (display strings only — no code/API/DB rename):** `index.html` cave sub-nav + terminology cards + Clan heading; `js/clan.js` subtitle.
+- **New: `wiki/glossary.md`** — source of truth mapping UI label ↔ concept ↔ internal code name ↔ old aliases. Internal keys deliberately keep old names (Mural=`tab-cave`/`js/cave.js`, Clan persistence=`roster` table/API, Gatherings=`events`/`summons`, Marks=`brandkits`). Linked from `wiki/index.md`.
+- **Standing rule reinforced:** on any UI label rename, update the glossary + current-state wiki/MD in the same change so terms always match what Doug reads on screen. (Log/old-spec history left intact — not rewritten.)
+- Updated current-state pages: `wiki/index.md`, `wiki/features/the_cave.md`, `wiki/features/clan.md`.
+
 ## [2026-06-09] Firepit — Beat (rights-gated audio on posts) — spec approved, build not started
 - **Why:** in music a post without sound underperforms — the track *is* the product. But naive audio attachment is a time bomb: TikTok + Meta fingerprint the audio inside every uploaded MP4 and enforce **retroactively** (mute/remove/strike weeks–months later). Doug's explicit requirement: campaigns must not die in three months because the audio failed a licence/fingerprint check.
 - **Spec:** `wiki/features/firepit_beat.md`. Caveman name **Beat** = the audio clip a post carries (Doug's call, 2026-06-09).

@@ -1,6 +1,7 @@
 # Feature: Clan
 
 > Status: **Built (Phase 5 redesign).** Profile panel polish still outstanding.
+> **Terminology (2026-06-09):** UI label is **CLAN**. It was briefly renamed "Roster" (2026-05) and reverted to Clan. The account persistence layer (table/API) keeps the name `roster`. See [glossary](../glossary.md).
 
 ## What it does
 Saved artist roster. Grid of cards with avatars; click into an artist profile with stats, follower/play sparklines, growth metrics, star/cut actions, and a platform links section using inline brand SVG marks (mono in `--red` when linked, muted grey when not). Each row shows the linked URL or a `+ ADD LINK` CTA; click expands an inline editor. Platforms: Spotify, YouTube, Instagram, TikTok, Beatport, Bandcamp, Discogs. Source SoundCloud link sits at the top of the panel separately. Redesigned 2026-05-12 (was emoji glyphs in hover-to-paste pairs).

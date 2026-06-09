@@ -1,5 +1,8 @@
 # Sound Cave Wiki — Index
 
+## Terminology
+- [Glossary](glossary.md) — **source of truth** for UI labels ↔ what they mean ↔ internal code names ↔ old aliases. Read this when a term on the website doesn't match the code. Keep current on every rename.
+
 ## Stack
 - [Stack & Integrations](stack.md) — every tool, API & model the product uses (text-gen, image-gen, video-gen, infra). **Reviewed 2026-06-09.**
 
@@ -10,9 +13,9 @@
 - [Forge output recipes](spec/forge_output_recipes.md) — per-type media generation spec (Post / Carousel / Event Promo / Event Poster / Artist Bio): format, composition, style, model. **Approved 2026-06-09.**
 
 ## Features
-- [The Cave](features/the_cave.md) — discovery dashboard. Built; print stylesheet pending.
+- [The Cave](features/the_cave.md) — the discovery **umbrella** (Mural · Foraging · Clan · Footprints). The **Mural** is its dashboard scene (UI label was "Dashboard"). Built; print stylesheet pending.
 - [Foraging](features/foraging.md) — manual + scheduled search. Live search exists; OAuth untested.
-- [Clan](features/clan.md) — saved artist roster. Built; profile polish pending.
+- [Clan](features/clan.md) — your saved artist roster (UI label is **CLAN**; briefly "Roster"). Account-backed. Built; profile polish pending.
 - [Footprints](features/footprints.md) — analytics & charts on tracked artists. Built.
 - [Firepit — Forge](features/firepit_forge.md) — AI text + image generator. Code complete, untested.
 - [Firepit — Video](features/firepit_video.md) — 3-tier video generation (composite/standard/premium). Tiers 1 + 2 live-verified.
