@@ -198,12 +198,18 @@ function renderCaveStack(clan) {
          <div class="stack-card-fallback" style="display:none">${initial}</div>`
       : `<div class="stack-card-fallback">${initial}</div>`;
     return `
-      <article class="stack-card" data-idx="${i}" onclick="openPanel('${esc(a.username)}')">
+      <article class="stack-card" data-idx="${i}" data-username="${esc(a.username)}">
         ${inner}
         <div class="stack-card-caption">${esc(name)}</div>
       </article>`;
   }).join('');
   setHTML(stage, html);
+  // Bind clicks programmatically (no inline handler) — username is external
+  // SoundCloud data; an inline onclick string is an attribute-context XSS vector.
+  // Mirrors the stat-modal row fix (see addEventListener above).
+  stage.querySelectorAll('.stack-card').forEach(card => {
+    card.addEventListener('click', () => openPanel(card.dataset.username));
+  });
   applyStackOffsets();
 }
 
