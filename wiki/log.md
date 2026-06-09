@@ -615,3 +615,26 @@ So output is low-quality AND undifferentiated — every type generates the same 
 - **Next:** Forge cleanup (drop types/rename, Artist Bio image ON) → Phase 1a (route Forge through v2
   router + pass image_refs + per-type dims). Plan: `~/.claude/plans/what-are-the-image-parsed-hare.md`.
 
+### Phase 0 + cleanup + Phase 1a shipped (commit `d14a346`)
+- Forge cleanup: dropped Short + Press Release, renamed Lineup→Event Poster, Artist Bio now image-ON
+  portrait 1080×1350. Synced across index.html, firepit.js, compositor_templates.js, content_api.py,
+  media_gen.py (5 types, all 4:5; new STYLE_HINTS describe BACKDROP intent only).
+- Phase 1a: `/api/generate-image` routes through `generate_for_job` via new `job_type_for()`
+  (social_post→Seedream, carousel/promo/poster→FLUX.2, artist_bio→FLUX.2 / Nano Banana if avatar).
+  Passes `reference_images` as `image_refs`; guarded fallback to legacy `generate_image`; logs prompt +
+  ref count. Both ref channels live (Claude vision prompt + FLUX.2 payload). Module-verified.
+
+### Phase 1b — campaign prompts data-driven + v2 router
+- `image_composer.py`: deleted `_POST_FLUX_PROMPT` (the hardcoded 2-word strings). `_compose_brand_aware`
+  now builds the prompt via `build_image_prompt` from event + artist + the post's **selected copy**
+  (threaded in via new `generated_text` param on `compose_post_image`, passed from campaigns_api:394).
+  New `_campaign_content_type()` maps post_type → Forge content_type (spotlight→artist_bio,
+  announcement→event_poster, else event_promo) for the right STYLE_HINTS.
+- Replaced `generate_fal_with_reference` with `generate_for_job(JOB_HERO_ART, …, image_refs=[style_ref],
+  seed=…)`. FLUX.2 is fixed for the campaign path because it depends on image_refs + seed, which Seedream
+  ignores. Logo overlay + deterministic seed + Pillow fallback all unchanged.
+- **Pending live-fire:** real fal generation screenshot-confirm (needs server + credits + a real campaign).
+- **Follow-up flagged:** `events_api.py` master-flyer still uses `generate_fal_with_reference` (separate
+  surface — not per-post; left in scope-creep parking).
+- **Still to do:** Phase 1c-full (Konva compositor for campaign posts) — deferred.
+
