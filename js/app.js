@@ -520,6 +520,39 @@ function buildLineChart(datasets, labels, width=600, height=220) {
   return svg;
 }
 
+// Build an artist's play timeseries from the backend daily snapshots
+// (data/snapshots/*, loaded into allSnapshots) — the real series, ascending.
+function buildArtistPlaySeries(username) {
+  const snaps = (typeof allSnapshots !== 'undefined' ? allSnapshots : []);
+  return [...snaps]
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+    .map(s => {
+      const rec = (s.artists || {})[username];
+      return rec ? { date: s.date, plays: rec.total_plays || 0, followers: rec.followers || 0, likes: rec.total_likes || 0 } : null;
+    })
+    .filter(Boolean);
+}
+
+// Render the plays-over-time chart into #playsChart (raw series, dips and all).
+function renderPlaysChart(username) {
+  const el = document.getElementById('playsChart');
+  if (!el) return;
+  const series = buildArtistPlaySeries(username);
+  if (series.length < 2) {
+    const tail = series.length === 1 ? ` Latest: ${fmt(series[0].plays)} plays.` : '';
+    el.innerHTML = `<div class="chart-empty">Tracking builds daily — the plays chart appears after a couple of days of snapshots.${tail}</div>`;
+    return;
+  }
+  const labels = series.map(s => (s.date || '').slice(5));   // MM-DD
+  const datasets = [{ label: 'Plays', color: '#ff4500', data: series.map(s => s.plays) }];
+  const latest = series[series.length - 1];
+  el.innerHTML = `<div class="chart-readout">
+      <span><b>${fmt(latest.plays)}</b> plays</span>
+      <span><b>${fmt(latest.followers)}</b> followers</span>
+      <span><b>${fmt(latest.likes)}</b> likes</span>
+    </div>${buildLineChart(datasets, labels, 660, 200)}`;
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TAB SWITCHING
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -876,10 +909,15 @@ function renderPanel(username) {
   const first = snaps[0]||{};
   const daysTracked = a.added_date ? daysBetween(a.added_date, today()) : 0;
   const live = a.live || null;
+  // Backend daily snapshot (accurate own-track totals) as a fallback when the
+  // live API hasn't synced and there's no local snapshot — keeps the top stats
+  // consistent with the Plays-over-time chart below.
+  const bkSeries = buildArtistPlaySeries(username);
+  const bk = bkSeries.length ? bkSeries[bkSeries.length - 1] : null;
   const followers = live ? live.followers
-                    : (a.followers_override != null ? a.followers_override : (latest.followers||0));
-  const livePlays = live ? live.plays : (latest.plays||0);
-  const liveLikes = live ? live.likes : (latest.likes||0);
+                    : (a.followers_override != null ? a.followers_override : (latest.followers || bk?.followers || 0));
+  const livePlays = live ? live.plays : (latest.plays || bk?.plays || 0);
+  const liveLikes = live ? live.likes : (latest.likes || bk?.likes || 0);
   const syncedHint = live
     ? `<span class="panel-growth-tag" style="background:#1a4d2e;color:#a7f3d0">● Live · synced ${live.age_seconds < 60 ? 'just now' : Math.floor(live.age_seconds/60)+'m ago'}</span>`
     : '';
@@ -934,19 +972,9 @@ function renderPanel(username) {
     }
   });
 
-  // Snapshot history
-  document.getElementById('snapBody').innerHTML = snaps.length
-    ? [...snaps].reverse().map(s => `
-        <tr>
-          <td>${s.date}</td>
-          <td>${fmt(s.followers)}</td>
-          <td>${fmt(s.plays)}</td>
-          <td>${fmt(s.likes)}</td>
-          <td>${fmt(s.reposts)}</td>
-          <td>${s.playlist_adds!=null?s.playlist_adds:'—'}</td>
-          <td style="color:var(--red)">${(s.score||0).toFixed(1)}</td>
-        </tr>`).join('')
-    : '<tr><td colspan="7" style="color:var(--muted);padding:10px">No snapshots yet.</td></tr>';
+  // Plays over time — chart from the backend daily snapshots (the real
+  // timeseries), replacing the old "rows and rows" table.
+  renderPlaysChart(username);
 
   document.getElementById('manualFollowers').value = a.followers_override != null ? a.followers_override : (latest.followers||'');
   document.getElementById('manualPlaylists').value = latest.playlist_adds != null ? latest.playlist_adds : '';

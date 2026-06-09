@@ -711,3 +711,15 @@ Spec: `wiki/spec/artist_detail_modal.md` (signed off, then built). Live-fire scr
 Also (mid-Phase-2): commit security review on the P1 commit flagged the stat-modal row's `onclick="…openPanel('${esc(user)}')"` — esc is HTML-attr-safe but not JS-string-safe. Fixed in `80e05d7` (data-user attribute + addEventListener). Applied the same no-inline-handler pattern to P2b's chips.
 
 **Next:** Phase 3 — accurate own-track play tracking (SoundCloud API, all own tracks) + replace the history table with a chart (spec first).
+
+## 2026-06-09 — The Cave overhaul, Phase 3 (accurate play tracking + chart)
+
+Spec: `wiki/spec/play_tracking_accuracy.md` (signed off). Live-fire verified against the real SoundCloud API.
+
+- **P3a — own-track play accuracy (backend).** Both `clan_tracker.py` (`fetch_all_user_tracks`) and `content_api.py` (`sc_fetch_all_user_tracks`) now paginate `/users/{id}/tracks` via `linked_partitioning` (200/page, capped 500/10pg) and sum `playback_count` across the artist's **entire own catalogue** — not just the 5 most recent. Reposts/mixes are excluded by the endpoint. `latest_track` = newest by `created_at`. Fixes wildly-undercounted plays.
+- **P3b — chart, not table (frontend).** Artist panel's "rows and rows" `snap-table` replaced with a **Plays-over-time** chart (`renderPlaysChart` + `buildArtistPlaySeries`, reusing `buildLineChart`), sourced from the backend daily snapshots (`allSnapshots`). Raw series, dips included (Doug's call). Top stats row gains a backend-snapshot fallback so it matches the chart when the live API hasn't synced.
+- **Decision:** chart shows the true daily series (no running-max smoothing) — Doug chose raw over increase-only.
+- **Live run (2026-06-09):** `clan_tracker.py` → `data/snapshots/2026-06-09.json`. Accuracy proven: **dazegxd 297 tracks → 6.71M plays** (old cap saw ~5 tracks); **81zaki 25 tracks → 26,281 plays** vs old 3,858. Chart + consistent stats screenshot-confirmed.
+- Pre-existing, out-of-scope: `fetch_user_by_username` doesn't resolve display names with spaces/unicode (8/20 resolved) — a name→permalink gap, unrelated to play accuracy. Worth a future fix (store `user_id`/permalink at scout time).
+
+**Next:** Phase 4 — real weekly scheduled searches (committed JSON → scout.py → GitHub Action, results tagged by search).

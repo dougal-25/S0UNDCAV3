@@ -1287,6 +1287,36 @@ def sc_fetch_user_tracks(user_id, limit=5):
     return []
 
 
+def sc_fetch_all_user_tracks(user_id, max_tracks=500, max_pages=10):
+    """Fetch ALL of an artist's OWN uploaded tracks (reposts excluded by the
+    /tracks endpoint), paginating via linked_partitioning. Bounded for safety.
+    Used for accurate play/like totals on the live artist panel."""
+    token = get_sc_token()
+    if not token:
+        return []
+    tracks = []
+    url = f'https://api.soundcloud.com/users/{user_id}/tracks'
+    params = {'limit': 200, 'linked_partitioning': 'true'}
+    pages = 0
+    while url and pages < max_pages and len(tracks) < max_tracks:
+        try:
+            r = http_requests.get(url, params=params,
+                                  headers={'Authorization': f'OAuth {token}'}, timeout=15)
+            if r.status_code != 200:
+                break
+            data = r.json()
+        except Exception:
+            break
+        if isinstance(data, list):
+            tracks.extend(data)
+            break
+        tracks.extend(data.get('collection', []))
+        url = data.get('next_href')
+        params = None
+        pages += 1
+    return tracks[:max_tracks]
+
+
 def sc_score_track(track):
     likes = track.get('likes_count') or track.get('favoritings_count') or 0
     reposts = track.get('reposts_count') or 0
@@ -1376,7 +1406,7 @@ def artist_stats(username):
         return jsonify({'error': 'artist not found'}), 404
 
     user_id = profile['id']
-    tracks = sc_fetch_user_tracks(user_id, limit=5)
+    tracks = sc_fetch_all_user_tracks(user_id)   # all own tracks → accurate totals
     total_plays = sum((t.get('playback_count') or 0) for t in tracks)
     total_likes = sum((t.get('likes_count') or t.get('favoritings_count') or 0) for t in tracks)
 

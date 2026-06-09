@@ -2159,3 +2159,22 @@ h4 { font-size: 12px; }
   text-decoration: none;
   flex-shrink: 0;
 }
+
+/* ── Artist panel — plays-over-time chart (replaces history table) ──── */
+.plays-chart { margin-top: 4px; }
+.chart-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--secondary);
+}
+.chart-readout b { color: var(--heading); font-weight: 600; }
+.chart-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 14px 0;
+  line-height: 1.5;
+}
