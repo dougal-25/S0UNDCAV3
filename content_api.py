@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 import anthropic
 import requests as http_requests
 from media_gen import (
-    build_image_prompt, generate_image, save_image, save_video,
+    build_image_prompt, generate_image, generate_for_job, job_type_for,
+    save_image, save_video,
     IMAGE_DIMENSIONS, provider_status,
     generate_video_composite, generate_video_standard, generate_video_premium,
     upload_audio_track,
@@ -44,9 +45,9 @@ app.register_blueprint(roster_bp)
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # ── Content type templates ──────────────────────────────────
-# Channel-aware captions are baked into the three social types. Editorial types
-# (artist_bio, press_release) are long-form. Active channels: Meta (IG+FB),
-# TikTok, Reddit.
+# Channel-aware captions are baked into the social types. artist_bio is editorial
+# long-form. Active channels: Meta (IG+FB), TikTok, Reddit.
+# 5 types per wiki/spec/forge_output_recipes.md (Approved 2026-06-09).
 TEMPLATES = {
     'social_post': {
         'instruction': (
@@ -66,14 +67,6 @@ TEMPLATES = {
         ),
         'max_tokens': 800,
     },
-    'social_short': {
-        'instruction': (
-            'Write a vertical short-form video caption plus an on-screen-text outline prefixed "ON-SCREEN:" '
-            '(3-5 beats, one line each, each readable in under one second). Caption: short, no setup, drop the viewer mid-thought. '
-            '2 specific hashtags max. TikTok = trend-aware but not trend-chasing; Reels = same caption rides; Reddit = drop hashtags.'
-        ),
-        'max_tokens': 400,
-    },
     'event_promo': {
         'instruction': (
             'Write event promotion copy. MUST include venue + date if given. MUST include one specific sensory detail about '
@@ -83,9 +76,9 @@ TEMPLATES = {
         ),
         'max_tokens': 400,
     },
-    'lineup_poster': {
+    'event_poster': {
         'instruction': (
-            'Write very short copy paired with a lineup poster. Maximum 6 lines: '
+            'Write very short copy paired with an event poster. Maximum 6 lines: '
             '(1) one-line headline (no clichés), (2) lineup as a flowing list with em-dashes, (3) date + venue + door times, '
             '(4) one descriptive line about the night, (5) ticket line if known. End with a single line prefixed "POSTER:" '
             'describing the visual treatment in one sentence.'
@@ -99,14 +92,6 @@ TEMPLATES = {
             'recent achievement, release, or moment. Paragraph 3: one line about where they\'re heading. Suitable for press kit.'
         ),
         'max_tokens': 600,
-    },
-    'press_release': {
-        'instruction': (
-            'Write a press release. Format: headline (one line, news-led, not hype), subhead (one line, more detail), '
-            '3-4 paragraphs of body. Lead paragraph = who/what/when/where in one sentence. Include one [QUOTE: …] placeholder '
-            'attributed to a relevant party. End with a 2-line boilerplate. Formal but not stiff. No marketing copy.'
-        ),
-        'max_tokens': 800,
     },
 }
 
@@ -309,15 +294,14 @@ def _refund(uid, kind, reason):
 
 
 # Content types that support 3-variant generation. Long-form types stay single-shot.
-VARIANT_ENABLED_TYPES = {'social_post', 'social_carousel', 'social_short', 'event_promo', 'lineup_poster'}
+VARIANT_ENABLED_TYPES = {'social_post', 'social_carousel', 'event_promo', 'event_poster'}
 
 # Default angle labels per content type — Claude is asked to return variants with exactly these labels.
 VARIANT_ANGLES = {
     'social_post':     ['PUNCHY', 'ATMOSPHERIC', 'PERSONAL'],
     'social_carousel': ['NARRATIVE', 'LISTICLE', 'NAMECHECK'],
-    'social_short':    ['HOOK', 'TEASE', 'COUNTDOWN'],
     'event_promo':     ['SCENE-SETTER', 'NAMECHECK', 'DARE'],
-    'lineup_poster':   ['SET-TIMES', 'THEME', 'NAMECHECK'],
+    'event_poster':    ['SET-TIMES', 'THEME', 'NAMECHECK'],
 }
 
 
@@ -626,8 +610,10 @@ def generate_media_endpoint():
             except OSError: pass
 
 
-# Legacy /api/generate-image — thin alias forwarding to /api/generate-media.
-# Kept until Stream 1 wires the Forge frontend to the new endpoint.
+# /api/generate-image — Forge image generation.
+# Routes through the v2 job router (FLUX.2 / Seedream / Nano Banana) per
+# wiki/spec/forge_output_recipes.md, with a guarded fallback to the legacy
+# Fal→Replicate chain so a v2/Fal outage degrades instead of 500-ing.
 @app.route('/api/generate-image', methods=['POST'])
 def generate_image_endpoint():
     uid, err = _require_user()
@@ -644,8 +630,26 @@ def generate_image_endpoint():
 
     try:
         image_prompt = build_image_prompt(content_type, ctx, generated_text)
-        w, h = IMAGE_DIMENSIONS.get(content_type, (1200, 675))
-        image_bytes, provider, model = generate_image(image_prompt, w, h)
+        w, h = IMAGE_DIMENSIONS.get(content_type, (1080, 1350))
+        image_refs = ctx.get('reference_images') or None
+        has_avatar = bool(ctx.get('avatar_id') or ctx.get('avatar_image_url'))
+        job_type = job_type_for(content_type, has_avatar=has_avatar)
+        seed = ctx.get('seed')
+
+        # Trust mechanism (Doug's reassurance ask): make prompt + ref usage visible.
+        print(f"🎨 Forge image — type={content_type} job={job_type} "
+              f"refs={len(image_refs) if image_refs else 0} seed={seed}")
+        print(f"   prompt: {image_prompt[:240]}")
+
+        try:
+            image_bytes, provider, model = generate_for_job(
+                job_type, image_prompt, image_refs=image_refs,
+                width=w, height=h, seed=seed,
+            )
+        except Exception as v2_err:
+            print(f"⚠️  v2 router failed ({v2_err}); falling back to legacy generate_image")
+            image_bytes, provider, model = generate_image(image_prompt, w, h)
+
         image_url = save_image(image_bytes, content_type, user_id=uid)
 
         return jsonify({
@@ -653,6 +657,8 @@ def generate_image_endpoint():
             'image_prompt': image_prompt,
             'provider': provider,
             'model': model,
+            'job_type': job_type,
+            'refs_used': len(image_refs) if image_refs else 0,
             'dimensions': {'width': w, 'height': h},
             'credits_balance': balance,
         })
@@ -714,9 +720,9 @@ def _stash_client():
     return _stash_sb
 
 STASH_KIND_BY_TYPE = {
-    'social_post':'text','social_carousel':'text','social_short':'text',
-    'event_promo':'text','lineup_poster':'text',
-    'artist_bio':'text','press_release':'text',
+    'social_post':'text','social_carousel':'text',
+    'event_promo':'text','event_poster':'text',
+    'artist_bio':'text',
 }
 
 @app.route('/api/me', methods=['GET'])

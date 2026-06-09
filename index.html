@@ -91,9 +91,9 @@
 
   <!-- ─── CAVE SUB-NAV (visible only when in Cave group) ── -->
   <nav class="cave-subnav" id="caveSubnav" style="display:none">
-    <button class="cave-subtab active" type="button" data-tab="cave">DASHBOARD</button>
+    <button class="cave-subtab active" type="button" data-tab="cave">MURAL</button>
     <button class="cave-subtab" type="button" data-tab="foraging">FORAGING</button>
-    <button class="cave-subtab" type="button" data-tab="clan">ROSTER</button>
+    <button class="cave-subtab" type="button" data-tab="clan">CLAN</button>
     <button class="cave-subtab" type="button" data-tab="footprints">FOOTPRINTS</button>
   </nav>
 
@@ -142,13 +142,13 @@
         </div>
         <div class="card-elevated">
           <div class="term-ico" data-icon="clan"></div>
-          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Roster</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your roster of tracked artists. View profiles, link platforms, star favourites and monitor their growth from one place.</p>
+          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Clan</div>
+          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your clan of tracked artists. View profiles, link platforms, star favourites and monitor their growth from one place.</p>
         </div>
         <div class="card-elevated">
           <div class="term-ico" data-icon="cave"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">The Cave</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your dashboard. See aggregate stats, genre breakdowns, weekly charts and new track drops from your Clan at a glance.</p>
+          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your mural. See aggregate stats, genre breakdowns, weekly charts and new track drops from your Clan at a glance.</p>
         </div>
         <div class="card-elevated">
           <div class="term-ico" data-icon="footprints"></div>
@@ -163,7 +163,7 @@
         <div class="card-elevated">
           <div class="term-ico" data-icon="cut"></div>
           <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Cut</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Remove an artist from active tracking. Cut artists stop appearing in your dashboard and analytics but their data is preserved.</p>
+          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Remove an artist from active tracking. Cut artists stop appearing in your mural and analytics but their data is preserved.</p>
         </div>
       </div>
     </div>
@@ -336,11 +336,11 @@
     </div>
   </div>
 
-  <!-- ─── ROSTER TAB (formerly CLAN; data layer rename deferred) ─── -->
+  <!-- ─── CLAN TAB (data layer is 'clan'; account API/table use 'roster') ─── -->
   <div id="tab-clan" style="display:none">
     <div class="clan-header">
       <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">ROSTER</h2>
+        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">CLAN</h2>
         <p class="subtitle" id="clanSubtitle"></p>
       </div>
     </div>
@@ -432,15 +432,13 @@
               <optgroup label="Social">
                 <option value="social_post">Post</option>
                 <option value="social_carousel">Carousel</option>
-                <option value="social_short">Short</option>
               </optgroup>
               <optgroup label="Events">
                 <option value="event_promo">Event Promo</option>
-                <option value="lineup_poster">Lineup Poster</option>
+                <option value="event_poster">Event Poster</option>
               </optgroup>
               <optgroup label="Editorial">
                 <option value="artist_bio">Artist Bio</option>
-                <option value="press_release">Press Release</option>
               </optgroup>
             </select>
           </div>

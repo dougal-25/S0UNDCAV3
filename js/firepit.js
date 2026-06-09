@@ -21,23 +21,20 @@ const REF_IMAGES_MAX_BYTES = 5 * 1024 * 1024; // 5MB per image
 const OUTPUT_MEDIA = {
   social_post:     'image',
   social_carousel: 'image',
-  social_short:    'image',
   event_promo:     'image',
-  lineup_poster:   'image',
-  artist_bio:      'none',
-  press_release:   'none',
+  event_poster:    'image',
+  artist_bio:      'image',
 };
 
 // Forge content types — slim set focused on Meta + TikTok + Reddit.
 // Captions are auto-generated inside the social types; no standalone "caption" type.
+// Per wiki/spec/forge_output_recipes.md (Approved 2026-06-09): 5 types, each with its own recipe.
 const CONTENT_TYPES = {
   social_post:     { label:'Post',                  icon:'', iconKey:'carousel',     fields:['artist','freeform'], maxLength:2200 },
   social_carousel: { label:'Carousel',              icon:'', iconKey:'carousel',     fields:['artist','freeform'], maxLength:2200 },
-  social_short:    { label:'Short',                 icon:'', iconKey:'lineup',       fields:['artist','freeform'], maxLength:2200 },
   event_promo:     { label:'Event Promotion',       icon:'', iconKey:'event_promo',  fields:['event','artist','freeform'] },
-  lineup_poster:   { label:'Lineup Poster',         icon:'', iconKey:'lineup',       fields:['event','artist_list','freeform'] },
+  event_poster:    { label:'Event Poster',          icon:'', iconKey:'lineup',       fields:['event','artist_list','freeform'] },
   artist_bio:      { label:'Artist Spotlight / Bio', icon:'', iconKey:'artist_bio',   fields:['artist','freeform'] },
-  press_release:   { label:'Press Release',         icon:'', iconKey:'press_release',fields:['artist','release','event','freeform'] },
 };
 
 // Stash storage moved from localStorage to Supabase via /api/stash backend proxy.
@@ -446,7 +443,7 @@ function gatherForgeContext() {
 }
 
 // Short-form content types that support 3-variant generation. Long-form stays single-shot.
-const VARIANT_TYPES = new Set(['social_post','social_carousel','social_short','event_promo','lineup_poster']);
+const VARIANT_TYPES = new Set(['social_post','social_carousel','event_promo','event_poster']);
 
 async function generateContent(variation) {
   const ctx = gatherForgeContext();

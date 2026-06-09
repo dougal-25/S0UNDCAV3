@@ -596,3 +596,22 @@ After eyeballing round 1 ("looking much better"):
 - Flagged: no music-gen; Apollo/EchoTik/Perplexity/Notion/Meta keys are workspace-wide and NOT Sound Cave deps; two image-gen generations coexist (v0.6 + v2) — retirement decision pending; single text provider = SPOF.
 - Linked from `wiki/index.md` under a new **Stack** section.
 
+## [2026-06-09] Forge output recipes — Phase 0 (per-type media specialisation)
+Kicked off the image-quality overhaul. **Diagnosis:** the best image models (v2 router: Seedream /
+FLUX.2 pro / Nano Banana Pro) are built but only avatars use them; Forge runs FLUX schnell + never
+passes reference images; the campaign path ignores the text prompt entirely (hardcoded 2-word strings).
+So output is low-quality AND undifferentiated — every type generates the same 1080×1350.
+- **Scope locked with Doug:** post types cut to **5** — Post, Carousel, Event Promo, **Event Poster**
+  (renamed from Lineup Poster), Artist Bio. Removed: Short (video), Press Release. Artist Bio gains image
+  gen (was text-only) as a portrait 1080×1350 feed post. Audio/attach-music feature handled separately.
+- **References sourced + approved** (Claude-sourced, Doug-approved): per-type anchors saved to
+  `wiki/design_references/forge_output_refs.md`. Load-bearing finding: real underground posters =
+  backdrop layer + type layer in a fixed frame → validates the Konva-compositor architecture (model makes
+  the backdrop only; compositor overlays type).
+- **Spec:** `wiki/spec/forge_output_recipes.md` (Approved) — per-type format, composition, style language,
+  context+refs, and `content_type → job_type` model mapping. Carousel routes to FLUX.2 (seed-locked) since
+  Seedream ignores seed and slides would drift.
+- **Trust mechanism:** every generation will log the exact prompt + attached refs (Doug's reassurance ask).
+- **Next:** Forge cleanup (drop types/rename, Artist Bio image ON) → Phase 1a (route Forge through v2
+  router + pass image_refs + per-type dims). Plan: `~/.claude/plans/what-are-the-image-parsed-hare.md`.
+

@@ -81,25 +81,25 @@ VIDEO_BUCKET = 'generated_videos'
 AUDIO_BUCKET = 'audio_tracks'
 
 # ── Per-content-type image dimensions ──────────────────────
+# Per wiki/spec/forge_output_recipes.md (Approved 2026-06-09): all 5 types are 4:5 portrait
+# feed format. The model generates the BACKDROP only; the Konva compositor overlays type.
 IMAGE_DIMENSIONS = {
     'social_post':     (1080, 1350),   # 4:5 portrait — IG/FB feed
     'social_carousel': (1080, 1350),   # 4:5 portrait — IG/FB carousel slide
-    'social_short':    (1080, 1920),   # 9:16 vertical — Reels/TikTok
-    'event_promo':     (1080, 1350),   # 4:5 portrait — feed-friendly
-    'lineup_poster':   (1080, 1350),   # 4:5 portrait — poster
-    'artist_bio':      (1200, 675),    # 16:9 landscape — press/site header
-    'press_release':   (1200, 675),    # 16:9 landscape — press kit
+    'event_promo':     (1080, 1350),   # 4:5 portrait — atmospheric teaser
+    'event_poster':    (1080, 1350),   # 4:5 portrait — full lineup poster
+    'artist_bio':      (1080, 1350),   # 4:5 portrait — artist spotlight feed post
 }
 
 # ── Style hints per content type ───────────────────────────
+# House style is non-negotiable dark (#0a0a0a / #e8e8e8 / single #ff4500). These hints describe
+# the BACKDROP intent only — type/logo are composited on top, never rendered by the model.
 STYLE_HINTS = {
-    'social_post':     'Feed-friendly portrait, bold and eye-catching, high contrast, scroll-stopping.',
-    'social_carousel': 'Portrait carousel slide, clean and graphic, modern editorial feel, consistent palette across slides.',
-    'social_short':    'Vertical, cinematic, dramatic lighting, thumbnail-worthy for Reels/TikTok.',
-    'event_promo':     'Portrait, mysterious, dark and moody, minimal elements, fog or smoke, anticipation.',
-    'lineup_poster':   'Portrait poster design, dark background, neon or metallic accents, event flyer aesthetic, room for typography.',
-    'artist_bio':      'Wide portrait orientation, dramatic lighting, artist-spotlight feel.',
-    'press_release':   'Wide, professional press kit aesthetic, clean and modern.',
+    'social_post':     'Full-bleed near-black backdrop, single focal texture or subject, crushed toward monochrome, deliberate empty zone, grain, high contrast.',
+    'social_carousel': 'Dark carousel-slide backdrop, consistent grid and motif across slides, restrained, room for slide numbering.',
+    'event_promo':     'Atmospheric and mysterious, near-black, minimal, fog or smoke or a lone figure, heavy negative space, anticipation.',
+    'event_poster':    'Dark brutalist backdrop for a poster, smoke/grain/concrete texture, subordinate to typography, room for a type hierarchy.',
+    'artist_bio':      'Artist spotlight backdrop, figure as silhouette/duotone/abstract (never a detailed face), dramatic backlight, grain, near-black.',
 }
 
 IMAGE_PROMPT_SYSTEM = """You are an expert image prompt engineer for AI image generation (FLUX/Stable Diffusion models).
@@ -460,6 +460,24 @@ def generate_for_job(job_type, prompt, *, image_refs=None, width=1080, height=13
 def job_registry():
     """Read-only view of the job_type → model registry (for diagnostics / UI)."""
     return {k: v[0] for k, v in _JOB_REGISTRY.items()}
+
+
+# Forge content_type → v2 job_type. Source: wiki/spec/forge_output_recipes.md.
+# Principle: the model makes the backdrop/hero only; the Konva compositor lays type on top.
+_CONTENT_JOB_TYPE = {
+    'social_post':     JOB_BACKGROUND,   # Seedream — cheap scroll-stop backdrop
+    'social_carousel': JOB_HERO_ART,     # FLUX.2 seed-locked (Seedream ignores seed → slides drift)
+    'event_promo':     JOB_HERO_ART,     # FLUX.2 — atmospheric, ref-anchored
+    'event_poster':    JOB_HERO_ART,     # FLUX.2 — full composition, seedable
+    'artist_bio':      JOB_HERO_ART,     # FLUX.2 (→ JOB_AVATAR when an avatar is set)
+}
+
+
+def job_type_for(content_type, has_avatar=False):
+    """Resolve a Forge content_type to a v2 router job_type."""
+    if content_type == 'artist_bio' and has_avatar:
+        return JOB_AVATAR
+    return _CONTENT_JOB_TYPE.get(content_type, JOB_HERO_ART)
 
 
 # ── Router (legacy — Forge text-to-image fallback chain) ───

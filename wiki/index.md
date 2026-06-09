@@ -7,6 +7,7 @@
 - [Overview](spec/overview.md) — what Sound Cave is, who for, what it's NOT. **Approved 2026-04-28.**
 - [Splash + Cave Entrance](spec/splash_cave_entrance.md) — KVS×Augen redesign. **Doug-confirmed 2026-05-08.**
 - [App-wide redesign v1](spec/redesign_v1.md) — KVS skin extended across the app. **Chrome shipped 2026-05-08, per-tab content awaits Doug's morning walkthrough.**
+- [Forge output recipes](spec/forge_output_recipes.md) — per-type media generation spec (Post / Carousel / Event Promo / Event Poster / Artist Bio): format, composition, style, model. **Approved 2026-06-09.**
 
 ## Features
 - [The Cave](features/the_cave.md) — discovery dashboard. Built; print stylesheet pending.
