@@ -1463,6 +1463,43 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 .stash-status.posted   { background: rgba(0,200,150,0.15); color: var(--green); }
 .stash-status.archived { background: var(--card); color: var(--muted); }
 
+/* Forge "+ SUMMON" entry button — a labelled button reads as an action where the
+   bare ⚙ gear didn't. Sits beside the Spirit dropdown. */
+.forge-summon-btn { white-space: nowrap; flex-shrink: 0; }
+
+/* ── Spirits modal (avatar manager) — reuses .trail-modal shell ── */
+.spirits-modal { max-width: 460px; width: 92vw; }
+.spirits-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+.spirit-card {
+  display: flex; gap: 8px; align-items: center;
+  background: var(--elevated); border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+}
+.spirit-card-thumb {
+  width: 40px; height: 40px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+  background: var(--card); display: flex; align-items: center; justify-content: center;
+}
+.spirit-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.spirit-noimg { font-size: 18px; opacity: 0.6; }
+.spirit-card-body { flex: 1; min-width: 0; }
+.spirit-card-name { font-size: 13px; font-weight: 600; color: var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spirit-card-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.spirit-del {
+  width: 26px; height: 26px; padding: 0; flex: none; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--secondary);
+  cursor: pointer; transition: all 0.15s;
+}
+.spirit-del:hover { border-color: var(--red); color: var(--red); background: var(--red-faint); }
+
+.spirits-form { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 14px; }
+.spirits-files-label { margin-top: 4px; }
+.spirits-form .btn-red { margin-top: 6px; }
+.spirits-form-msg { font-size: 11px; color: var(--secondary); min-height: 14px; }
+.spirits-form-msg.err { color: var(--red); }
+.spirits-empty, .spirits-loading, .spirits-error {
+  text-align: center; padding: 24px 12px; font-size: 12px; line-height: 1.5; color: var(--muted);
+}
+.spirits-error { color: var(--red); }
+
 .trail-placeholder {
   text-align: center; padding: 80px 20px; color: var(--secondary);
   border: 2px dashed var(--border); border-radius: 12px;
@@ -1918,4 +1955,189 @@ h4 { font-size: 12px; }
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Mural stat-widget drill-downs — hover tooltip + click modal
+   Spec: wiki/spec/clan_tracking_dashboard.md (Phase 2).
+   Dark Sound Cave palette only (rule: feedback_soundcave_palette).
+   ────────────────────────────────────────────────────────── */
+.cave-stat-tooltip {
+  position: fixed;
+  z-index: 400;
+  display: none;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 12px 14px;
+  background: rgba(12,10,9,0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+  pointer-events: none;
+  font-family: var(--font-mono);
+}
+.cave-stat-tooltip .cst-head {
+  font-size: 9px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.cave-stat-tooltip .cst-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  padding: 3px 0;
+  color: var(--heading);
+}
+.cave-stat-tooltip .cst-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cave-stat-tooltip .cst-delta.up { color: var(--color-accent); }
+.cave-stat-tooltip .cst-delta.down { color: var(--muted); }
+.cave-stat-tooltip .cst-foot {
+  margin-top: 8px;
+  font-size: 9px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+/* Reusable centered modal (also adopted by Phase-2 artist detail later) */
+.stat-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 410;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+.stat-modal.open { display: flex; }
+.stat-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.stat-modal-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 40px 90px rgba(0,0,0,0.65);
+  overflow: hidden;
+}
+.stat-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.stat-modal-head h3 {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--heading);
+}
+.stat-modal-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+.stat-modal-close:hover { color: var(--heading); }
+.stat-modal-body {
+  padding: var(--space-4) var(--space-5);
+  overflow-y: auto;
+}
+.stat-modal-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-3);
+}
+.stat-modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.stat-modal-table th {
+  text-align: left;
+  font-size: 9px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.stat-modal-table th:nth-child(2),
+.stat-modal-table th:nth-child(3),
+.stat-modal-table td:nth-child(2),
+.stat-modal-table td:nth-child(3) { text-align: right; }
+.stat-modal-table td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--heading);
+}
+.stat-modal-table tbody tr { cursor: pointer; }
+.stat-modal-table tbody tr:hover { background: var(--elevated); }
+.stat-modal-table td.up { color: var(--color-accent); }
+.stat-modal-table td.down { color: var(--muted); }
+.stat-modal-list { display: flex; flex-direction: column; gap: 10px; }
+.stat-modal-genre {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--heading);
+}
+.stat-modal-genre .smg-name { min-width: 110px; }
+.stat-modal-genre .panel-genre-bar { flex: 1; }
+.stat-modal-genre .smg-pct { min-width: 64px; text-align: right; color: var(--muted); }
+.stat-modal-drop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.stat-modal-drop .smd-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--heading);
+  text-transform: uppercase;
+}
+.stat-modal-drop .smd-artist {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.stat-modal-drop .smd-play {
+  color: var(--color-accent);
+  font-size: 18px;
+  text-decoration: none;
+  flex-shrink: 0;
 }

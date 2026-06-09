@@ -724,19 +724,68 @@ function getArtistTimeSeries(username) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ARTIST DETAIL PANEL (slide-out)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// When viewing a non-clan artist we hold a transient (unsaved) object here so
+// the panel can render read-only WITHOUT writing to the Clan. Cleared on add.
+let _panelTransient = null;
+
+// Resolve the source track for a username from live search results (foraging)
+// first, then the weekly scout reports.
+function findReportTrack(username) {
+  try {
+    if (typeof liveSearchResults !== 'undefined' && Array.isArray(liveSearchResults)) {
+      const lt = liveSearchResults.find(t => t.artist_username === username);
+      if (lt) return lt;
+    }
+  } catch (e) { /* foraging.js not loaded */ }
+  for (const r of (allReports || [])) {
+    const t = (r.tracks || []).find(t => t.artist_username === username);
+    if (t) return t;
+  }
+  return null;
+}
+
+// Build a read-only artist object from a track — mirrors the favourites shape
+// enough for renderPanel, but is never persisted unless the user adds to Clan.
+function transientArtistFromTrack(username, track) {
+  const t = track || {};
+  const user = t.user || {};
+  return {
+    username,
+    display_name: t.artist || username,
+    genre:        t.genre || '',
+    avatar_url:   t.avatar_url || user.avatar_url || '',
+    artist_url:   t.artist_url || user.permalink_url || '#',
+    platforms:    {},
+    snapshots:    [],
+    tracks_seen:  t.title ? [{ title: t.title, url: t.url, date: today(), score: t.score }] : [],
+    starred:      false,
+    status:       'active',
+    notes:        '',
+    _transient:   true,
+    _track:       t,
+  };
+}
+
 function openPanel(username) {
   const favs = getFavourites();
-  if (!favs[username]) {
-    for (const r of allReports) {
-      const track = (r.tracks||[]).find(t => t.artist_username === username);
-      if (track) { addFavourite(track); break; }
-    }
-  }
+  // Opening a panel must NEVER add to the Clan (was the auto-add bug). A
+  // non-clan artist renders from a transient object; adding is a deliberate
+  // click on the "Add to Clan" button only.
+  _panelTransient = favs[username] ? null : transientArtistFromTrack(username, findReportTrack(username));
   activeArtist = username;
   renderPanel(username);
   document.getElementById('panelOverlay').classList.add('open');
   document.getElementById('artistPanel').classList.add('open');
   refreshArtistLive(username);
+}
+
+// The ONLY UI path that writes a viewed artist into the Clan.
+function addArtistToClan(username) {
+  const track = (_panelTransient && _panelTransient._track) || findReportTrack(username) || { artist_username: username };
+  addFavourite(track);
+  _panelTransient = null;
+  renderPanel(username);
+  refreshCurrentTab();
 }
 
 async function refreshArtistLive(username) {
@@ -745,9 +794,7 @@ async function refreshArtistLive(username) {
     const r = await fetch(`${apiBase}/api/artist/${encodeURIComponent(username)}`);
     if (!r.ok) return;
     const live = await r.json();
-    const favs = getFavourites();
-    if (!favs[username]) return;
-    favs[username].live = {
+    const liveObj = {
       followers: live.follower_count,
       plays: live.play_count,
       likes: live.like_count,
@@ -756,6 +803,14 @@ async function refreshArtistLive(username) {
       updated_at: live.updated_at,
       age_seconds: live.age_seconds || 0,
     };
+    const favs = getFavourites();
+    if (favs[username]) {
+      favs[username].live = liveObj;          // clan member (in-memory only)
+    } else if (_panelTransient && _panelTransient.username === username) {
+      _panelTransient.live = liveObj;          // transient view
+    } else {
+      return;
+    }
     // In-memory only — don't persist live values to localStorage (they expire).
     if (activeArtist === username) renderPanel(username);
   } catch (e) {
@@ -771,8 +826,17 @@ function closePanel() {
 
 function renderPanel(username) {
   const favs = getFavourites();
-  const a = favs[username];
+  const isClan = !!favs[username];
+  const a = isClan ? favs[username] : _panelTransient;
   if (!a) return;
+
+  // Editable / clan-only sections are hidden for read-only (non-clan) views.
+  ['panelPlatformSection','panelManualSection','panelNotesSection','panelActionRow'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isClan ? '' : 'none';
+  });
+  const addSec = document.getElementById('panelAddClanSection');
+  if (addSec) addSec.style.display = isClan ? 'none' : '';
 
   const avatarHTML = a.avatar_url
     ? `<img src="${a.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='·'">`
