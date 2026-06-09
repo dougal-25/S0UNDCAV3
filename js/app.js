@@ -299,6 +299,9 @@ function addFavourite(track) {
   const w = getWatching().filter(u => u !== username);
   saveWatching(w);
   updateCounts();
+  // Write through to the account (no-op when signed out).
+  window.rosterSync?.pushArtist(favs[username]);
+  window.rosterSync?.pushPrefs();
 }
 
 function addSnapshot(favs, username, track) {
@@ -326,12 +329,14 @@ function addTrackSeen(favs, username, track) {
 function removeFavourite() {
   if (!activeArtist) return;
   if (!confirm(`Remove ${activeArtist} from favourites?`)) return;
+  const username = activeArtist;
   const favs = getFavourites();
-  delete favs[activeArtist];
+  delete favs[username];
   saveFavourites(favs);
   closePanel();
   updateCounts();
   refreshCurrentTab();
+  window.rosterSync?.deleteArtist(username);
 }
 
 function toggleCut() {
@@ -342,6 +347,7 @@ function toggleCut() {
   saveFavourites(favs);
   document.getElementById('cutBtn').textContent = favs[activeArtist].status === 'cut' ? 'RESTORE TO TRACKING' : 'CUT FROM TRACKING';
   refreshCurrentTab();
+  window.rosterSync?.pushArtist(favs[activeArtist]);
 }
 
 function savePlatform(username, platform, value) {
@@ -349,6 +355,7 @@ function savePlatform(username, platform, value) {
   if (!favs[username]) return;
   favs[username].platforms[platform] = value.trim();
   saveFavourites(favs);
+  window.rosterSync?.pushArtist(favs[username]);
 }
 
 // Reveal the edit input for a platform row; auto-focuses input.
@@ -623,6 +630,10 @@ async function init() {
       try { const d = await fetchJSON(`data/${file}`); if (d) allReports.push(d); } catch(e) {}
     }
   }
+  // Pull the roster from the account into the localStorage cache (no-op when
+  // signed out). Source of truth lives on the account — see roster_sync.js.
+  await window.rosterSync?.loadRoster();
+
   if (allReports.length) {
     currentData = allReports[0];
     syncFavouriteSnapshots();

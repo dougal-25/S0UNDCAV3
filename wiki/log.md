@@ -1,5 +1,16 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-09] Roster account persistence — shipped + verified end-to-end
+- **Why:** Doug's curated Roster vanished. Root cause was NOT a bug — the Roster lived only in browser `localStorage` (`sc_favs` / `sc_watching` / `sc_dismissed`), which is scoped per-origin + per-browser-profile. Signing in did nothing for it. Now that the app has Supabase accounts, the roster must follow the **login**.
+- **Spec:** `wiki/spec/roster_account_persistence.md` (approved 2026-06-08).
+- **Approach — write-through cache:** account is source of truth; `localStorage` is a hot cache so the existing synchronous `getFavourites()` reads stay unchanged. Load on init/sign-in → write through on each mutation → reconcile on every load (self-healing). One-time migration pushes any local-only roster up on first sign-in.
+- **Migration (`db/0017_roster.sql`):** new `roster` table (one row per saved artist, mirrors the sc_favs entry, `unique(user_id, artist_username)` for upsert) + `roster_prefs` (one row per user: watching/dismissed). RLS owner-scoped, updated_at triggers. Follows the `0016_avatars.sql` pattern. **Doug applied it in Supabase 2026-06-09.**
+- **API (`roster_api.py`, registered in content_api.py):** GET /api/roster (roster + prefs), POST /api/roster (upsert one artist), DELETE /api/roster/<username>, PUT /api/roster/prefs, POST /api/roster/import (bulk migration). All owner-scoped via `sb_helpers.require_user`.
+- **Frontend (`js/roster_sync.js`, loaded before app.js):** `window.rosterSync` exposes loadRoster/pushArtist/deleteArtist/pushPrefs/migrateLocalToAccount, all guarded by `scAuth.session()` (no-op signed-out). Write-through hooks added to `addFavourite`, `toggleCut`, `removeFavourite`, `savePlatform` (app.js) and `forageAction` watch/cut (foraging.js). `init()` awaits `loadRoster()`. Post-load logins caught via `scAuth.onChange`.
+- **Verified end-to-end** (`scripts/verify_roster.py` + Playwright with an injected throwaway-user session): 14/14 backend checks (upsert/list/idempotency/status/prefs/import/delete/RLS-401); frontend proof — wipe `localStorage` + reload → roster repopulates **from the account**; UI add → persists to account. Throwaway test user deleted after (rows cascade).
+- **Infra fix this session:** the project venv lived under iCloud-synced `~/Documents` and got evicted (dataless files) → every `import` hung, API died silently. Rebuilt venv as `venv.nosync` (iCloud ignores `.nosync`); `run.sh` now points at it directly (symlinks get mangled by iCloud) and self-heals if missing. Added `stripe` to `requirements.txt` (was hand-installed, missing).
+- **Out of scope (flagged):** wiring `clan_tracker.py` (daily GH Action) to read the account roster instead of `data/clan_artists.json`.
+
 ## [2026-05-28] Image Gen v2 — spec signed off + Phase 1 (router) shipped
 - **Spec:** `wiki/spec/image_gen_v2.md` (approved 2026-05-28). Architecture: pixels-vs-text separation, fal.ai router per job type, Fabric.js Composer for client-side text/logo/QR edits, avatar reference-image pattern (LoRA deferred to v3).
 - **Two overrides on Doug's pasted writeup, both signed off:** stay on Supabase Storage (not R2/S3); stay on Python `ThreadPoolExecutor` (not BullMQ/Redis) — we're a Python Flask stack.
@@ -555,5 +566,33 @@ Picked up after the morning pause. **25 commits across both sessions today.**
 - 3-event dogfood (Doug-driven, not code)
 - Doug confirmed voices file hand-tuned mid-session — voice quality validated.
 
+## [2026-06-09] Stash → campaign blocks + Trail Map campaign-aware + Summons→Gatherings rename
+Firepit info-architecture pass (plan: `~/.claude/plans/bubbly-percolating-shore.md`, signed off).
 
+**Rename:** user-facing **Summons → Gatherings** across the events surface (`index.html` subnav, `events_list/_match/_form/_detail.js`). Internal `events`/`summons` routing keys + the `events` table untouched (invisible plumbing).
+
+**Stash — campaign blocks (new `js/stash.js`):** the flat list is now a **grid of blocks**. Campaign posts cluster into one campaign tile per Gathering (cover + post-count + date range), click to drill into its posts; loose Forge items sit alongside as single tiles. Every tile shows a title + countdown label (`postTypeLabel`: 7-DAY/3-DAY/ANNOUNCEMENT…). Count moved into the panel header (`STASH · N pieces`); top-pill `#firepitCount` + subnav badge removed.
+- **Keystone (no backend change):** `_stashRowToItem` (firepit.js) extended to carry `campaignId`/`eventName`/`postType`/`scheduledFor`/`source` from `stash_items.metadata` top level — these were already persisted by the campaign bridge (`_upsert_post_into_stash`) but dropped before reaching the UI, so every campaign post had been showing as a generic label-less `social_post`.
+- **Module split:** stash *view* (render/grouping/drill-in/count/filters) → `js/stash.js`; firepit.js keeps the *data* layer + Forge-coupled mutations. firepit.js back under control (~960 LOC).
+
+**Trail Map — campaign-aware + schedule-lock (`js/trail_map.js`):** drawer now shows campaign folders → drill → draggable post cards, reusing `groupStashByCampaign()`. Calendar pills + cards show countdown labels. **Schedule-lock:** a scheduled item is *derived* as scheduled (its id in the shared `/api/scheduled_posts` cache) → drops from the draggable pool + Stash default grid, surfaced under the "Scheduled" filter, returns to drafts when its calendar entry is deleted. Two-way sync, no new endpoint. (Decision: derive-not-write, confirmed with Doug.)
+
+**Status note:** Trail Map is backend-wired (Supabase `/api/scheduled_posts`), correcting the stale "localStorage mock" note above.
+
+**CSS:** `.stash-grid`/`.stash-block`/`.countdown-badge`/drill-in in `style.css`; `.trail-stash-folder`/`.trail-drawer-head` in `trail_map.css`. Tokens only.
+
+**Verification:** all 7 JS files pass `node --check`; servers up (8000+3000). Visual screenshot-confirm with Doug pending (browser session was locked during build).
+
+### Round 2 — Doug feedback (same day)
+After eyeballing round 1 ("looking much better"):
+- **Delete/open whole campaigns:** campaign tiles get a hover settings overlay — `openGathering()` (jump to the Gathering) + `deleteStashCampaign()` (bulk-delete the campaign's posts from stash; Gathering record stays).
+- **Cave-style icons:** replaced emoji actions (✏️/📋/🗑️ — the clipboard read as ambiguous) with inline 16-grid line-art SVGs matching the clan/watch/cut set, with tooltips.
+- **Proposed dates:** drill-in post tiles show `Proposed · <date>` small print so a campaign reads as a timeline.
+- **Scheduled stays visible (reverses round-1 hide):** scheduled items remain in the Stash with a `scheduled` badge; in the Trail Map drawer they're dimmed + non-draggable; folders show `N of M to schedule`. Doug's call — clarity over hiding.
+- **Parked:** `posted`→`archived`→auto-delete lifecycle (badge styles added; logic TBD).
+
+## [2026-06-09] Stack inventory page
+- New `wiki/stack.md` — source-of-truth inventory of every tool/API/model, pulled from code not memory. Covers text-gen (Claude Haiku 4.5 + Sonnet 4.6), image-gen (v2 router: Seedream v5 Lite / FLUX.2 pro / Nano Banana Pro, plus legacy v0.6 FLUX-Redux paths), video-gen (3 tiers: FFmpeg / Fal LTX+Hunyuan / Fal Kling+Replicate Veo), and infra (Supabase, Stripe, Ayrshare, SoundCloud).
+- Flagged: no music-gen; Apollo/EchoTik/Perplexity/Notion/Meta keys are workspace-wide and NOT Sound Cave deps; two image-gen generations coexist (v0.6 + v2) — retirement decision pending; single text provider = SPOF.
+- Linked from `wiki/index.md` under a new **Stack** section.
 
