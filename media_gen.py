@@ -174,38 +174,26 @@ def build_image_prompt(content_type, ctx, generated_text=''):
 
 
 def build_restyle_prompt(content_type, ctx, generated_text=''):
-    """Prompt for JOB_RESTYLE (FLUX.2 /edit): recreate an uploaded flyer's style
-    for a NEW event, rendering the event text legibly.
+    """Prompt for JOB_RESTYLE (FLUX.2 /edit): recreate an uploaded flyer's STYLE
+    as a clean BACKDROP — the legible event text is composited on top afterwards
+    (Konva compositor), so we deliberately suppress baked-in lettering here.
 
-    Unlike build_image_prompt, this WANTS text in the image — modern edit models
-    render display type cleanly (bake-off 2026-06-09). The uploaded reference
-    carries the aesthetic; this prompt supplies the recreate instruction + the
-    exact words to set. Built directly (no Claude call) — faster, cheaper, and it
-    sidesteps the no-text backdrop system prompt entirely.
+    Earlier this prompt asked the model to *render* the event text. Edit models
+    garble dense display type (browser-confirm 2026-06-10), so the decision is:
+    let the reference carry the aesthetic, keep the generated image text-light with
+    clean zones, and let the compositor be the legible source of truth for
+    date/venue/lineup. Built directly (no Claude call) — faster + cheaper.
     """
-    lines = []
-    artist = (ctx.get('artist_data') or {}).get('name')
-    if artist:
-        lines.append(artist)
-    for key in ('event', 'artist_list', 'release'):
-        v = ctx.get(key)
-        if v:
-            lines.append(str(v).strip())
-    freeform = ctx.get('freeform')
-    if freeform:
-        lines.append(str(freeform).strip())
-    text_block = '  /  '.join(l for l in lines if l) or (
-        generated_text[:200].strip() if generated_text else 'underground event night')
-
     return (
-        "Recreate this flyer's exact visual style and treatment for a NEW event — "
-        "same colour palette, print and texture (riso, halftone, grain, distress), "
-        "typographic feel, layout energy and graphic motifs as the reference image. "
-        "Do NOT copy the reference's words. Set this new event text instead, rendered "
-        "legibly in the same bold display-type style:\n"
-        f"{text_block}\n"
-        "Output a finished, print-ready event flyer: high contrast, bold, gritty "
-        "underground aesthetic, every word spelled correctly."
+        "Recreate this flyer's visual STYLE for a new poster — same colour palette, "
+        "print and texture (riso, halftone, grain, distress), graphic motifs and overall "
+        "layout energy as the reference image. Treat the result as a BACKDROP: do NOT "
+        "reproduce the reference's words or paragraphs, and keep any lettering to an "
+        "absolute minimum. Leave generous, clean, uncluttered negative space in the "
+        "upper-centre and lower-centre zones where legible event text will be placed "
+        "afterwards. Favour bold graphic shapes, texture and colour over text. "
+        "Underground event aesthetic: high contrast, gritty, dark. "
+        "No garbled, placeholder or lorem-ipsum text anywhere."
     )
 
 

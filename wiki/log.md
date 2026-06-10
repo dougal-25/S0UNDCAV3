@@ -1,5 +1,24 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-10] Forge poster compositor overlay — brand-less legible text (shipped, browser-confirmed)
+Spec: `wiki/spec/compositor_overlay_forge.md` (signed off). Closes the "shippable poster" gap after the restyle confirm.
+- **Problem:** restyle clones flyer *style* but bakes *garbled text*; the Konva text-overlay compositor existed but only mounted **when a brand kit was selected** (`firepit.js:795`), so the common no-brand case got a flat garbled image.
+- **Shipped (5 steps):** (1) `compositor.js` `DEFAULT_STYLE` (S0UNDCAV3 palette + DM Mono/Sans) so text renders on-brand with no kit; `addText` falls back to it (headline=text colour, supporting=body colour). (2) `firepit.js` gate → mounts for `event_poster`/`event_promo` even brand-less (`applyBrandKit(_brand||null)` clears stale brand). (3) Poster text wiring: headline=lineup, supporting=event details (date·venue·time). (4) `build_restyle_prompt` flipped from "render text legibly" → "clean BACKDROP, minimise lettering, leave clean zones for the overlay".
+- **Browser-confirmed (no brand):** compositor mounts (2 Konva layers, `_compositorActive=true`); `CONCRETE WONDERS` + event line render crisp + legible over the styled backdrop; `toBlob()` flattens full 1080×1350. Screenshots in `scratch/forge_confirm/`.
+- **Known rough edge:** FLUX.2 `/edit` still bakes *some* text (a wrong `SATURDAY OCTOBER 26 2024` header + `THE DOME` survived). Body zone clean; top header uncovered. Follow-up options captured in the spec (prompt-harder / top mask band / rely on editable overlay) — Doug to decide.
+- **Out of scope (unchanged):** campaign-post Konva; `artist_bio`/`social_post` auto-mount.
+
+## [2026-06-10] Cave drill-downs — graphic-first modals (shipped)
+- **Why:** Doug (mural screenshot): clicking "Followers gained" / "Genre mix" must pop a *more detailed high-level graphic* — even while data is empty. Click-wiring already existed (Phase 2 of clan_tracking_dashboard), but the modal showed a numbers table and a dead empty state. Spec: `wiki/spec/cave_drilldown_graphics.md` (signed off).
+- **What shipped:** followers/likes/listens modals lead with a clan-aggregate orange line chart over every snapshot day (movers table demoted to supporting detail below); genre modal is now an SVG donut in brand-orange shades + full swatched legend; empty baseline shows a framed "chart draws itself as snapshots land" placeholder instead of dead text; wired widgets get a "↗ details" hover hint.
+- **Verified:** Playwright — chart + movers, donut, simulated baseline-only state, hover hint, 0 console errors.
+
+## [2026-06-10] Artist modal v3 — visual stats, manual entry deleted (shipped)
+- **Why:** Doug's screenshot review: platform links belong up top with the name; *no* manual data input anywhere; followers/plays/likes/reposts must be shown as line graphics, not bare numbers; top-5 suggested tracks; the gold emoji star clashes with the brand orange. Spec: `wiki/spec/artist_modal_v3_visual_stats.md` (signed off, both questions).
+- **What shipped:** centered modal header with the platform chips inline under the name; 4 metric tiles each with an orange sparkline from the daily snapshots (click a tile → big chart switches metric); Manual Data Entry section + `saveManualData` + every `followers_override` read (cave/clan/footprints too) deleted; `/api/artist` now returns `top_tracks` (top 5 by plays, response-only) which the panel merges with scout-discovered tracks; star is an SVG in brand orange.
+- **Bug caught in verification:** tiles initially preferred local scout snapshots (single-track stats) and showed 4.3K plays against the chart's 6.7M — tiles now read the same backend series as the charts.
+- **Verified:** Playwright on seeded clan artist + live API path fired (real top tracks rendered); read-only view correct; 0 console errors.
+
 ## [2026-06-10] Forge reference-restyle — browser-confirmed live (closes the open gate)
 - **What:** Drove the full UI path (login → FIREPIT → FORGE → Event Poster → uploaded the pink "Concrete Wonders" flyer as a Reference Image → GENERATE → picked a variant → auto-image). The restyle route fired exactly as designed.
 - **Evidence:** API log `🎨 Forge image — type=event_poster job=restyle refs=1 (spirit:0 + ctx:1)`; output caption `1080x1350 | flux-2-pro/edit`. The 3-variant text step also correctly *read* the reference ("neon magenta and black constructivist grid… angular smiley faces").

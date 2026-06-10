@@ -792,16 +792,29 @@ async function generateImage(ctx) {
     if (typeof data.credits_balance === 'number') updateCreditsDisplay(data.credits_balance);
 
     const _brand = _selectedBrandKit();
-    if (_brand && window.scCompositor) {
+    // Poster types mount the text-overlay compositor even with NO brand kit, so the
+    // restyle backdrop becomes a legible, shippable poster (brand-less falls back to
+    // the S0UNDCAV3 DEFAULT_STYLE in compositor.js). Other types still require a brand.
+    const _posterType = ctx.content_type === 'event_poster' || ctx.content_type === 'event_promo';
+    if (window.scCompositor && (_brand || _posterType)) {
       _compositorActive = true;
       imgArea.style.display = 'none';
       window.scCompositor.show(ctx.content_type);
-      window.scCompositor.applyBrandKit(_brand);
+      window.scCompositor.applyBrandKit(_brand || null);  // null → DEFAULT_STYLE + clears any stale brand
       window.scCompositor.applyBackground(forgeGeneratedImageUrl);
-      window.scCompositor.applyContent({
-        supporting: forgeGeneratedContent || '',
-        event: ctx.event || '',
-      });
+      if (_posterType) {
+        // Poster overlay: lineup as the hero headline, event details (date·venue·time) below.
+        window.scCompositor.applyContent({
+          headline: ctx.artist_list || ctx.event || '',
+          supporting: ctx.artist_list ? (ctx.event || '') : '',
+          event: ctx.event || '',
+        });
+      } else {
+        window.scCompositor.applyContent({
+          supporting: forgeGeneratedContent || '',
+          event: ctx.event || '',
+        });
+      }
     } else {
       _compositorActive = false;
       const _cmp = document.getElementById('forgeCompositor');
