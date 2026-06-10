@@ -8,9 +8,8 @@
 // MUST load before every other app script (see index.html).
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 (function () {
-  // Set once the Railway service is live (Phase 3). e.g.
-  //   'https://thesoundcave-api.up.railway.app'
-  const PROD_API = '';
+  // Railway backend (decision 0006). soundcave-api service, production env.
+  const PROD_API = 'https://soundcave-api-production.up.railway.app';
 
   function isLocalHost(h) {
     return h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '';

@@ -1,0 +1,10 @@
+venv.nosync/
+venv/
+__pycache__/
+*.pyc
+.git/
+scratch/
+tests/
+.playwright-mcp/
+node_modules/
+data/snapshots/
