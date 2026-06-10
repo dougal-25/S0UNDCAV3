@@ -1,5 +1,12 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-10] Forge posters — structured event fields → overlay lines (shipped, browser-confirmed)
+Spec extension in `wiki/spec/compositor_overlay_forge.md`. Doug's call: the free-text "Event" box gave the overlay an unparsed blob; replace with structured fields so each fact lays down as a clean overlay line (the overlay, not the AI image, is the legible source).
+- **`firepit.js`:** new `event_details` field key on `event_poster` + `event_promo` → Night name + a 2-col grid (Venue/City/Date/Doors/End-curfew/Tickets; night name keeps id `forgeEvent`). `gatherForgeContext` reads them into ctx. New `buildPosterOverlay(ctx)`: headline = lineup (or night name), supporting = stacked `Night / Venue · City / Date · DOORS <d>[–<curfew>] / Tickets` (only present fields). Field grid uses inline `display:grid` (avoided `css/style.css` — a concurrent session was editing it).
+- **`content_api.build_user_prompt`:** appends the structured facts so the 3 copy variants reference venue/date/doors. *(Uncommitted this session — `content_api.py` also holds another session's `top_tracks` WIP; not bundling it. Recommit-coordinate.)*
+- **Browser-confirmed (no brand):** lineup headline + all structured lines render crisp over the styled backdrop; `toBlob()` flattens 1080×1350. Screenshot in `scratch/forge_confirm/overlay_structured.png`.
+- **Still open:** FLUX.2 `/edit` keeps baking *some* backdrop text (stray source date/“doors” persist) — lower impact now the real facts overlay cleanly on top. Options unchanged (prompt-harder / top mask band / editable). Doug to decide.
+
 ## [2026-06-10] Forge poster compositor overlay — brand-less legible text (shipped, browser-confirmed)
 Spec: `wiki/spec/compositor_overlay_forge.md` (signed off). Closes the "shippable poster" gap after the restyle confirm.
 - **Problem:** restyle clones flyer *style* but bakes *garbled text*; the Konva text-overlay compositor existed but only mounted **when a brand kit was selected** (`firepit.js:795`), so the common no-brand case got a flat garbled image.

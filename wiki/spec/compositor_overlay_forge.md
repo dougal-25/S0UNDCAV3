@@ -42,6 +42,15 @@ The Forge restyle path (FLUX.2 `/edit`) clones an uploaded flyer's *style* beaut
 - FLUX.2 `/edit` may still render *some* text even when asked not to; the overlay covers the hero zones, residual small text in the texture is acceptable.
 - `js/firepit.js` is already 1052 lines (>500 guideline) — pre-existing; this change adds only a helper + small edits, no new split now (flag for a later refactor).
 
+## Extension: structured event fields (2026-06-10, signed off)
+The single free-text "Event" box gave the overlay one unparsed blob and gave the image nothing usable. Replace it with **structured fields** so the overlay lays each fact down as a clean line — the overlay (not the AI image) is the authoritative source for legible text.
+
+- **Fields (both `event_poster` + `event_promo`):** Night/event name, Venue, City/location, Date, Doors (open), End/curfew, Tickets — plus existing Lineup + Additional Context. Implemented as one `event_details` field key that renders Night-name + a 2-col grid of the rest (ids `forgeVenue/forgeCity/forgeDate/forgeDoors/forgeCurfew/forgeTickets`; night name keeps id `forgeEvent` so template save/restore still works).
+- **Overlay composition (`buildPosterOverlay`):** headline = Lineup (or Night name if no lineup); supporting = stacked lines → `Night name` / `Venue · City` / `Date · DOORS <doors>[–<curfew>]` / `Tickets`. Only present fields render. Konva `\n` multi-line in the supporting layer (no template change needed).
+- **Copy:** `content_api.build_user_prompt` extended to include the structured fields so the 3 text variants reference venue/date/doors too.
+- **Image:** unchanged — backdrop stays clean (facts come from the overlay, not baked pixels). This makes the stray baked-date rough edge low-impact (your real date sits cleanly on top).
+- **CSS note:** the field grid uses an inline `display:grid` (not `style.css`) deliberately — a concurrent session was editing `css/style.css` this session; avoided the contention. Promote to a `.forge-event-grid` class later.
+
 ## Build notes
 - **Built + browser-confirmed 2026-06-10.** All 5 steps shipped: `DEFAULT_STYLE` in `compositor.js`; brand-less auto-mount for `event_poster`/`event_promo` in `firepit.js:795`; poster text wiring (lineup=headline, event=supporting); `build_restyle_prompt` flipped to clean-backdrop/min-text.
 - **Result:** with NO brand kit, `event_poster` + flyer ref now mounts the compositor (2 Konva layers, `_compositorActive=true`); `CONCRETE WONDERS` + the event line render crisp + legible over the styled backdrop; `toBlob()` flattens to full 1080×1350. Screenshots in `scratch/forge_confirm/` (gitignored).
