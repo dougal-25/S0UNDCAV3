@@ -30,16 +30,16 @@ There are **three image regimes**, picked automatically:
 
 1. **The restyle path uses a CONSTANT prompt.** Since `f5eeebc` (text-free backdrop), `build_restyle_prompt(content_type, ctx, generated_text)` ignores all three arguments — the only input reaching FLUX.2 `/edit` is the uploaded reference image. Genre, artist, Additional Context, voice: all discarded on the flow Doug uses most (poster + flyer ref). How it drifted: `efeff19` rendered the event text → text garbled (browser-proven) → `9b077d6` minimised text → `f5eeebc` stripped everything, including the non-text vibe inputs. The text removal was right; throwing away the *mood* inputs was collateral.
 2. **The backdrop path never receives the lineup or the structured event fields.** `build_image_prompt` reads `artist_data` / `event` / `release` / `freeform` only — `artist_list` and the `60d6d0c` fields (venue/city/date/doors/curfew/tickets) were never added. **Brand kit never touches image gen at all** (palette can't influence the image, only the overlay text — and `applyBrandKit` only affects the compositor).
-3. **Post (`social_post`) silently drops reference images at the model.** Refs are shown to Claude when *writing* the prompt ("mirror their palette, composition, mood"), but the image model is Seedream and `_payload_for_seedream` intentionally ignores `image_refs` (and `seed`). The model never sees the image — mirroring is secondhand through a 200-word prompt. (Known from the 2026-06-09 diagnosis; still true; only the restyle path actually fixed it, and only for uploaded-flyer flows.)
+3. **~~Post silently drops reference images~~ — CORRECTED on re-verification:** `job_type_for` routes ANY uploaded ref to JOB_RESTYLE for all content types, so Post+refs already reaches FLUX.2. The *actual* residual hole was narrower: **a Spirit on a non-bio type** (`has_avatar`, no style refs) fell through to Seedream, which drops `image_refs` — spirit references silently ignored on Posts/Promos.
 4. Minor: `voice` shapes copy only; arguably fine, but "hype vs industry" could legitimately shift image energy. `generated_text` mood cue is backdrop-only.
 
-## Fix direction (NOT yet built — for the review)
+## Fixes — SHIPPED 2026-06-10 (evening), live-fire proven
 
-- **Restyle = constant skeleton + vibe inputs.** Keep the text-free instruction, append non-renderable style cues from ctx: genre, freeform mood words, voice energy, night name as *theme* (not text). Small `build_restyle_prompt` change.
-- **Backdrop prompt gets full ctx.** Add `artist_list` + structured event fields (as scene/mood context, not text to render) to `build_image_prompt`.
-- **Brand → image.** Pass brand palette (and maybe logo-free style words) into both prompt builders so the image leans toward the kit's colours.
-- **Post refs:** route `social_post` to FLUX.2 when refs are present (same `has_style_refs` trick the restyle uses), or accept Seedream's secondhand mirroring and say so in the UI.
-- All contained in `media_gen.py` (+ one routing touch in `content_api.py`). No UI changes required.
+- ✅ **Restyle = skeleton + vibe inputs.** `_vibe_cues(ctx)` appends genre, night-name theme, freeform mood, voice→energy (`_VOICE_IMAGE_ENERGY` map), brand palette hexes — all framed "style only — do NOT render as text". Verified: prompt tail carries `Techno scene; themed around "WAREHOUSE TECHNO"; acid warehouse…; high-energy…; lean toward the brand palette: #0f0d0c, #ff4500, #f5f5f5`.
+- ✅ **Backdrop prompt gets full ctx.** `build_image_prompt` now includes lineup (context-only), Setting (venue — city), voice energy, brand palette.
+- ✅ **Brand → image.** `gatherForgeContext` sends `ctx.brand = {name, palette}`; both prompt builders consume it. **Visually proven:** same pink flyer + S0UNDCAV3 kit → output came out brand orange-on-black (`scratch/forge_confirm/vibe_poster_v1.png`).
+- ✅ **Spirit-on-Post routing.** `job_type_for`: `has_avatar` on non-bio types → JOB_HERO_ART (FLUX.2 accepts refs) instead of falling through to Seedream.
+- Observed trade-off: when freeform mood ("toxic green") and brand palette are both present, the brand wins — acceptable (brand should win); revisit only if Doug wants freeform to dominate.
 
 ## Related, parked
 - **Post-generation button reshape** — Doug hates the current 10-button wall but wants to make button decisions after a full live review of everything. Hero moment chosen: **the poster reveal**. Sketch from chat (poster hero w/ Regenerate+Download; caption demoted w/ Tweak ▾ menu; single prominent SAVE TO STASH) — revisit after the review.
