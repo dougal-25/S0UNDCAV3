@@ -1,5 +1,12 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-10] 🚀 LIVE: full product on production + Forge inputs wired into image gen
+**S0UNDCAV3 is now a working product on the public internet.** Verified end-to-end on production: `thesoundcave.vercel.app` (Vercel) → `soundcave-api-production.up.railway.app` (Railway, health 200, CORS pass) → real Forge generation (Claude copy + FLUX.2 restyle via fal) → Supabase Storage → compositor overlay. First production poster: `scratch/forge_confirm/live_poster_first.png`.
+- **Input-usage fixes shipped (`5bea4b2`)** — actioned the audit same-day at Doug's direction: `_vibe_cues()` appends genre/theme/freeform/voice-energy/brand-palette to the restyle prompt (style-only framing); `build_image_prompt` gains lineup, venue·city setting, voice energy, brand palette; `gatherForgeContext` sends `ctx.brand`; `job_type_for` routes Spirit-on-non-bio to FLUX.2. **Visually proven:** same pink reference flyer + S0UNDCAV3 kit → brand orange-on-black poster (`vibe_poster_v1.png`). Audit finding 3 corrected in the page (Post+refs already restyled; real hole was Spirit-on-Post).
+- **Deploy chain:** other session prepped Railway (`24a5c5b`) + pointed frontend (`8c307d0`); Doug ran the Railway dashboard deploy; merged to `main` (`643e6c6`) → Vercel production READY.
+- **Observed:** brand palette outweighs freeform colour cues when both set (acceptable — brand should win). API-status pill shows "Not connected" on cold start (3s timeout race; recheck succeeds) — minor, add a retry later.
+- **Next (Doug):** full live review of the product → informed pass on the post-generation buttons (hero = poster reveal) + GTM push.
+
 ## [2026-06-10] Forge input-usage audit — Doug's "inputs aren't used" hypothesis confirmed (findings only)
 Read-only audit, no code changed: `wiki/spec/forge_input_usage_audit.md`. Headline: the **restyle path runs a constant prompt** (since `f5eeebc` literally only the reference image reaches FLUX.2 — freeform/genre/voice all discarded); the **backdrop path never receives lineup, structured event fields, or brand kit**; **Post drops reference images at the model** (Seedream ignores `image_refs`). Fix directions captured in the page — to be actioned after Doug's full live review. Also parked there: post-generation button reshape (Doug hates the 10-button wall; hero = the poster reveal; decide after review).
 
