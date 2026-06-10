@@ -142,6 +142,16 @@ def build_image_prompt(content_type, ctx, generated_text=''):
     if event:
         parts.append(f"Event: {event}")
 
+    # Lineup + structured event fields (input-usage audit 2026-06-10: collected by
+    # the Forge but never passed). Scene/mood context only — the renderable facts
+    # (date/doors/tickets) belong to the compositor overlay, not the image.
+    artist_list = ctx.get('artist_list')
+    if artist_list:
+        parts.append(f"Lineup (context, not text to render): {artist_list}")
+    place = ' — '.join(v for v in (ctx.get('venue'), ctx.get('city')) if v)
+    if place:
+        parts.append(f"Setting: {place}")
+
     release = ctx.get('release')
     if release:
         parts.append(f"Release: {release}")
@@ -149,6 +159,15 @@ def build_image_prompt(content_type, ctx, generated_text=''):
     freeform = ctx.get('freeform')
     if freeform:
         parts.append(f"Context: {freeform}")
+
+    voice_energy = _VOICE_IMAGE_ENERGY.get(ctx.get('voice'))
+    if voice_energy:
+        parts.append(f"Energy: {voice_energy}")
+
+    brand_palette = (ctx.get('brand') or {}).get('palette') or {}
+    brand_hexes = [v for v in brand_palette.values() if isinstance(v, str) and v.startswith('#')]
+    if brand_hexes:
+        parts.append(f"Brand palette to lean toward: {', '.join(brand_hexes[:5])}")
 
     if generated_text:
         preview = generated_text[:300]
@@ -173,6 +192,44 @@ def build_image_prompt(content_type, ctx, generated_text=''):
     return message.content[0].text.strip()
 
 
+# Voice profile → image energy. The voice presets shape the COPY's tone; these
+# give the image the matching energy (style words only — never rendered text).
+_VOICE_IMAGE_ENERGY = {
+    'underground': 'raw, gritty, unpolished authenticity',
+    'industry':    'restrained, considered, premium polish',
+    'hype':        'high-energy, bold, electric intensity',
+    'personal':    'intimate, candid, close and warm',
+}
+
+
+def _vibe_cues(ctx, generated_text=''):
+    """Collect the promoter's NON-TEXT mood inputs as style cues for image prompts.
+
+    Forge input-usage audit (2026-06-10) found these were collected but discarded
+    on the image path. Everything here describes mood/theme only — event facts
+    (date/venue/tickets) stay OUT: they belong to the compositor overlay.
+    """
+    cues = []
+    genre = (ctx.get('artist_data') or {}).get('genre')
+    if genre:
+        cues.append(f"{genre} scene")
+    event = (ctx.get('event') or '').strip()
+    if event:
+        cues.append(f'themed around "{event}"')
+    freeform = (ctx.get('freeform') or '').strip()
+    if freeform:
+        cues.append(freeform[:200])
+    voice = _VOICE_IMAGE_ENERGY.get(ctx.get('voice'))
+    if voice:
+        cues.append(voice)
+    brand = ctx.get('brand') or {}
+    palette = brand.get('palette') or {}
+    hexes = [v for v in palette.values() if isinstance(v, str) and v.startswith('#')]
+    if hexes:
+        cues.append(f"lean toward the brand palette: {', '.join(hexes[:5])}")
+    return cues
+
+
 def build_restyle_prompt(content_type, ctx, generated_text=''):
     """Prompt for JOB_RESTYLE (FLUX.2 /edit): recreate an uploaded flyer's STYLE
     as a clean BACKDROP — the legible event text is composited on top afterwards
@@ -183,8 +240,12 @@ def build_restyle_prompt(content_type, ctx, generated_text=''):
     let the reference carry the aesthetic, keep the generated image text-light with
     clean zones, and let the compositor be the legible source of truth for
     date/venue/lineup. Built directly (no Claude call) — faster + cheaper.
+
+    The promoter's vibe inputs (genre, theme, freeform mood, voice energy, brand
+    palette) ARE appended as style cues — the input-usage audit found they were
+    being discarded entirely, leaving the reference as the only input.
     """
-    return (
+    base = (
         "Take this flyer and REMOVE every piece of text from it — no words, letters, "
         "numbers, dates, names, prices or typography of ANY kind, anywhere in the image. "
         "Keep ONLY its visual style: the exact colour palette, print texture (riso, "
@@ -196,6 +257,13 @@ def build_restyle_prompt(content_type, ctx, generated_text=''):
         "afterwards. High-contrast, gritty, dark underground aesthetic. "
         "Absolutely no lettering, captions, signatures, watermarks or placeholder text."
     )
+    cues = _vibe_cues(ctx, generated_text)
+    if cues:
+        base += (
+            "\nAdapt the mood toward (style only — do NOT render any of this as text): "
+            + '; '.join(cues) + '.'
+        )
+    return base
 
 
 def _ref_image_blocks(reference_images):
@@ -522,6 +590,11 @@ def job_type_for(content_type, has_avatar=False, has_style_refs=False):
         return JOB_AVATAR
     if has_style_refs:
         return JOB_RESTYLE
+    if has_avatar:
+        # A Spirit on a non-bio type: Seedream (JOB_BACKGROUND) silently drops
+        # image_refs, so the spirit's references would be ignored. FLUX.2 accepts
+        # them (input-usage audit 2026-06-10).
+        return JOB_HERO_ART
     return _CONTENT_JOB_TYPE.get(content_type, JOB_HERO_ART)
 
 

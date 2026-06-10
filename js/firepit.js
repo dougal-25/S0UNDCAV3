@@ -506,6 +506,10 @@ function gatherForgeContext() {
   }
   ctx.freeform = document.getElementById('forgeFreeform')?.value || '';
   ctx.voice = document.getElementById('forgeVoice')?.value || 'underground';
+  // Brand palette → image prompts (input-usage audit: the kit never reached image
+  // gen at all — only the compositor overlay). Name + palette only; no logo/fonts.
+  const _ctxBrand = _selectedBrandKit();
+  if (_ctxBrand) ctx.brand = { name: _ctxBrand.name, palette: _ctxBrand.palette || {} };
   if (_forgeRefImages.length) ctx.reference_images = _forgeRefImages.slice();
   // A summoned Spirit contributes its reference images + routes to the avatar model.
   const spirit = _selectedSpirit();
