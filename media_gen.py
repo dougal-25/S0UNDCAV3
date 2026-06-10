@@ -497,7 +497,12 @@ def generate_for_job(job_type, prompt, *, image_refs=None, width=1080, height=13
     out_url = data['images'][0]['url']
     img_r = http_requests.get(out_url, timeout=timeout)
     img_r.raise_for_status()
-    return img_r.content, 'fal-ai', model_slug
+    # Return the BARE model name (consistent with the other generators, which return
+    # e.g. 'flux-schnell'). model_slug keeps its 'fal-ai/' prefix for the fal.run URL
+    # above; callers prepend `provider` themselves, so stripping it here avoids the
+    # doubled 'fal-ai/fal-ai/…' label in the Forge caption + video-composite path.
+    bare_model = model_slug[len('fal-ai/'):] if model_slug.startswith('fal-ai/') else model_slug
+    return img_r.content, 'fal-ai', bare_model
 
 
 def job_registry():
