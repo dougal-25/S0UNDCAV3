@@ -1420,6 +1420,16 @@ def artist_stats(username):
     total_plays = sum((t.get('playback_count') or 0) for t in tracks)
     total_likes = sum((t.get('likes_count') or t.get('favoritings_count') or 0) for t in tracks)
 
+    # Top 5 own tracks by plays — returned in the response only, never upserted
+    # (the artists table has no column for it; recomputed fresh each cache miss).
+    top_tracks = [{
+        'title': t.get('title') or '',
+        'url': t.get('permalink_url') or '',
+        'plays': t.get('playback_count') or 0,
+        'likes': t.get('likes_count') or t.get('favoritings_count') or 0,
+        'date': (t.get('created_at') or '')[:10],
+    } for t in sorted(tracks, key=lambda t: t.get('playback_count') or 0, reverse=True)[:5]]
+
     record = {
         'soundcloud_id': str(user_id),
         'username': username,
@@ -1437,7 +1447,7 @@ def artist_stats(username):
     except Exception as e:
         record['warning'] = f'cache write failed: {e}'
 
-    return jsonify({**record, 'cached': False, 'age_seconds': 0})
+    return jsonify({**record, 'top_tracks': top_tracks, 'cached': False, 'age_seconds': 0})
 
 
 # ── Scheduled searches store (committed JSON the weekly Action runs) ──────

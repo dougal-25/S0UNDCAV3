@@ -1,5 +1,11 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-10] Cave dashboard → rails layout (overlap killed, bigger, click-only drill-downs)
+- **Why:** Doug (mural screenshot): floating corner panels overlapped the artist thumbnails; wanted tidier/bigger/no-overlap (scrolling fine). Also disliked the hover *dropdown* (top-movers tooltip) — keep the orange hover ring + lift, detail on click only. Chose "side rails" over "bigger floating glass". Spec: `wiki/spec/cave_dashboard_redesign.md` (Update 2026-06-10).
+- **What shipped:** `.cave-hero` overlay → 3-column grid (left rail: Followers/Listens/Genre · centre stage: artist stack · right rail: Likes/Playlist/New Drops). Overlap now impossible by construction; cinematic CRT/vignette texture moved onto `.cave-stage` which clips the fanned back-cards in the gutter. Stage `min-height:800px`, cards 320→340px, diagonal tightened so the fan stays centred. Hover dropdown deleted (`showCaveTooltip`/`hideCaveTooltip`/`#caveStatTooltip` + CSS gone); hover is pure-CSS ring+lift, click opens the modal. Wheel-cycle rebound to the centre stage (rails scroll the page).
+- **Touched `css/style.css`** (removed dead `.cave-stat-tooltip`/`.cst-*` block) — a concurrent session was also editing this file; coordinate before commit.
+- **Verified:** Playwright, 6 seeded artists — grid 250/585/250, stage clips, 0 cards over rails, click opens modal, wheel cycles, 0 console errors.
+
 ## [2026-06-10] Forge posters — structured event fields → overlay lines (shipped, browser-confirmed)
 Spec extension in `wiki/spec/compositor_overlay_forge.md`. Doug's call: the free-text "Event" box gave the overlay an unparsed blob; replace with structured fields so each fact lays down as a clean overlay line (the overlay, not the AI image, is the legible source).
 - **`firepit.js`:** new `event_details` field key on `event_poster` + `event_promo` → Night name + a 2-col grid (Venue/City/Date/Doors/End-curfew/Tickets; night name keeps id `forgeEvent`). `gatherForgeContext` reads them into ctx. New `buildPosterOverlay(ctx)`: headline = lineup (or night name), supporting = stacked `Night / Venue · City / Date · DOORS <d>[–<curfew>] / Tickets` (only present fields). Field grid uses inline `display:grid` (avoided `css/style.css` — a concurrent session was editing it).
