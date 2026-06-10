@@ -185,15 +185,16 @@ def build_restyle_prompt(content_type, ctx, generated_text=''):
     date/venue/lineup. Built directly (no Claude call) — faster + cheaper.
     """
     return (
-        "Recreate this flyer's visual STYLE for a new poster — same colour palette, "
-        "print and texture (riso, halftone, grain, distress), graphic motifs and overall "
-        "layout energy as the reference image. Treat the result as a BACKDROP: do NOT "
-        "reproduce the reference's words or paragraphs, and keep any lettering to an "
-        "absolute minimum. Leave generous, clean, uncluttered negative space in the "
-        "upper-centre and lower-centre zones where legible event text will be placed "
-        "afterwards. Favour bold graphic shapes, texture and colour over text. "
-        "Underground event aesthetic: high contrast, gritty, dark. "
-        "No garbled, placeholder or lorem-ipsum text anywhere."
+        "Take this flyer and REMOVE every piece of text from it — no words, letters, "
+        "numbers, dates, names, prices or typography of ANY kind, anywhere in the image. "
+        "Keep ONLY its visual style: the exact colour palette, print texture (riso, "
+        "halftone, grain, distress), graphic motifs, shapes and overall layout energy. "
+        "Wherever the reference had text, replace it with clean empty background or "
+        "abstract graphic texture in the same style — leave generous uncluttered "
+        "negative space in the upper-centre and lower-centre. The output is a completely "
+        "TEXT-FREE poster BACKDROP; the real event text is added on top separately "
+        "afterwards. High-contrast, gritty, dark underground aesthetic. "
+        "Absolutely no lettering, captions, signatures, watermarks or placeholder text."
     )
 
 
