@@ -5,6 +5,11 @@ on:
     - cron: '0 8 * * 1'   # Every Monday at 8am UTC
   workflow_dispatch:        # Allow manual trigger from GitHub UI
 
+# The job commits the weekly report and pushes it back to the repo, so the
+# GITHUB_TOKEN needs write access (default is read-only → push 403'd).
+permissions:
+  contents: write
+
 jobs:
   scout:
     runs-on: ubuntu-latest
