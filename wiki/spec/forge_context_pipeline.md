@@ -61,9 +61,16 @@ Spirits become WHO refs in the same system (one mental model, no parallel machin
 (Format consolidation 5→3 ships with this: `event_poster`→Flyer label; promo + bio retire from the picker, legacy Stash items keep readable labels. Artist-bio behaviour returns later as a Spotlight mode inside Post.)
 
 ## Build phases
-- **P1 — context core**: role chips on uploads (auto-guess + tap-to-correct), compose route + role-aware prompt builders, freeform fact-extraction, merge rules. Formats consolidated to 3 in the same pass (picker + field visibility).
+- **P1 — context core**: role chips on uploads (auto-guess + tap-to-correct), compose route + role-aware prompt builders, freeform fact-extraction, merge rules. Formats consolidated to 3 in the same pass (picker + field visibility). **SHIPPED 2026-06-11 (`b0a507a`).**
+- **P1.5 — output rework (Doug's live verdict, 2026-06-11 PM)**: P1's plumbing works but the *output* fails the eye test. Doug's calls, all signed off:
+  1. **Style adherence is the job.** Outputs must follow the STYLE ref set far more closely — flyer format first. WHO/Spirit composition quality also poor. Lever: prompt + endpoint params, settled by a live bake-off (authorized, ~6–10 fal calls): tuned FLUX.2 `/edit` vs Nano Banana Pro `/edit`.
+  2. **Text gets BAKED INTO the image** — supersedes (for now) the compositor-overlay decision in [compositor_overlay_forge.md](compositor_overlay_forge.md). No editable overlay; the generated image renders venue/date/lineup in the reference's typographic style. Compositor code stays, gated off for flyers.
+  3. **Output column layout**: image at top, caption text below (like a real social post). Click image → zoom lightbox.
+  4. **Variants killed**: no 3-angle pick step — straight to copy + image; iterate via REGEN.
+  5. **Buttons**: SAVE TO STASH (primary) · REGEN · DOWNLOAD · DISCARD. The shorter/longer/tone refine row dies.
+  6. **Bug to fix in same pass**: typed flyer fields (venue/date/doors/tickets…) vanish — suspected re-render after file upload wipes `#forgeDynamicFields`.
 - **P2 — carousel multi-image**: N consistent slides (seed-lock + locked zone skeleton); panorama "walking-man" experiment after.
-- **P3 — post-generation reveal**: hero poster moment + button reshape (already sketched in the audit page).
+- **P3 — post-generation reveal polish**: whatever of the audit-page sketch still applies after P1.5.
 
 ## Verification (P1)
 Doug's four-image test, exactly as described: a person + a palace + a crown + a loved flyer style → one generation that features the person, sets it at the palace, includes the crown, all rendered in the flyer's style. Plus: a Flyer with full structured fields → facts crisp on overlay, scene matches venue/city/theme; same inputs minus STYLE ref → brand palette leads.
