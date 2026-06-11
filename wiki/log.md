@@ -1,5 +1,11 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-11] 🔒 CORS hardened — API restricted to known origins (deployed + live-verified)
+- `content_api.py`: `CORS(app)` (open to any origin) → `CORS(app, origins=[https://thesoundcave.vercel.app, http://localhost:3000, http://127.0.0.1:3000])`. Vercel *preview* deploys are deliberately not allowed — test against prod or localhost. Commit `9aa16f9`.
+- **Deploy fact worth remembering:** Railway does NOT auto-deploy from GitHub pushes — deploys are CLI uploads. Recipe: `railway link -p 1d496daa-30f8-45e3-af72-5bb478b2790f -e production -s soundcave-api && railway up`. Deployed from an isolated `git worktree` of `main` so a parallel session's WIP couldn't ride along.
+- **Live-verified post-deploy:** preflight from `evil.example` → no `access-control-allow-origin` header (refused); from the prod origin → allowed; real data endpoint (`/api/artist/dazegxd`) 200 with the correct header; health 200.
+- Closes open item 3 of the handoff list below. Remaining: snapshots-via-API, favicon 404.
+
 ## [2026-06-11] ✅ Auth-redirect blocker closed — login verified on prod (no change needed)
 The handoff's "DO THIS FIRST" item (Supabase Auth URL config) turned out to be **already configured** — Doug had set it himself. No config was changed; this session *verified* it end-to-end on production:
 - `scAuth.signInWithEmail('…')` fired from `https://thesoundcave.vercel.app` → `{}` (no "invalid redirect URL").
@@ -23,7 +29,7 @@ Also observed: prod now serves **4** daily snapshots (CI fix accruing as designe
 **⚠️ OPEN / NEXT (do these to finish):**
 1. ~~**Supabase auth redirect**~~ ✅ CLOSED 2026-06-11 — was already configured; verified live (see entry above). In the Supabase dashboard → Auth → URL Configuration (project ref `agmmdrqmjywggtsycsri`): set **Site URL** = `https://thesoundcave.vercel.app`; add **Redirect URLs** `https://thesoundcave.vercel.app/**` and `http://localhost:3000/**`. Frontend uses `origin+pathname` as `emailRedirectTo`/reset `redirectTo` (`js/lib/supabase.js`). Until set, magic-link / password-reset redirects fail on prod. Verify by firing `scAuth.signInWithEmail` from the live site (expect no "invalid redirect URL").
 2. **Live charts need data** — populate only with ≥2 snapshot days AND the artist in your Clan. 3 days on record now (05-12, 06-09, 06-10); accrues daily via the now-fixed tracker.
-3. **CORS hardening** — `content_api` uses `CORS(app)` (open). Restrict to the Vercel origin once stable.
+3. ~~**CORS hardening**~~ ✅ CLOSED 2026-06-11 — restricted + deployed (see entry above).
 4. **Snapshots delivery (proper)** — current fix ships static JSON in the Vercel bundle (only refreshes on redeploy). Better: serve from `content_api`/Supabase (decision 0007 follow-up #2).
 5. `APP_BASE_URL` on Railway set to `https://thesoundcave.vercel.app` (Stripe/reset redirects).
 

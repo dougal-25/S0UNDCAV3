@@ -29,5 +29,5 @@ From `https://thesoundcave.vercel.app` in-browser: `scApiBase()` → Railway URL
 ## Open follow-ups (not blocking)
 1. ~~**Supabase Auth redirect/Site URL**~~ ✅ Resolved 2026-06-11 — already configured by Doug; verified live (magic link redirected to the Vercel URL, login landed). See log [2026-06-11].
 2. **Snapshots not on prod** — `.vercelignore` excludes `data/snapshots/` (0006), so the Cave dashboard charts have no history on prod (degrades to the "tracking builds daily" empty state). Decide: serve snapshots, or have the frontend read them from the API/Supabase.
-3. **CORS hardening** — `CORS(app)` is open; consider restricting to the Vercel origin once stable.
+3. ~~**CORS hardening**~~ ✅ Resolved 2026-06-11 — origins restricted to prod + localhost (`9aa16f9`), deployed via `railway up`, live-verified. See log [2026-06-11].
 4. **Cost:** Railway Hobby ~$5/mo (single always-on service). Watch usage.
