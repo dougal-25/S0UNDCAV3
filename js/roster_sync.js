@@ -109,9 +109,19 @@
   }
 
   // Catch sign-ins that happen without a page reload (password login).
+  // supabase-js v2 RE-EMITS SIGNED_IN on every window refocus (closing a file
+  // picker counts) — only reload when the signed-in USER actually changes,
+  // otherwise the refresh chain rebuilds the current tab and wipes typed input
+  // (the "Forge fields vanish after upload" bug, fixed 2026-06-11).
+  let _lastUserId = null;
   if (window.scAuth && scAuth.onChange) {
     scAuth.onChange((event, session) => {
-      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) loadRoster();
+      if (!session || !(event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) return;
+      const uid = session.user && session.user.id;
+      if (uid && uid !== _lastUserId) {
+        _lastUserId = uid;
+        loadRoster();
+      }
     });
   }
 

@@ -440,7 +440,17 @@ function updateForgeFields() {
       <input class="input" id="forgeRelease" placeholder="Track/EP/album title, catalogue number...">
     </div>`;
   }
+  // Value-preserving rebuild: re-renders arrive from many paths (tab switches,
+  // supabase re-emitting SIGNED_IN on window refocus → roster refresh, type
+  // changes) and must never eat typed input. Snapshot by id, rebuild, restore.
+  const _prior = {};
+  container.querySelectorAll('input, textarea, select').forEach(el => {
+    if (el.id && el.value) _prior[el.id] = el.value;
+  });
   container.innerHTML = html;
+  container.querySelectorAll('input, textarea, select').forEach(el => {
+    if (el.id && _prior[el.id] !== undefined) el.value = _prior[el.id];
+  });
   updateCharCount();
 }
 
@@ -907,6 +917,12 @@ function editStashItem(id) {
   if (ctx.event) { const el = document.getElementById('forgeEvent'); if (el) el.value = ctx.event; }
   if (ctx.release) { const el = document.getElementById('forgeRelease'); if (el) el.value = ctx.release; }
   if (ctx.artist_list) { const el = document.getElementById('forgeArtistList'); if (el) el.value = ctx.artist_list; }
+  // Structured event facts (previously dropped on reopen — fixed 2026-06-11)
+  ['venue', 'city', 'date', 'doors', 'curfew', 'tickets'].forEach(k => {
+    if (!ctx[k]) return;
+    const el = document.getElementById('forge' + k[0].toUpperCase() + k.slice(1));
+    if (el) el.value = ctx[k];
+  });
   if (ctx.freeform) document.getElementById('forgeFreeform').value = ctx.freeform;
   forgeGeneratedContent = item.content;
   forgeGeneratedImageUrl = item.imageUrl || '';
