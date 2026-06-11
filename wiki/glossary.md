@@ -32,6 +32,16 @@
 | **TRAIL MAP** | Content calendar / scheduler (drag-drop). | subtab `trailmap`, `js/trail_map.js`, `scheduled_posts` | — |
 | **MARKS** | Brand kits — logos, palettes, reference imagery. | subtab `brandkits`, `brand_kits` table, `js/brands.js` | **Brand Kits → Marks** |
 
+## Forge formats (content types)
+
+| UI label | What it is | Internal key | Was |
+|---|---|---|---|
+| **FLYER** | Event flyer/poster — structured event facts overlay a styled backdrop. | `event_poster` | **Event Poster + Event Promo → Flyer** (2026-06-11; `event_promo` retired from picker, legacy Stash items keep their label) |
+| **POST** | Single social image + caption. | `social_post` | — |
+| **CAROUSEL** | Multi-slide social set. | `social_carousel` | — |
+| *(retired)* | Artist Spotlight / Bio — folds into Post later as a Spotlight mode. | `artist_bio` (dormant) | retired from picker 2026-06-11 |
+| **WHO / WHERE / WHAT / STYLE** | Role chips on uploaded reference images (person / place / object / style-to-copy). | `ref role` in forge ctx | — |
+
 ## Other terms
 
 | UI label | What it is | Internal key |
