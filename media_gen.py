@@ -202,12 +202,15 @@ _VOICE_IMAGE_ENERGY = {
 }
 
 
-def _vibe_cues(ctx, generated_text=''):
+def _vibe_cues(ctx, generated_text='', include_brand=True):
     """Collect the promoter's NON-TEXT mood inputs as style cues for image prompts.
 
     Forge input-usage audit (2026-06-10) found these were collected but discarded
     on the image path. Everything here describes mood/theme only — event facts
     (date/venue/tickets) stay OUT: they belong to the compositor overlay.
+
+    include_brand=False when a STYLE reference is present: per the context-pipeline
+    spec (signed off 2026-06-11) an uploaded style ref outranks the brand palette.
     """
     cues = []
     genre = (ctx.get('artist_data') or {}).get('genre')
@@ -222,11 +225,12 @@ def _vibe_cues(ctx, generated_text=''):
     voice = _VOICE_IMAGE_ENERGY.get(ctx.get('voice'))
     if voice:
         cues.append(voice)
-    brand = ctx.get('brand') or {}
-    palette = brand.get('palette') or {}
-    hexes = [v for v in palette.values() if isinstance(v, str) and v.startswith('#')]
-    if hexes:
-        cues.append(f"lean toward the brand palette: {', '.join(hexes[:5])}")
+    if include_brand:
+        brand = ctx.get('brand') or {}
+        palette = brand.get('palette') or {}
+        hexes = [v for v in palette.values() if isinstance(v, str) and v.startswith('#')]
+        if hexes:
+            cues.append(f"lean toward the brand palette: {', '.join(hexes[:5])}")
     return cues
 
 
@@ -257,13 +261,64 @@ def build_restyle_prompt(content_type, ctx, generated_text=''):
         "afterwards. High-contrast, gritty, dark underground aesthetic. "
         "Absolutely no lettering, captions, signatures, watermarks or placeholder text."
     )
-    cues = _vibe_cues(ctx, generated_text)
+    # Style law (context-pipeline spec): an uploaded style ref outranks the brand
+    # palette, so brand cues stay out of the restyle path.
+    cues = _vibe_cues(ctx, generated_text, include_brand=False)
     if cues:
         base += (
             "\nAdapt the mood toward (style only — do NOT render any of this as text): "
             + '; '.join(cues) + '.'
         )
     return base
+
+
+# Each role's job line for the compose prompt — names what every reference IS,
+# so multi-ref /edit models stop treating uploads as one anonymous style pile.
+_ROLE_PROMPT_JOBS = {
+    'who':   ('a PERSON to feature — keep this exact person clearly recognisable '
+              '(face, hair, build); do not replace them with a different figure'),
+    'where': ('the PLACE / SETTING — stage the final image in this location or scene'),
+    'what':  ('an OBJECT / MOTIF to include — recreate it faithfully but rendered '
+              'in the final image\'s style'),
+    'style': ('the STYLE REFERENCE — its colour palette, print texture, graphic '
+              'language and layout energy govern the whole output'),
+}
+
+
+def build_compose_prompt(content_type, ctx, roled_refs, generated_text=''):
+    """Prompt for JOB_COMPOSE / JOB_COMPOSE_PERSON (multi-reference /edit models).
+
+    Per wiki/spec/forge_context_pipeline.md (signed off 2026-06-11): every
+    reference is named by its role (WHO/WHERE/WHAT/STYLE) so the model composes
+    them — person at the place with the object, all in the style — instead of
+    blending an anonymous pile. Built directly (no Claude call), like
+    build_restyle_prompt. roled_refs order must match the image_refs order.
+    """
+    lines = [f'Compose ONE new image from these {len(roled_refs)} reference images.']
+    for i, ref in enumerate(roled_refs, 1):
+        job = _ROLE_PROMPT_JOBS.get(ref.get('role'), _ROLE_PROMPT_JOBS['style'])
+        note = (ref.get('note') or '').strip()
+        suffix = f' (the promoter says: "{note}")' if note else ''
+        lines.append(f'Image {i} is {job}{suffix}.')
+
+    has_style_ref = any(r.get('role') == 'style' for r in roled_refs)
+    if has_style_ref:
+        lines.append('The STYLE reference wins every visual conflict — render all '
+                     'people, places and objects in its visual language.')
+
+    hint = STYLE_HINTS.get(content_type)
+    if hint:
+        lines.append(f'Output intent: {hint}')
+    # Style law: a STYLE ref outranks the brand palette (spec sign-off 2026-06-11).
+    cues = _vibe_cues(ctx, generated_text, include_brand=not has_style_ref)
+    if cues:
+        lines.append('Mood (style only — do NOT render any of this as text): '
+                     + '; '.join(cues) + '.')
+    lines.append('Do NOT paint any text, lettering, numbers, dates or typography — '
+                 'leave clean negative space where type would sit; the real event '
+                 'text is composited on top afterwards. Dark, high-contrast '
+                 'underground aesthetic.')
+    return '\n'.join(lines)
 
 
 def _ref_image_blocks(reference_images):
@@ -446,11 +501,13 @@ def _aspect_ratio(width, height):
 # Adobe Firefly is NOT on fal yet (partnership runs the other way — fal
 # models hosted inside Adobe Express), so safe_commercial is dropped from v2.
 
-JOB_BACKGROUND  = 'background'
-JOB_HERO_ART    = 'hero_art'
-JOB_AVATAR      = 'avatar'
-JOB_EDIT        = 'edit'
-JOB_RESTYLE     = 'restyle'
+JOB_BACKGROUND      = 'background'
+JOB_HERO_ART        = 'hero_art'
+JOB_AVATAR          = 'avatar'
+JOB_EDIT            = 'edit'
+JOB_RESTYLE         = 'restyle'
+JOB_COMPOSE         = 'compose'          # mixed-role refs, no person
+JOB_COMPOSE_PERSON  = 'compose_person'   # any WHO ref present
 
 # job_type → (model_slug, payload_builder). Changing a model = swap the slug
 # (and possibly the builder). One-line swap point as required by the spec.
@@ -461,11 +518,16 @@ JOB_RESTYLE     = 'restyle'
 # This is the reference-native route: when a promoter uploads flyers to match,
 # the bytedance/flux text-to-image endpoints ignore or under-use them; /edit does not.
 _JOB_REGISTRY = {
-    JOB_BACKGROUND: ('fal-ai/bytedance/seedream/v5/lite/text-to-image', '_payload_for_seedream'),
-    JOB_HERO_ART:   ('fal-ai/flux-2-pro',                                '_payload_for_flux2'),
-    JOB_AVATAR:     ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
-    JOB_EDIT:       ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
-    JOB_RESTYLE:    ('fal-ai/flux-2-pro/edit',                           '_payload_for_flux2'),
+    JOB_BACKGROUND:     ('fal-ai/bytedance/seedream/v5/lite/text-to-image', '_payload_for_seedream'),
+    JOB_HERO_ART:       ('fal-ai/flux-2-pro',                                '_payload_for_flux2'),
+    JOB_AVATAR:         ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
+    JOB_EDIT:           ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
+    JOB_RESTYLE:        ('fal-ai/flux-2-pro/edit',                           '_payload_for_flux2'),
+    # Role-tagged compose routes (context-pipeline spec, 2026-06-11):
+    # person present → Nano Banana Pro (strongest character consistency, ≤14 refs);
+    # mixed refs without a person → FLUX.2 /edit (strong multi-ref blending, cheaper).
+    JOB_COMPOSE_PERSON: ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
+    JOB_COMPOSE:        ('fal-ai/flux-2-pro/edit',                           '_payload_for_flux2'),
 }
 
 
@@ -578,17 +640,25 @@ _CONTENT_JOB_TYPE = {
 }
 
 
-def job_type_for(content_type, has_avatar=False, has_style_refs=False):
+def job_type_for(content_type, has_avatar=False, has_style_refs=False, ref_roles=None):
     """Resolve a Forge content_type to a v2 router job_type.
 
-    `has_style_refs`: the promoter uploaded reference flyers to match. This
-    overrides the default backdrop routing → FLUX.2 /edit (JOB_RESTYLE), the
-    only route that actually recreates an uploaded flyer's style (bake-off
-    2026-06-09). Avatar/character consistency (JOB_AVATAR) still wins for bios.
+    `ref_roles` (context-pipeline spec, 2026-06-11): the WHO/WHERE/WHAT/STYLE
+    roles of the references being sent, in order. Any person → semantic compose
+    on Nano Banana; mixed non-person refs → compose on FLUX.2 /edit; style-only
+    keeps the proven restyle route (bake-off 2026-06-09).
+
+    `has_style_refs` is the legacy signal (untagged uploads = style) — kept for
+    callers that don't pass roles.
     """
+    roles = set(ref_roles or [])
+    if 'who' in roles:
+        return JOB_COMPOSE_PERSON
+    if roles and roles != {'style'}:
+        return JOB_COMPOSE
     if content_type == 'artist_bio' and has_avatar:
         return JOB_AVATAR
-    if has_style_refs:
+    if has_style_refs or roles == {'style'}:
         return JOB_RESTYLE
     if has_avatar:
         # A Spirit on a non-bio type: Seedream (JOB_BACKGROUND) silently drops

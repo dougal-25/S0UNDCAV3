@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 import anthropic
 import requests as http_requests
 from media_gen import (
-    build_image_prompt, build_restyle_prompt, generate_image, generate_for_job, job_type_for,
+    build_image_prompt, build_restyle_prompt, build_compose_prompt,
+    generate_image, generate_for_job, job_type_for,
     save_image, save_video,
     IMAGE_DIMENSIONS, provider_status,
     generate_video_composite, generate_video_standard, generate_video_premium,
@@ -164,9 +165,36 @@ def _system_prompt_for(voice):
 REF_IMAGES_MAX_COUNT = 5
 REF_IMAGES_MAX_BYTES = 5 * 1024 * 1024  # 5MB per image (base64-decoded size)
 
+# Role-tagged references (wiki/spec/forge_context_pipeline.md, 2026-06-11):
+# each upload carries WHO/WHERE/WHAT/STYLE so the compose prompt can name its job.
+REF_ROLES = ('who', 'where', 'what', 'style')
+
+
+def _normalize_reference_images(raw):
+    """Accept both legacy reference_images (list of data-URL strings) and the
+    role-tagged shape ([{data, role, note}, ...]). Returns a list of dicts with
+    keys data/role/note. Unknown roles fall back to 'style' — the legacy
+    meaning of an untagged upload. Data validation stays in _ref_images_to_blocks.
+    """
+    if not raw or not isinstance(raw, list):
+        return []
+    out = []
+    for item in raw:
+        if isinstance(item, str):
+            out.append({'data': item, 'role': 'style', 'note': ''})
+        elif isinstance(item, dict):
+            role = item.get('role')
+            out.append({
+                'data': item.get('data') or item.get('url') or '',
+                'role': role if role in REF_ROLES else 'style',
+                'note': str(item.get('note') or '')[:120],
+            })
+    return out
+
 
 def _ref_images_to_blocks(reference_images):
-    """Convert frontend data-URL strings to Anthropic image content blocks.
+    """Convert frontend reference images to Anthropic image content blocks.
+    Accepts legacy strings or role-tagged dicts (normalized here).
 
     Returns (blocks, error_message). Blocks empty if no refs or on validation
     failure. Validates count/size at the boundary, per CLAUDE.md guidance.
@@ -175,6 +203,7 @@ def _ref_images_to_blocks(reference_images):
         return [], None
     if not isinstance(reference_images, list):
         return [], 'reference_images must be a list'
+    reference_images = [r['data'] for r in _normalize_reference_images(reference_images)]
     if len(reference_images) > REF_IMAGES_MAX_COUNT:
         return [], f'Max {REF_IMAGES_MAX_COUNT} reference images'
 
@@ -684,6 +713,92 @@ def generate_media_endpoint():
             except OSError: pass
 
 
+# Structured slots that freeform text may also carry. Extraction fills EMPTY
+# slots only — typed structured input always wins (context-pipeline spec).
+_FREEFORM_FACT_KEYS = ('event', 'venue', 'city', 'date', 'doors', 'curfew', 'tickets', 'artist_list')
+
+
+def _merge_freeform_facts(ctx):
+    """Extract event facts from freeform text and fill missing ctx slots.
+
+    Returns the dict of facts actually filled in (for response transparency),
+    or {} when nothing was extracted. Failure-safe: any error → no-op, the
+    generation proceeds on typed inputs alone.
+    """
+    freeform = (ctx.get('freeform') or '').strip()
+    empty_keys = [k for k in _FREEFORM_FACT_KEYS if not (ctx.get(k) or '').strip()]
+    if not freeform or not empty_keys or len(freeform) < 20:
+        return {}
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=300,
+            system=('Extract event facts from promoter notes. Respond with ONLY a JSON '
+                    'object — keys from: event (night/event name), venue, city, date, '
+                    'doors (opening time), curfew (end time), tickets (price/link), '
+                    'artist_list (newline-separated lineup). Include a key ONLY if the '
+                    'text clearly states it. No prose, no markdown fences.'),
+            messages=[{'role': 'user', 'content': freeform[:2000]}],
+        )
+        raw = message.content[0].text.strip()
+        if raw.startswith('```'):
+            raw = raw.strip('`').removeprefix('json').strip()
+        facts = json.loads(raw)
+        filled = {}
+        for k in empty_keys:
+            v = facts.get(k)
+            if isinstance(v, str) and v.strip():
+                ctx[k] = v.strip()
+                filled[k] = v.strip()
+        return filled
+    except Exception as e:
+        print(f'⚠️  freeform fact-extraction skipped: {e}')
+        return {}
+
+
+# /api/classify-ref — auto-guess WHO/WHERE/WHAT/STYLE for uploaded references
+# (context-pipeline spec). Cheap Haiku vision call; the frontend falls back to
+# 'style' if this fails, and the promoter can always tap the chip to correct.
+@app.route('/api/classify-ref', methods=['POST'])
+def classify_ref_endpoint():
+    uid, err = _require_user()
+    if err: return err
+    body = request.get_json() or {}
+    images = body.get('images')
+    blocks, ref_err = _ref_images_to_blocks(images)
+    if ref_err:
+        return jsonify({'error': ref_err}), 400
+    if not blocks:
+        return jsonify({'roles': []})
+    try:
+        content = []
+        for i, b in enumerate(blocks, 1):
+            content.append({'type': 'text', 'text': f'Image {i}:'})
+            content.append(b)
+        content.append({'type': 'text', 'text': (
+            f'Classify each of the {len(blocks)} images above for a music-event '
+            'design tool. Roles: "who" = a photo of a person/artist/DJ; '
+            '"where" = a place, venue, building or scene; "what" = an object, '
+            'prop or motif; "style" = a designed artwork (flyer, poster, album '
+            'art) whose aesthetic would be copied. Respond with ONLY a JSON '
+            f'array of {len(blocks)} strings, e.g. ["style","who"].')})
+        message = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=100,
+            messages=[{'role': 'user', 'content': content}],
+        )
+        raw = message.content[0].text.strip()
+        if raw.startswith('```'):
+            raw = raw.strip('`').removeprefix('json').strip()
+        roles = json.loads(raw)
+        roles = [r if r in REF_ROLES else 'style' for r in roles][:len(blocks)]
+        roles += ['style'] * (len(blocks) - len(roles))
+        return jsonify({'roles': roles})
+    except Exception as e:
+        print(f'⚠️  classify-ref failed: {e}')
+        return jsonify({'roles': ['style'] * len(blocks)})
+
+
 # /api/generate-image — Forge image generation.
 # Routes through the v2 job router (FLUX.2 / Seedream / Nano Banana) per
 # wiki/spec/forge_output_recipes.md, with a guarded fallback to the legacy
@@ -705,10 +820,15 @@ def generate_image_endpoint():
     try:
         w, h = IMAGE_DIMENSIONS.get(content_type, (1080, 1350))
 
+        # Freeform may carry facts (venue, date, doors…) the promoter didn't
+        # type into the structured fields — extract them to fill EMPTY slots
+        # only (structured input always wins; context-pipeline spec).
+        extracted_facts = _merge_freeform_facts(ctx)
+
         # A selected Spirit (avatar) contributes its reference images for
-        # character consistency — the fix for "uploaded a photo, got nothing
-        # like them". Spirit refs lead, then any ad-hoc Forge refs; fal caps
-        # image inputs at 10.
+        # character consistency — in the role-tagged model a Spirit is just a
+        # set of WHO references. Spirit refs lead, then the promoter's uploads
+        # (each with its WHO/WHERE/WHAT/STYLE role); fal caps image inputs at 10.
         avatar_id = ctx.get('avatar_id')
         avatar_refs = []
         if avatar_id:
@@ -717,25 +837,34 @@ def generate_image_endpoint():
                 avatar_refs = list(av.get('reference_image_urls') or [])
         if not avatar_refs and ctx.get('avatar_image_url'):
             avatar_refs = [ctx['avatar_image_url']]
-        ctx_refs = ctx.get('reference_images') or []
-        image_refs = (avatar_refs + ctx_refs)[:10] or None
+        ctx_refs = _normalize_reference_images(ctx.get('reference_images'))
+        roled_refs = ([{'data': u, 'role': 'who', 'note': 'the summoned spirit'}
+                       for u in avatar_refs] + ctx_refs)[:10]
+        image_refs = [r['data'] for r in roled_refs] or None
+        ref_roles = [r['role'] for r in roled_refs]
+        role_set = set(ref_roles)
 
         has_avatar = bool(avatar_id or ctx.get('avatar_image_url'))
-        # Uploaded flyers (not an avatar) → recreate-the-style via FLUX.2 /edit,
-        # with a prompt that RENDERS the event text (the reference carries the
-        # aesthetic). Otherwise keep the backdrop prompt (compositor lays type on top).
-        has_style_refs = bool(ctx_refs) and not has_avatar
-        if has_style_refs:
+        # Prompt by reference situation (context-pipeline spec, 2026-06-11):
+        # style-only refs keep the proven restyle prompt; any other mix gets the
+        # compose prompt that names each reference's job; no refs → backdrop.
+        if role_set == {'style'}:
             image_prompt = build_restyle_prompt(content_type, ctx, generated_text)
+        elif role_set:
+            image_prompt = build_compose_prompt(content_type, ctx, roled_refs, generated_text)
         else:
             image_prompt = build_image_prompt(content_type, ctx, generated_text)
-        job_type = job_type_for(content_type, has_avatar=has_avatar, has_style_refs=has_style_refs)
+        job_type = job_type_for(content_type, has_avatar=has_avatar,
+                                has_style_refs=(role_set == {'style'}),
+                                ref_roles=ref_roles)
         seed = ctx.get('seed')
 
         # Trust mechanism (Doug's reassurance ask): make prompt + ref usage visible.
         print(f"🎨 Forge image — type={content_type} job={job_type} "
-              f"refs={len(image_refs) if image_refs else 0} "
+              f"refs={len(roled_refs)} roles={ref_roles} "
               f"(spirit:{len(avatar_refs)} + ctx:{len(ctx_refs)}) seed={seed}")
+        if extracted_facts:
+            print(f"   freeform facts filled: {extracted_facts}")
         print(f"   prompt: {image_prompt[:240]}")
 
         try:
@@ -755,7 +884,9 @@ def generate_image_endpoint():
             'provider': provider,
             'model': model,
             'job_type': job_type,
-            'refs_used': len(image_refs) if image_refs else 0,
+            'refs_used': len(roled_refs),
+            'ref_roles': ref_roles,
+            'extracted_facts': extracted_facts or {},
             'dimensions': {'width': w, 'height': h},
             'credits_balance': balance,
         })

@@ -12,13 +12,8 @@ let _forgePickedIndex = null;      // index into _forgeVariants the user picked
 let _forgePickedSnapshot = '';     // textarea content at pick time — used to detect edits on swap
 let forgeApiUrl = scApiBase();
 
-// Reference images uploaded for the current generation (base64 data URLs).
-let _forgeRefImages = [];
-const REF_IMAGES_MAX_COUNT = 5;
-const REF_IMAGES_MAX_BYTES = 5 * 1024 * 1024; // 5MB per image
-// Must match the backend allow-list in content_api._ref_images_to_blocks.
-// HEIC (Mac), AVIF and SVG are NOT accepted by the image API.
-const REF_IMAGES_SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+// Reference-image upload state + handlers live in js/forge_refs.js (role-tagged
+// uploads — WHO/WHERE/WHAT/STYLE chips per the context-pipeline spec).
 
 // Which content types should auto-generate an image alongside the text.
 const OUTPUT_MEDIA = {
@@ -514,7 +509,9 @@ function gatherForgeContext() {
   // gen at all — only the compositor overlay). Name + palette only; no logo/fonts.
   const _ctxBrand = _selectedBrandKit();
   if (_ctxBrand) ctx.brand = { name: _ctxBrand.name, palette: _ctxBrand.palette || {} };
-  if (_forgeRefImages.length) ctx.reference_images = _forgeRefImages.slice();
+  // Role-tagged references: [{data, role: who|where|what|style, note}]
+  const _refs = forgeRefImagesPayload();
+  if (_refs.length) ctx.reference_images = _refs;
   // A summoned Spirit contributes its reference images + routes to the avatar model.
   const spirit = _selectedSpirit();
   if (spirit) {
@@ -743,80 +740,7 @@ async function enhanceDraft(btn) {
   if (btn) { btn.textContent = orig; btn.disabled = false; }
 }
 
-// ── Reference image upload ──────────────────────────────────
-function handleRefImagesChange(event) {
-  const errEl = document.getElementById('forgeRefImagesError');
-  errEl.style.display = 'none';
-  const files = Array.from(event.target.files || []);
-  if (!files.length) return;
-
-  if (_forgeRefImages.length + files.length > REF_IMAGES_MAX_COUNT) {
-    errEl.textContent = `Max ${REF_IMAGES_MAX_COUNT} images.`;
-    errEl.style.display = 'block';
-    event.target.value = '';
-    return;
-  }
-  const oversized = files.find(f => f.size > REF_IMAGES_MAX_BYTES);
-  if (oversized) {
-    errEl.textContent = `"${oversized.name}" is over 5MB.`;
-    errEl.style.display = 'block';
-    event.target.value = '';
-    return;
-  }
-  const badType = files.find(f => !REF_IMAGES_SUPPORTED_TYPES.includes(f.type));
-  if (badType) {
-    errEl.textContent = `"${badType.name}" is ${badType.type || 'an unsupported format'} — use JPG, PNG, WebP or GIF.`;
-    errEl.style.display = 'block';
-    event.target.value = '';
-    return;
-  }
-  Promise.all(files.map(readFileAsDataURL))
-    .then(dataUrls => {
-      _forgeRefImages = _forgeRefImages.concat(dataUrls);
-      renderRefImageThumbs();
-      event.target.value = '';
-    })
-    .catch(err => {
-      errEl.textContent = `Read failed: ${err.message}`;
-      errEl.style.display = 'block';
-    });
-}
-
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = () => reject(r.error || new Error('read error'));
-    r.readAsDataURL(file);
-  });
-}
-
-// Build thumbs via DOM methods (no innerHTML with dynamic content).
-function renderRefImageThumbs() {
-  const wrap = document.getElementById('forgeRefImagesPreview');
-  if (!wrap) return;
-  wrap.replaceChildren();
-  _forgeRefImages.forEach((src, i) => {
-    const thumb = document.createElement('div');
-    thumb.className = 'thumb';
-    const img = document.createElement('img');
-    img.src = src;
-    img.alt = `ref ${i + 1}`;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = '×';
-    btn.setAttribute('aria-label', 'Remove');
-    btn.addEventListener('click', () => removeRefImage(i));
-    thumb.appendChild(img);
-    thumb.appendChild(btn);
-    wrap.appendChild(thumb);
-  });
-}
-
-function removeRefImage(i) {
-  _forgeRefImages.splice(i, 1);
-  renderRefImageThumbs();
-}
+// (Reference-image upload handlers moved to js/forge_refs.js.)
 
 async function generateImage(ctx) {
   const imgArea = document.getElementById('forgeImageArea');

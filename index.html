@@ -474,7 +474,7 @@
           </div>
 
           <div class="forge-input-group">
-            <label class="forge-label">Reference Images <span style="color:var(--muted);font-weight:normal">(up to 5, ≤5MB each)</span></label>
+            <label class="forge-label">Reference Images <span style="color:var(--muted);font-weight:normal">(up to 5, ≤5MB each — each gets a WHO/WHERE/WHAT/STYLE chip; click it to correct the guess)</span></label>
             <input type="file" class="input" id="forgeRefImages" multiple accept="image/jpeg,image/png,image/webp" onchange="handleRefImagesChange(event)">
             <div id="forgeRefImagesPreview" class="forge-ref-thumbs"></div>
             <div id="forgeRefImagesError" class="forge-ref-error" style="display:none"></div>
@@ -926,6 +926,7 @@
 <script src="https://unpkg.com/konva@9.3.16/konva.min.js"></script>
 <script src="js/compositor_templates.js"></script>
 <script src="js/compositor.js"></script>
+<script src="js/forge_refs.js"></script>
 <script src="js/firepit.js"></script>
 <script src="js/stash.js"></script>
 <script src="js/spirits.js"></script>
