@@ -26,7 +26,7 @@ const OUTPUT_MEDIA = {
 // (Spotlight mode). Internal keys unchanged so backend templates, image routing,
 // compositor templates and stashed items all keep resolving.
 const CONTENT_TYPES = {
-  social_post:     { label:'Post',     icon:'', iconKey:'carousel', fields:['artist','freeform'], maxLength:2200 },
+  social_post:     { label:'Still',    icon:'', iconKey:'carousel', fields:['artist','freeform'], maxLength:2200 },
   social_carousel: { label:'Carousel', icon:'', iconKey:'carousel', fields:['artist','freeform'], maxLength:2200 },
   event_poster:    { label:'Flyer',    icon:'', iconKey:'lineup',   fields:['event_details','artist_list','freeform'] },
 };
@@ -356,13 +356,16 @@ function updateForgeFields() {
   const type = document.getElementById('forgeContentType').value;
   const ct = CONTENT_TYPES[type];
   if (!ct) return;
-  const container = document.getElementById('forgeDynamicFields');
+  // Context Stack containers (master spec §4): SUBJECT (L3) and FACTS (L4)
+  // render separately so the form walks the stack top-to-bottom.
+  const subjectEl = document.getElementById('forgeSubjectFields');
+  const factsEl = document.getElementById('forgeFactFields');
   const favs = getFavourites();
   const artists = Object.entries(favs).filter(([,a]) => a.status !== 'cut').map(([u,a]) => ({username:u, name:a.display_name||u}));
-  let html = '';
 
+  let subjectHtml = '';
   if (ct.fields.includes('artist')) {
-    html += `<div class="forge-input-group">
+    subjectHtml += `<div class="forge-input-group">
       <label class="forge-label">Artist</label>
       <select class="input" id="forgeArtist">
         <option value="">Select artist...</option>
@@ -371,14 +374,16 @@ function updateForgeFields() {
       </select>
     </div>`;
   }
+
+  let factsHtml = '';
   if (ct.fields.includes('artist_list')) {
-    html += `<div class="forge-input-group">
+    factsHtml += `<div class="forge-input-group">
       <label class="forge-label">Artists (lineup)</label>
       <textarea class="input" id="forgeArtistList" rows="2" placeholder="One artist per line, or comma-separated"></textarea>
     </div>`;
   }
   if (ct.fields.includes('event')) {
-    html += `<div class="forge-input-group">
+    factsHtml += `<div class="forge-input-group">
       <label class="forge-label">Event</label>
       <input class="input" id="forgeEvent" placeholder="Event name, venue, date...">
     </div>`;
@@ -386,7 +391,7 @@ function updateForgeFields() {
   if (ct.fields.includes('event_details')) {
     // Structured event facts — baked into the generated image as quoted text
     // lines (media_gen._baked_text_lines) since P1.5 (2026-06-11).
-    html += `<div class="forge-input-group">
+    factsHtml += `<div class="forge-input-group">
       <label class="forge-label">Event details</label>
       <input class="input" id="forgeEvent" placeholder="Night / event name (e.g. WAREHOUSE TECHNO)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
@@ -400,22 +405,27 @@ function updateForgeFields() {
     </div>`;
   }
   if (ct.fields.includes('release')) {
-    html += `<div class="forge-input-group">
+    factsHtml += `<div class="forge-input-group">
       <label class="forge-label">Release</label>
       <input class="input" id="forgeRelease" placeholder="Track/EP/album title, catalogue number...">
     </div>`;
   }
+
   // Value-preserving rebuild: re-renders arrive from many paths (tab switches,
   // supabase re-emitting SIGNED_IN on window refocus → roster refresh, type
   // changes) and must never eat typed input. Snapshot by id, rebuild, restore.
   const _prior = {};
-  container.querySelectorAll('input, textarea, select').forEach(el => {
+  [subjectEl, factsEl].forEach(c => c && c.querySelectorAll('input, textarea, select').forEach(el => {
     if (el.id && el.value) _prior[el.id] = el.value;
-  });
-  container.innerHTML = html;
-  container.querySelectorAll('input, textarea, select').forEach(el => {
+  }));
+  if (subjectEl) subjectEl.innerHTML = subjectHtml;
+  if (factsEl) factsEl.innerHTML = factsHtml;
+  [subjectEl, factsEl].forEach(c => c && c.querySelectorAll('input, textarea, select').forEach(el => {
     if (el.id && _prior[el.id] !== undefined) el.value = _prior[el.id];
-  });
+  }));
+  // A format with no fact fields (Still) hides the section label.
+  const factsLabel = document.getElementById('forgeFactsLabel');
+  if (factsLabel) factsLabel.style.display = factsHtml ? '' : 'none';
   updateCharCount();
 }
 
@@ -445,6 +455,8 @@ function gatherForgeContext() {
   const type = document.getElementById('forgeContentType').value;
   const ct = CONTENT_TYPES[type];
   const ctx = { content_type: type };
+  // L7 delivery: per-generation output size (4:5 / 9:16 / 1:1).
+  ctx.size = document.getElementById('forgeSize')?.value || '4:5';
 
   if (ct.fields.includes('artist')) {
     const sel = document.getElementById('forgeArtist');
