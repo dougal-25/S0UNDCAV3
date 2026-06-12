@@ -10,10 +10,12 @@ Tiers (per wiki/decisions/0003_saas_architecture.md):
 
 Claude builds optimised prompts from content context.
 """
+import base64
 import os
 import time
 import hashlib
 import io
+import base64
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -488,6 +490,92 @@ def _ref_image_blocks(reference_images):
     return blocks
 
 
+# ── WHO carbon-copy pipeline (Phase C, master spec 2026-06-12) ─────────────
+# Real people are PASTED, never drawn: cutout (background removal) → composite
+# onto the generated design → grade. Only non-identity edits allowed.
+
+_PLACEMENT_ANCHORS = {
+    'top-left':     (0.02, 0.02), 'top-right':    (0.98, 0.02), 'top':    (0.5, 0.02),
+    'bottom-left':  (0.02, 0.98), 'bottom-right': (0.98, 0.98), 'bottom': (0.5, 0.98),
+    'left':         (0.02, 0.5),  'right':        (0.98, 0.5),  'centre': (0.5, 0.5),
+}
+
+
+def _parse_placement(direction):
+    """Deterministic keyword parse of the Direction text for WHO placement.
+    Returns {'anchor', 'scale', 'grayscale'}. Defaults: bottom-right, 45% of
+    canvas height, full colour. Direction is binding (alignment law) — these
+    keywords are the contract, no model call needed."""
+    d = (direction or '').lower().replace('center', 'centre')
+    anchor = 'bottom-right'
+    for name in ('top-left', 'top-right', 'bottom-left', 'bottom-right'):
+        if name in d or name.replace('-', ' ') in d:
+            anchor = name
+            break
+    else:
+        for name in ('bottom', 'top', 'left', 'right', 'centre'):
+            if name in d:
+                anchor = name
+                break
+    scale = 0.45
+    if 'tiny' in d: scale = 0.18
+    elif 'small' in d: scale = 0.28
+    elif 'large' in d or 'big' in d: scale = 0.62
+    elif 'huge' in d or 'full height' in d: scale = 0.85
+    grayscale = any(k in d for k in ('black and white', 'black & white', 'b&w', 'grayscale', 'greyscale', 'monochrome'))
+    return {'anchor': anchor, 'scale': scale, 'grayscale': grayscale}
+
+
+def remove_background(image_bytes_or_data_url):
+    """Cutout via fal birefnet v2. Accepts raw bytes or a data URL; returns
+    RGBA PNG bytes with transparent background. ~$0.002/call."""
+    api_key = os.getenv('FAL_KEY')
+    if not api_key:
+        raise RuntimeError('FAL_KEY not set')
+    if isinstance(image_bytes_or_data_url, bytes):
+        image_url = 'data:image/png;base64,' + base64.b64encode(image_bytes_or_data_url).decode()
+    else:
+        image_url = image_bytes_or_data_url
+    r = http_requests.post(
+        'https://fal.run/fal-ai/birefnet/v2',
+        headers={'Authorization': f'Key {api_key}', 'Content-Type': 'application/json'},
+        json={'image_url': image_url, 'output_format': 'png'},
+        timeout=60,
+    )
+    r.raise_for_status()
+    out_url = r.json()['image']['url']
+    img_r = http_requests.get(out_url, timeout=60)
+    img_r.raise_for_status()
+    return img_r.content
+
+
+def composite_who(base_png_bytes, cutout_png_bytes, direction=''):
+    """Paste the person's cutout onto the generated design, pixel-true.
+    Placement/scale/grade come from the binding Direction (keyword contract in
+    _parse_placement). The person is never redrawn — PIL paste only."""
+    place = _parse_placement(direction)
+    base = Image.open(io.BytesIO(base_png_bytes)).convert('RGBA')
+    cut = Image.open(io.BytesIO(cutout_png_bytes)).convert('RGBA')
+
+    if place['grayscale']:
+        alpha = cut.getchannel('A')
+        cut = cut.convert('L').convert('RGBA')
+        cut.putalpha(alpha)
+
+    target_h = int(base.height * place['scale'])
+    ratio = target_h / cut.height
+    cut = cut.resize((max(1, int(cut.width * ratio)), target_h), Image.LANCZOS)
+
+    ax, ay = _PLACEMENT_ANCHORS.get(place['anchor'], _PLACEMENT_ANCHORS['bottom-right'])
+    x = int(ax * (base.width - cut.width))
+    y = int(ay * (base.height - cut.height))
+    base.alpha_composite(cut, (x, y))
+
+    out = io.BytesIO()
+    base.convert('RGB').save(out, format='PNG')
+    return out.getvalue()
+
+
 # ── Provider: Fal AI ───────────────────────────────────────
 
 def _generate_fal(prompt, width, height):
@@ -805,16 +893,18 @@ _CONTENT_JOB_TYPE = {
 def job_type_for(content_type, has_avatar=False, has_style_refs=False, ref_roles=None):
     """Resolve a Forge content_type to a v2 router job_type.
 
-    `ref_roles` (context-pipeline spec, 2026-06-11): the WHO/WHERE/WHAT/STYLE
-    roles of the references being sent, in order. Any person → semantic compose
-    on Nano Banana; mixed non-person refs → compose on FLUX.2 /edit; style-only
-    keeps the proven restyle route (bake-off 2026-06-09).
+    `ref_roles` (context-pipeline spec): the roles of the references being sent,
+    in order. 'spirit' (a drawn cartoon character) → semantic compose on Nano
+    Banana. 'who' does NOT route here — carbon-copy law (master spec
+    2026-06-12): real people are excluded from generation and composited from
+    the photo afterwards (content_api splits them out before calling this).
 
     `has_style_refs` is the legacy signal (untagged uploads = style) — kept for
     callers that don't pass roles.
     """
     roles = set(ref_roles or [])
-    if 'who' in roles:
+    if 'spirit' in roles or 'who' in roles:
+        # 'who' here only via legacy callers that didn't split — drawn fallback.
         return JOB_COMPOSE_PERSON
     if roles and roles != {'style'}:
         return JOB_COMPOSE

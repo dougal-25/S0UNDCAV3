@@ -16,6 +16,7 @@ import requests as http_requests
 from media_gen import (
     build_image_prompt, build_restyle_prompt, build_compose_prompt,
     generate_image, generate_for_job, job_type_for,
+    remove_background, composite_who,
     save_image, save_video,
     IMAGE_DIMENSIONS, provider_status,
     generate_video_composite, generate_video_standard, generate_video_premium,
@@ -874,8 +875,14 @@ def generate_image_endpoint():
                 avatar_refs = list(av.get('reference_image_urls') or [])
         if not avatar_refs and ctx.get('avatar_image_url'):
             avatar_refs = [ctx['avatar_image_url']]
-        ctx_refs = _normalize_reference_images(ctx.get('reference_images'))
-        roled_refs = ([{'data': u, 'role': 'who', 'note': 'the summoned spirit'}
+        all_refs = _normalize_reference_images(ctx.get('reference_images'))
+        # WHO carbon-copy law (Phase C, master spec 2026-06-12): real-person
+        # photos are SPLIT OUT of generation — they get composited onto the
+        # finished design afterwards (cutout → paste → grade), never redrawn.
+        who_refs = [r for r in all_refs if r.get('role') == 'who']
+        ctx_refs = [r for r in all_refs if r.get('role') != 'who']
+        # Spirits (drawn characters) DO enter generation, tagged 'spirit'.
+        roled_refs = ([{'data': u, 'role': 'spirit', 'note': 'the summoned spirit'}
                        for u in avatar_refs] + ctx_refs)[:10]
         image_refs = [r['data'] for r in roled_refs] or None
         ref_roles = [r['role'] for r in roled_refs]
@@ -913,6 +920,21 @@ def generate_image_endpoint():
             print(f"⚠️  v2 router failed ({v2_err}); falling back to legacy generate_image")
             image_bytes, provider, model = generate_image(image_prompt, w, h)
 
+        # WHO carbon-copy composite (Phase C): paste each real person's cutout
+        # onto the finished design — pixel-true, placement/scale/grade from the
+        # binding Direction. Best-effort: a cutout failure leaves the design
+        # intact rather than 500-ing the whole generation.
+        who_composited = 0
+        for wref in who_refs:
+            try:
+                cutout = remove_background(wref['data'])
+                image_bytes = composite_who(image_bytes, cutout, ctx.get('direction', ''))
+                who_composited += 1
+            except Exception as who_err:
+                print(f"⚠️  WHO composite skipped ({who_err})")
+        if who_composited:
+            model = f"{model}+who×{who_composited}"
+
         image_url = save_image(image_bytes, content_type, user_id=uid)
 
         return jsonify({
@@ -923,6 +945,7 @@ def generate_image_endpoint():
             'job_type': job_type,
             'refs_used': len(roled_refs),
             'ref_roles': ref_roles,
+            'who_composited': who_composited,
             'extracted_facts': extracted_facts or {},
             'direction': ctx.get('direction', ''),
             'mood': ctx.get('mood', ''),

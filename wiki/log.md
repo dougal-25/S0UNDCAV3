@@ -1,5 +1,13 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-12] Phase C — WHO CARBON-COPY shipped (people pasted, never drawn)
+The carbon-copy law (glossary, 2026-06-12) is now real pipeline. WHO photos are SPLIT OUT of generation in `content_api` (`who_refs` vs `ctx_refs`), the design renders without them, then each person is composited on top:
+- **`remove_background`** (media_gen) — cutout via fal `birefnet/v2` (~$0.002, ~1s) → transparent PNG.
+- **`composite_who`** — PIL `alpha_composite` paste, pixel-true; the person is NEVER redrawn. `_parse_placement` reads the binding Direction as a keyword contract: anchor (top/bottom/left/right/centre + corners), scale (tiny/small/large/huge → 0.18–0.85 of canvas height), grayscale (b&w/monochrome → desaturate keeping alpha). Defaults bottom-right, 45%, colour.
+- **Routing:** `job_type_for` — `who` no longer enters generation; **`spirit`** (drawn cartoon character) is what routes to `compose_person`. Best-effort: a cutout failure leaves the design intact (no 500); response echoes `who_composited`.
+- **Verified:** 6/6 units (placement parse, real PIL paste pixel-true bottom-right, top-left untouched, grayscale desaturate) + **live end-to-end** (`scratch/phaseC_who_composite.png`): synthetic test figure → real birefnet cutout → composited bottom-left + B&W exactly per the Direction, and it's the EXACT input pixels, not a redraw. (Test subject was a placeholder drawing — real photos give a real person pixel-perfect.)
+- **Frontend:** WHO chip already travels role-tagged from `forge_refs.js`; the split happens server-side, no UI change needed this phase.
+
 ## [2026-06-12] Phase B — REAL CAROUSEL shipped (multi-still, one locked style)
 Rolling phase rollout per Doug ("one after the other"). Carousel now produces a genuine SET:
 - **Copy:** slide-count picker (2–10, default 5) → `n_slides` → copy writes EXACTLY n slides.
