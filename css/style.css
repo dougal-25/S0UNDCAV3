@@ -1579,11 +1579,18 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
   width: 40px; height: 40px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
   background: var(--card); display: flex; align-items: center; justify-content: center;
 }
+.spirit-card-thumb { position: relative; }
 .spirit-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .spirit-noimg { font-size: 18px; opacity: 0.6; }
+.spirit-forged {
+  position: absolute; bottom: 0; right: 0;
+  background: var(--accent, #ff4500); color: #000; font-size: 9px;
+  padding: 0 3px; border-top-left-radius: 4px; font-weight: 700;
+}
 .spirit-card-body { flex: 1; min-width: 0; }
 .spirit-card-name { font-size: 13px; font-weight: 600; color: var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spirit-card-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.spirit-forge { font-size: 10px; padding: 3px 8px; margin-top: 6px; }
 .spirit-del {
   width: 26px; height: 26px; padding: 0; flex: none; display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--secondary);

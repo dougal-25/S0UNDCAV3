@@ -620,6 +620,22 @@ def _parse_media_request():
     return ctx, None, None, None
 
 
+def _is_own_storage_url(url):
+    """SSRF guard: True only for an https URL on OUR Supabase Storage host.
+    We only ever hand out image URLs from there, so anything else (internal
+    services, cloud metadata, arbitrary hosts) is rejected before any fetch."""
+    from urllib.parse import urlparse
+    try:
+        u = urlparse(url)
+    except Exception:
+        return False
+    if u.scheme != 'https':
+        return False
+    host = (u.hostname or '').lower().rstrip('.')
+    own = urlparse(os.environ.get('SUPABASE_URL', '')).hostname
+    return bool(own) and host == own.lower().rstrip('.')
+
+
 def _dispatch_media(media_type, image_prompt, audio_path, w, h, duration_seconds,
                     base_image_bytes=None):
     """Route to the right media_gen function. Returns (bytes, provider, model, ext)."""
@@ -699,16 +715,21 @@ def generate_media_endpoint():
 
         # Flagship flow: animate the still the user just generated. Fetch its
         # bytes from the URL the frontend passes; fall back to regen on failure.
+        # SSRF guard: only fetch from OUR Supabase Storage host (the sole origin
+        # we ever hand out image URLs from) over https, no redirects — never an
+        # arbitrary client-supplied URL.
         base_image_bytes = None
         base_url = ctx.get('base_image_url')
-        if media_type == 'video_composite' and base_url:
+        if media_type == 'video_composite' and base_url and _is_own_storage_url(base_url):
             try:
                 import requests as _rq
-                rb = _rq.get(base_url, timeout=30)
+                rb = _rq.get(base_url, timeout=30, allow_redirects=False)
                 rb.raise_for_status()
                 base_image_bytes = rb.content
             except Exception as e:
                 print(f'⚠️  base_image_url fetch failed ({e}); regenerating cover')
+        elif base_url:
+            print('⚠️  base_image_url rejected (not our storage host); regenerating cover')
 
         image_prompt = build_image_prompt(content_type, ctx, generated_text) if base_image_bytes is None else ''
         # Video uses the L7 delivery size like images (default 9:16 for video).

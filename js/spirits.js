@@ -58,11 +58,13 @@
     const thumb = s.preview_url
       ? `<img src="${esc(s.preview_url)}" alt="">`
       : '<span class="spirit-noimg">🔮</span>';
+    const forged = !!s.character_url;
     return `<div class="spirit-card">
-      <div class="spirit-card-thumb">${thumb}</div>
+      <div class="spirit-card-thumb">${thumb}${forged ? '<span class="spirit-forged">✦</span>' : ''}</div>
       <div class="spirit-card-body">
         <div class="spirit-card-name">${esc(s.name)}</div>
-        <div class="spirit-card-meta">${n} reference${n === 1 ? '' : 's'}</div>
+        <div class="spirit-card-meta">${n} reference${n === 1 ? '' : 's'}${forged ? ' · character forged' : ''}</div>
+        <button class="btn-outline spirit-forge" data-id="${esc(s.id)}" type="button">${forged ? 'RE-FORGE CHARACTER' : 'FORGE CHARACTER'}</button>
       </div>
       <button class="action-btn spirit-del" data-id="${esc(s.id)}" title="Banish spirit">${TRASH}</button>
     </div>`;
@@ -95,6 +97,31 @@
     document.querySelectorAll('#spiritsBody .spirit-del').forEach(btn => {
       btn.addEventListener('click', () => banish(btn.dataset.id));
     });
+    document.querySelectorAll('#spiritsBody .spirit-forge').forEach(btn => {
+      btn.addEventListener('click', () => forgeCharacter(btn.dataset.id, btn));
+    });
+  }
+
+  // Phase E: turn a Spirit's photos into a locked cartoon character.
+  async function forgeCharacter(id, btn) {
+    const s = _list.find(x => x.id === id);
+    if (!(s && (s.reference_image_urls || []).length)) {
+      window.alert('Add at least one reference photo to this spirit first.');
+      return;
+    }
+    const orig = btn.textContent; btn.textContent = '⏳ Forging…'; btn.disabled = true;
+    try {
+      const r = await scAuth.authedFetch(`${apiBase()}/api/avatars/${id}/forge-character`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `HTTP ${r.status}`); }
+      if (typeof loadSpirits === 'function') await loadSpirits();
+      await refresh();
+    } catch (e) {
+      btn.textContent = orig; btn.disabled = false;
+      window.alert(`Couldn't forge character: ${e.message || e}`);
+    }
   }
   function wireForm() {
     const btn = document.getElementById('spiritSummonBtn');

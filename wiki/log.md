@@ -1,5 +1,13 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-12] Phase E (part 1) — Spirits become forged cartoon characters
+Doug's complaint ("Spirits not good, untested") addressed: a Spirit is now a **forged cartoon persona**, not a raw photo set.
+- **`POST /api/avatars/<id>/forge-character`** (avatars_api): runs the Spirit's reference photos + description through Nano Banana (`compose_person`) → a clean illustrated mascot on a neutral bg → saved as `character_url` + `preview_url`, and led into `reference_image_urls` so the Forge composes from the LOCKED character (resilient if `db/0019` isn't applied yet — degrades to preview only).
+- **MARKS UI** (`js/spirits.js`): each Spirit card gets FORGE CHARACTER / RE-FORGE; forged Spirits show a ✦ badge + "character forged". Summon nudges "now forge its look".
+- **`db/0019_spirit_character.sql`** (additive ALTER — Doug to apply): `character_url` + `linked_artist` (the artist↔Spirit connector hook for Phase E part 2).
+- **Security:** commit security review flagged SSRF on the Phase D `base_image_url` fetch — fixed: `_is_own_storage_url` restricts the fetch to our Supabase Storage host over https, `allow_redirects=False` (7/7 unit checks: metadata-IP / localhost / host-confusion all rejected).
+- **Still open in Phase E:** artist-connector pulls (Clan→lineup multi-select, Cave-facts→copy expansion, Spirit auto-attach on the artist profile, Beats→audio menu, output tagging→Footprints). Mechanism shipped; aesthetic of the forged character is **Doug's eye to judge** on a real run.
+
 ## [2026-06-12] Phase D — SOUND + VIDEO shipped (flyer/still → pulses to the track)
 The flagship flow: generate a still → **+ ADD A BEAT** → composite MP4 that moves to the music. Built on the existing `/api/generate-media` + Beat rights gate (no new infra):
 - **Animate the EXISTING still:** `generate_video_composite(..., base_image_bytes=)` + endpoint fetches `base_image_url` (the just-generated image) instead of regenerating a cover — "make THIS flyer move". Falls back to regen if the fetch fails. Video uses the L7 size (default 9:16).

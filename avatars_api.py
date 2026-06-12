@@ -167,6 +167,74 @@ def delete_avatar(avatar_id):
     return jsonify({'ok': True})
 
 
+@avatars_bp.route('/<avatar_id>/forge-character', methods=['POST'])
+def forge_character(avatar_id):
+    """Phase E (master spec): turn a Spirit's reference photos + description into
+    an animated CARTOON CHARACTER — a drawn persona the engine can restyle and
+    feature in generated media. The result is saved as the spirit's canonical
+    look (`character_url` + `preview_url`) and becomes the ref the Forge uses.
+
+    Body (JSON): { description?: str, style?: str }. Uses the avatar's existing
+    reference_image_urls as the likeness anchor."""
+    import requests as _rq
+    uid, err = require_user()
+    if err:
+        return err
+    avatar = _owned_avatar(avatar_id, uid)
+    if not avatar:
+        return jsonify({'error': 'avatar not found'}), 404
+    refs = list(avatar.get('reference_image_urls') or [])
+    if not refs:
+        return jsonify({'error': 'add at least one reference photo first'}), 400
+
+    body = request.get_json(silent=True) or {}
+    desc = (body.get('description') or avatar.get('description') or '').strip()
+    style = (body.get('style') or '').strip()
+    name = avatar.get('name') or 'the character'
+
+    prompt = (
+        f"Turn the person in these reference images into a single ANIMATED "
+        f"CARTOON CHARACTER named {name} — a clean illustrated mascot/persona, "
+        "NOT a photo. Keep their recognisable traits (hair, build, key features) "
+        "but render as bold flat-colour cartoon line art on a plain neutral "
+        "background, full-body or bust, centred, no text. "
+        + (f"Character notes: {desc}. " if desc else "")
+        + (f"Art style: {style}. " if style else
+           "Art style: gritty underground-flyer cartoon, heavy outlines, "
+           "limited palette, halftone shading.")
+    )
+    try:
+        img_bytes, provider, model = generate_for_job(
+            'compose_person', prompt, image_refs=refs[:6], width=1024, height=1024)
+    except Exception as e:
+        return jsonify({'error': f'character forge failed: {e}'}), 502
+
+    # Save into the avatar_refs bucket alongside the spirit, set as canonical.
+    sb = supabase()
+    path = f"{uid}/{avatar_id}/character_{int(time.time()*1000)}.png"
+    try:
+        sb.storage.from_(REF_BUCKET).upload(
+            path=path, file=img_bytes,
+            file_options={'content-type': 'image/png', 'upsert': 'true'})
+        char_url = sb.storage.from_(REF_BUCKET).get_public_url(path)
+    except Exception as e:
+        return jsonify({'error': f'storage error: {e}'}), 502
+
+    # Canonical character leads the reference list so the Forge composes from it.
+    new_refs = [char_url] + [u for u in refs if u != char_url]
+    full = {'character_url': char_url, 'preview_url': char_url,
+            'reference_image_urls': new_refs}
+    try:
+        sb.table('avatars').update(full).eq('id', avatar_id).eq('user_id', uid).execute()
+    except Exception:
+        # db/0019 not applied yet — degrade gracefully (preview still updates).
+        sb.table('avatars').update({
+            'preview_url': char_url, 'reference_image_urls': new_refs,
+        }).eq('id', avatar_id).eq('user_id', uid).execute()
+    return jsonify({'character_url': char_url, 'preview_url': char_url,
+                    'provider': provider, 'model': model})
+
+
 # ── helpers ────────────────────────────────────────────────
 
 def _upload_refs(uid, avatar_id, files, existing_count=0):
