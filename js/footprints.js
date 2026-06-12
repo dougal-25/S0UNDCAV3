@@ -17,7 +17,9 @@ function fpClan() {
 }
 
 function fpSegment() {
-  return fpClan().filter(a => !fpGenre || (a.genre || '') === fpGenre);
+  // Genre match is case-insensitive — the data holds "UK Garage" / "Uk Garage"
+  // / "uk garage" and the UI uppercases them all identically.
+  return fpClan().filter(a => !fpGenre || (a.genre || '').trim().toLowerCase() === fpGenre);
 }
 
 function renderFootprints() {
@@ -54,14 +56,19 @@ function renderFootprints() {
       <div class="stat-value" style="font-size:20px">${lastDate ? esc(lastDate) : '—'}</div>
       <div class="summary-suffix">accrues daily</div></div>`;
 
-  // Controls — GENRE + ARTIST dropdowns.
-  const genres = [...new Set(clan.map(a => a.genre || '').filter(Boolean))].sort();
+  // Controls — GENRE + ARTIST dropdowns (genres deduped case-insensitively).
+  const genreMap = new Map();
+  clan.forEach(a => {
+    const g = (a.genre || '').trim();
+    if (g && !genreMap.has(g.toLowerCase())) genreMap.set(g.toLowerCase(), g);
+  });
+  const genres = [...genreMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   controlsEl.innerHTML = `
     <label style="display:flex;flex-direction:column;gap:6px;min-width:200px">
       <span class="stat-label" style="font-size:10px;color:var(--secondary)">Genre</span>
       <select class="input" onchange="fpSetGenre(this.value)">
         <option value="">ALL GENRES</option>
-        ${genres.map(g => `<option value="${esc(g)}" ${fpGenre === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+        ${genres.map(([val, label]) => `<option value="${esc(val)}" ${fpGenre === val ? 'selected' : ''}>${esc(label)}</option>`).join('')}
       </select>
     </label>
     <label style="display:flex;flex-direction:column;gap:6px;min-width:200px">
@@ -72,8 +79,10 @@ function renderFootprints() {
     </label>`;
 
   // Chart — the hero: one orange line, tabs swap the metric.
+  // Daily-source points only: scout-time entries counted a single track's
+  // plays (Blam! "305"), not the catalogue — mixing them fakes a jump.
   const artist = getFavourites()[fpSelectedArtist];
-  const snaps = (artist.snapshots || []).filter(s => s && s.date);
+  const snaps = (artist.snapshots || []).filter(s => s && s.date && s.source === 'daily');
   const labels = snaps.map(s => s.date.slice(5));
   const data = snaps.map(s => s[fpActiveMetric] || 0);
   const latest = data.length ? data[data.length - 1] : 0;
@@ -131,7 +140,7 @@ function renderFootprints() {
 }
 
 function fpSetGenre(genre) {
-  fpGenre = genre;
+  fpGenre = (genre || '').toLowerCase();
   fpSelectedArtist = null;
   renderFootprints();
 }

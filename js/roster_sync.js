@@ -47,6 +47,10 @@
         localStorage.setItem('sc_favs', JSON.stringify(serverFavs));
         localStorage.setItem('sc_watching', JSON.stringify(data.watching || []));
         localStorage.setItem('sc_dismissed', JSON.stringify(data.dismissed || []));
+        // The server roster's snapshots field is stale — re-merge the loaded
+        // daily series (idempotent) so this overwrite can't wipe chart data,
+        // whatever order auth events and init() resolve in.
+        try { window.syncDailySnapshots && window.syncDailySnapshots(); } catch (e) {}
       }
       _refresh();
     } catch (e) {
