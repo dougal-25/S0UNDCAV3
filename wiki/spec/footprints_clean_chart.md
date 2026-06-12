@@ -17,5 +17,14 @@
 - Summary row becomes non-% facts: Total Tracked · Days of Data · Last Updated.
 - Data source switches to `/api/tracking/snapshots` (accurate Supabase series) when signed in — this is where stale numbers (Blam! 305) get replaced by calibrated ones (807).
 
-## Build notes
-<added during build>
+## Build notes (iteration 2 — Doug's live review, 2026-06-12)
+
+Doug's direction after using it: **design for the A&R user** (label scout deciding who to sign). Changes:
+- **Default = WHOLE CLAN** aggregate chart (artist dropdown first option; flat-fill so joins/gaps don't fake growth); drill into artists from there.
+- Quieter type: summary values 18px/600, chart headline value 16px; DAYS OF DATA card dropped (visible from the chart); summary is now TRACKED · CLAN FOLLOWERS · CLAN PLAYS (each with absolute "↑ N in window") · LAST UPDATED.
+- Key Insights → **MOVERS leaderboard**: orange bars scaled to followers gained, absolute "+N FOLLOWERS · +N PLAYS", rows clickable → selects that artist's chart.
+- Artist view adds A&R context lines: linked name ↗ (opens SoundCloud), "N LIKES PER 1K PLAYS" engagement, "LATEST DROP: title · date".
+- Export gains "Followers Gained"/"Plays Gained"/SoundCloud-URL columns.
+- **Data honesty in the view layer:** chart/gains use daily-source, non-partial points only (scout-time single-track counts and the 2026-05-12 undercount poisoned baselines — 81zaki read +22.5K plays); API series strip-and-rebuild cached daily points so server-side corrections propagate.
+- SKH legacy rows confirmed wrong-user (old name-resolve hit a different "SKH"; roster account mackenziehiggins0000 verified 141 followers on its public page) — marked failed with Doug's approval 2026-06-12.
+- Known timing nuance, accepted: snapshots capture once daily (~07:00 UTC); live SoundCloud counts can drift ±1 during the day (James Ray 64 vs 63). The artist modal "Live" badge covers real-time.

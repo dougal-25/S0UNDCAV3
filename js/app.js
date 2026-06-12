@@ -687,7 +687,10 @@ async function init() {
       if (r.ok) {
         const data = await r.json();
         (data.snapshots || []).forEach(s => allSnapshots.push(s));
-        if (allSnapshots.length) console.log(`Loaded ${allSnapshots.length} snapshot day(s) from tracking API`);
+        if (allSnapshots.length) {
+          window._snapshotsFromApi = true; // authoritative: sync replaces cached daily points
+          console.log(`Loaded ${allSnapshots.length} snapshot day(s) from tracking API`);
+        }
       }
     }
   } catch (e) { console.warn('tracking API snapshots unavailable, using static fallback', e); }
@@ -733,6 +736,15 @@ function syncDailySnapshots() {
   const favs = getFavourites();
   if (!Object.keys(favs).length) return;
 
+  // API data is the source of truth for the daily series — drop any cached
+  // daily points first so corrected history (e.g. wrong-user rows marked
+  // bad server-side) actually disappears instead of lingering in the cache.
+  if (window._snapshotsFromApi) {
+    for (const a of Object.values(favs)) {
+      if (a.snapshots) a.snapshots = a.snapshots.filter(s => s.source !== 'daily');
+    }
+  }
+
   for (const snapshot of allSnapshots) {
     const date = snapshot.date;
     const artists = snapshot.artists || {};
@@ -753,6 +765,7 @@ function syncDailySnapshots() {
         playlist_adds: favs[username].playlist_adds || null,
         score:         0,
         source:        'daily',
+        fetch_status:  data.fetch_status || 'ok',
       });
     }
 
