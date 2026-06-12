@@ -40,7 +40,8 @@
 | **POST** | Single social image + caption. | `social_post` | — |
 | **CAROUSEL** | Multi-slide social set. | `social_carousel` | — |
 | *(retired)* | Artist Spotlight / Bio — folds into Post later as a Spotlight mode. | `artist_bio` (dormant) | retired from picker 2026-06-11 |
-| **WHO / WHERE / WHAT / STYLE** | Role chips on uploaded reference images (person / place / object / style-to-copy). | `ref role` in forge ctx | — |
+| **WHO / WHERE / WHAT / STYLE** | Role chips on uploaded reference images. **WHO = a real person, carbon-copy law (2026-06-12): composited from the photo (cutout + grade), NEVER AI-redrawn** / place / object / style-to-copy. | `ref role` in forge ctx | — |
+| **SPIRIT** | An **animated cartoon-like character** (created persona/mascot) the engine may freely render in generated media; saved, reusable, attachable to an artist. NOT a real-person likeness — that's a WHO ref. (Redefined 2026-06-12; previously "avatar = face reference set".) | `avatars` table, `js/spirits.js` | Avatar |
 
 ## Other terms
 
