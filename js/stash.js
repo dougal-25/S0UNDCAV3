@@ -184,8 +184,11 @@ function _postTileHTML(item) {
   const when = item.scheduledFor
     ? `<div class="stash-block-when">Proposed · ${_fmtShort(item.scheduledFor)}</div>`
     : `<div class="stash-block-when">Saved · ${_fmtShort(item.created)}</div>`;
+  // Carousel sets carry their slides in context.slideUrls (Phase B) — badge the tile.
+  const _slides = (item.context && Array.isArray(item.context.slideUrls)) ? item.context.slideUrls.length : 0;
+  const slideBadge = _slides > 1 ? `<span class="stash-slide-badge">×${_slides}</span>` : '';
   return `<div class="stash-block stash-block--single">
-    <div class="stash-block-cover" onclick="editStashItem('${item.id}')" title="Open in Forge">${coverInner}${_countdownBadgeHTML(item)}</div>
+    <div class="stash-block-cover" onclick="editStashItem('${item.id}')" title="Open in Forge">${coverInner}${slideBadge}${_countdownBadgeHTML(item)}</div>
     <div class="stash-block-body">
       <div class="stash-block-title">${title}</div>
       ${when}

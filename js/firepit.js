@@ -426,6 +426,9 @@ function updateForgeFields() {
   // A format with no fact fields (Still) hides the section label.
   const factsLabel = document.getElementById('forgeFactsLabel');
   if (factsLabel) factsLabel.style.display = factsHtml ? '' : 'none';
+  // Carousel only: the slide-count picker (Phase B).
+  const slideWrap = document.getElementById('forgeSlideCountWrap');
+  if (slideWrap) slideWrap.style.display = type === 'social_carousel' ? '' : 'none';
   updateCharCount();
 }
 
@@ -457,6 +460,10 @@ function gatherForgeContext() {
   const ctx = { content_type: type };
   // L7 delivery: per-generation output size (4:5 / 9:16 / 1:1).
   ctx.size = document.getElementById('forgeSize')?.value || '4:5';
+  // Carousel: slide count drives the copy (one slide = one image, Phase B).
+  if (type === 'social_carousel') {
+    ctx.n_slides = parseInt(document.getElementById('forgeSlideCount')?.value || '5', 10);
+  }
 
   if (ct.fields.includes('artist')) {
     const sel = document.getElementById('forgeArtist');
@@ -551,7 +558,10 @@ async function generateContent(variation) {
     outputArea.innerHTML = `<textarea class="forge-output" id="forgeOutputText" oninput="forgeGeneratedContent=this.value;updateCharCount()">${esc(forgeGeneratedContent)}</textarea>`;
     actionsEl.style.display = 'block';
     updateCharCount();
-    if (OUTPUT_MEDIA[ctx.content_type] === 'image') {
+    if (ctx.content_type === 'social_carousel') {
+      // Phase B: one image per slide, shared seed, one locked style.
+      generateCarouselImages({ ...ctx, generated_text: forgeGeneratedContent });
+    } else if (OUTPUT_MEDIA[ctx.content_type] === 'image') {
       // Pass the copy along — it feeds the image prompt's mood cues.
       generateImage({ ...ctx, generated_text: forgeGeneratedContent });
     } else {
@@ -581,6 +591,9 @@ function resetForgeOutput() {
   forgeGeneratedContent = '';
   forgeGeneratedImageUrl = '';
   _forgePickedSnapshot = '';
+  _forgeSlideUrls = [];
+  _forgeSlideTexts = [];
+  _forgeActiveSlide = 0;
   _compositorActive = false;
   if (window.scCompositor) try { scCompositor.hide(); } catch (e) {}
   document.getElementById('forgeOutputArea').innerHTML =
@@ -679,7 +692,87 @@ async function generateImage(ctx) {
 
 async function regenerateImage() {
   const ctx = gatherForgeContext();
-  await generateImage(ctx);
+  if (ctx.content_type === 'social_carousel' && _forgeSlideUrls.length) {
+    // Retake the ACTIVE slide only (fresh seed for that slide).
+    await _generateOneSlide({ ...ctx, generated_text: forgeGeneratedContent },
+                            _forgeActiveSlide, Math.floor(Math.random() * 1e9));
+    renderSlideStrip();
+    return;
+  }
+  await generateImage({ ...ctx, generated_text: forgeGeneratedContent });
+}
+
+// ── Carousel — one image per slide (Phase B, master spec §6) ──
+let _forgeSlideUrls = [];     // image url per slide, in order
+let _forgeSlideTexts = [];    // the slide's own line (caption strip / bake)
+let _forgeActiveSlide = 0;
+
+function _splitSlides(content, wanted) {
+  const chunks = (content || '').split(/\n?-{3,}\n?/).map(s => s.trim()).filter(Boolean);
+  // Drop a trailing hashtags-only chunk; cap at the picker count when sane.
+  const slides = chunks.filter(c => !/^#[^\s]/.test(c.replace(/\n/g, ' ')));
+  return (wanted && slides.length > wanted) ? slides.slice(0, wanted) : slides;
+}
+
+async function _generateOneSlide(ctx, i, seed) {
+  const body = { ...ctx, seed,
+    slide: { index: i + 1, count: _forgeSlideTexts.length, text: _forgeSlideTexts[i] || '' } };
+  const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate-image`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `slide ${i + 1}: API ${r.status}`);
+  }
+  const j = await r.json();
+  if (typeof j.credits_balance === 'number') updateCreditsDisplay(j.credits_balance);
+  _forgeSlideUrls[i] = j.image_url;
+  return j;
+}
+
+async function generateCarouselImages(ctx) {
+  const imgArea = document.getElementById('forgeImageArea');
+  imgArea.style.display = 'block';
+  _forgeSlideTexts = _splitSlides(forgeGeneratedContent, ctx.n_slides);
+  _forgeSlideUrls = new Array(_forgeSlideTexts.length).fill(null);
+  _forgeActiveSlide = 0;
+  const seed = Math.floor(Math.random() * 1e9);   // one seed = one locked style
+  for (let i = 0; i < _forgeSlideTexts.length; i++) {
+    imgArea.innerHTML = `<div class="forge-image-loading">Forging slide ${i + 1} / ${_forgeSlideTexts.length}…</div>` + _slideStripHTML();
+    try {
+      await _generateOneSlide(ctx, i, seed);
+    } catch (e) {
+      console.warn('slide failed', i + 1, e);
+    }
+    renderSlideStrip();
+  }
+  forgeGeneratedImageUrl = _forgeSlideUrls.find(Boolean) || '';
+  document.getElementById('btnRegenImage').style.display = '';
+  document.getElementById('btnDownloadImage').style.display = '';
+}
+
+function _slideStripHTML() {
+  return `<div class="forge-slide-strip">` + _forgeSlideUrls.map((u, i) =>
+    u ? `<img src="${u}" class="${i === _forgeActiveSlide ? 'active' : ''}" onclick="setActiveSlide(${i})" alt="slide ${i + 1}">`
+      : `<span class="forge-slide-pending">${i + 1}</span>`).join('') + `</div>`;
+}
+
+function renderSlideStrip() {
+  const imgArea = document.getElementById('forgeImageArea');
+  const active = _forgeSlideUrls[_forgeActiveSlide];
+  imgArea.innerHTML =
+    (active
+      ? `<img src="${active}" class="forge-image-preview" alt="Slide ${_forgeActiveSlide + 1}" title="Click to zoom" onclick="openForgeLightbox(this.src)">`
+      : `<div class="forge-image-loading">slide pending…</div>`)
+    + _slideStripHTML()
+    + `<div class="forge-image-meta">slide ${_forgeActiveSlide + 1} / ${_forgeSlideUrls.length} — NEW IMAGE retakes this slide</div>`;
+  forgeGeneratedImageUrl = active || forgeGeneratedImageUrl;
+}
+
+function setActiveSlide(i) {
+  _forgeActiveSlide = i;
+  renderSlideStrip();
 }
 
 function downloadForgeImage() {
@@ -721,7 +814,9 @@ async function saveToStash() {
         icon: ct ? ct.icon : '📝',
         content: forgeGeneratedContent,
         imageUrl: savedImageUrl,
-        context: gatherForgeContext(),
+        // Carousel sets ride in context.slideUrls (metadata JSON — no migration).
+        context: { ...gatherForgeContext(),
+                   ...(_forgeSlideUrls.filter(Boolean).length > 1 ? { slideUrls: _forgeSlideUrls.filter(Boolean) } : {}) },
         status: 'draft',
       }),
     });
@@ -765,11 +860,21 @@ function editStashItem(id) {
   if (ctx.freeform) document.getElementById('forgeFreeform').value = ctx.freeform;
   forgeGeneratedContent = item.content;
   forgeGeneratedImageUrl = item.imageUrl || '';
+  // Restore a carousel set's slide strip (Phase B).
+  const _slides = Array.isArray(ctx.slideUrls) ? ctx.slideUrls : [];
+  _forgeSlideUrls = _slides.slice();
+  _forgeSlideTexts = _slides.length ? _splitSlides(item.content, _slides.length) : [];
+  _forgeActiveSlide = 0;
   document.getElementById('forgeOutputArea').innerHTML = `<textarea class="forge-output" id="forgeOutputText" oninput="forgeGeneratedContent=this.value;updateCharCount()">${esc(item.content)}</textarea>`;
   document.getElementById('forgeActions').style.display = 'block';
-  // Restore image if present
+  // Restore image (or carousel slide strip) if present
   const imgArea = document.getElementById('forgeImageArea');
-  if (forgeGeneratedImageUrl) {
+  if (_forgeSlideUrls.length > 1) {
+    imgArea.style.display = 'block';
+    renderSlideStrip();
+    document.getElementById('btnRegenImage').style.display = '';
+    document.getElementById('btnDownloadImage').style.display = '';
+  } else if (forgeGeneratedImageUrl) {
     imgArea.style.display = 'block';
     imgArea.innerHTML = `<img src="${forgeGeneratedImageUrl}" class="forge-image-preview" alt="Generated image" title="Click to zoom" onclick="openForgeLightbox(this.src)">`;
     document.getElementById('btnRegenImage').style.display = '';

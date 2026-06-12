@@ -156,6 +156,12 @@ def build_image_prompt(content_type, ctx, generated_text=''):
     if release:
         parts.append(f"Release: {release}")
 
+    # L4b — carousel slide series (backdrop route stays text-free: the system
+    # prompt forbids rendered text; slide text rides the caption instead).
+    slide = _slide_block(ctx, bake_text=False)
+    if slide:
+        parts.append(slide)
+
     # L5 — binding direction first, then mood (parsed from Additional Context;
     # unparsed legacy boxes pass through whole, unclipped).
     direction = (ctx.get('direction') or '').strip()
@@ -207,6 +213,30 @@ _FORMAT_INTENT = {
     'event_poster':    'a flyer for an underground music event',
     'artist_bio':      'an artist spotlight image',
 }
+
+
+def _slide_block(ctx, bake_text=True):
+    """Phase B (real carousel): series-consistency instruction + this slide's
+    own line. ctx['slide'] = {'index': 1-based, 'count': N, 'text': str}.
+    The whole set shares one seed (frontend) + this block — slides are ordered
+    L4 facts (master spec §6). bake_text=False on routes whose system prompt
+    forbids rendered text (the Claude-written backdrop path)."""
+    s = ctx.get('slide') or {}
+    if not s:
+        return ''
+    block = (f"This is slide {s.get('index')} of a {s.get('count')}-slide "
+             "carousel — one continuous series: keep the palette, grid, motif "
+             "placement and graphic language IDENTICAL on every slide; only the "
+             "focal content changes slide to slide.")
+    txt = (s.get('text') or '').strip()
+    if txt and bake_text:
+        short = txt if len(txt) <= 160 else txt[:157] + '…'
+        block += (f"\nRender this slide's text crisp and legible, exactly as "
+                  f'written: "{short}". Every other piece of text — including '
+                  "any small print, address blocks, badges or dates from the "
+                  "reference — must NOT appear: fill those zones with graphic "
+                  "texture in the same style.")
+    return block
 
 
 def _direction_block(ctx):
@@ -352,11 +382,15 @@ def build_restyle_prompt(content_type, ctx, generated_text=''):
             "appear: where it has no replacement above, fill the zone with "
             "graphic texture in the same style. No other text anywhere in the image."
         )
-    else:
+    elif not (ctx.get('slide') or {}).get('text'):
         base += (
             "\nThis piece carries no text: replace the reference's lettering with "
             "clean graphic texture in the same style."
         )
+    # L4b — carousel slide context (series consistency + this slide's line).
+    slide = _slide_block(ctx)
+    if slide:
+        base += '\n' + slide
     # L5 DIRECTION — binding design instructions, after the facts.
     direction = _direction_block(ctx)
     if direction:
@@ -415,8 +449,12 @@ def build_compose_prompt(content_type, ctx, roled_refs, generated_text=''):
                      + '\n'.join(text_lines) +
                      '\nEvery quoted string EXACTLY as written, correctly spelled, '
                      'crisp and legible. No other text anywhere.')
-    else:
+    elif not (ctx.get('slide') or {}).get('text'):
         lines.append('Do not render any text, lettering or typography.')
+    # L4b — carousel slide context (series consistency + this slide's line).
+    slide = _slide_block(ctx)
+    if slide:
+        lines.append(slide)
     # L5 — binding direction, then mood (style law: STYLE ref outranks brand)
     direction = _direction_block(ctx)
     if direction:

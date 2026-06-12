@@ -1,5 +1,13 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-12] Phase B — REAL CAROUSEL shipped (multi-still, one locked style)
+Rolling phase rollout per Doug ("one after the other"). Carousel now produces a genuine SET:
+- **Copy:** slide-count picker (2–10, default 5) → `n_slides` → copy writes EXACTLY n slides.
+- **Images:** one per slide — frontend loop (`generateCarouselImages`) with ONE shared seed; `_slide_block` adds series-consistency ("identical palette/grid/motif, only focal content changes") + bakes the slide's own line on the nano routes (backdrop route stays text-free per its system prompt; slide text rides the caption there). Carryover-killer added to the slide path.
+- **UI:** progress per slide → slide strip (thumbs, click to switch, active highlight); NEW IMAGE retakes the ACTIVE slide (fresh seed); lightbox works per slide.
+- **Stash:** sets ride in `context.slideUrls` (metadata JSON, no migration); tile gets a ×N badge; reopen restores the strip.
+- **Verified:** 8/8 units; live 3-slide set (`scratch/phaseB_slide{1,2,3}.png`, seed 7777): **style locked across all three** ✓, slide text exact on every slide ✓; known restyle small-print carryover appeared on the set (same tension as Phase A — clause added, re-test on Doug's next run). Browser: picker toggles per format, strip renders, active-switch works, no new console errors.
+
 ## [2026-06-12] Phase A — Context Stack alignment SHIPPED (build plan lives in Notion §13)
 The Forge build now follows the [master spec](spec/forge_context_pipeline.md) ([Notion workbook](https://app.notion.com/p/37d1a74e117981aa9e8cfce3b0425672) §13 = the 5-phase plan: A Stack alignment ✅ · B real carousel · C WHO carbon-copy · D sound+video · E spirits+artist connector). Commits `69ec03b` (backend) + `0a6df75` (frontend) + prompt-precedence fix, branch `forge-output-ux`.
 - **Additional Context = director's notes:** `_parse_additional_context` (Haiku) splits the box into FACTS (fill empty slots, typed wins) + DIRECTION (binding) + MOOD; **200-char image-path clip is dead**; parse failure → whole box becomes direction (never dropped).

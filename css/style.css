@@ -1373,6 +1373,30 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
   border-radius: 8px; border: 1px solid var(--border);
   cursor: zoom-in;
 }
+/* Carousel set badge on a Stash tile (Phase B) */
+.stash-slide-badge {
+  position: absolute; bottom: 6px; right: 6px;
+  padding: 1px 6px; border-radius: 3px;
+  background: rgba(0,0,0,0.85); color: var(--accent, #ff4500);
+  border: 1px solid var(--accent, #ff4500);
+  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
+}
+
+/* Carousel slide strip (Phase B) — thumbnails under the main preview */
+.forge-slide-strip {
+  display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;
+}
+.forge-slide-strip img {
+  width: 64px; height: 80px; object-fit: cover; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 4px; opacity: 0.65;
+}
+.forge-slide-strip img.active { border-color: var(--accent, #ff4500); opacity: 1; }
+.forge-slide-strip .forge-slide-pending {
+  width: 64px; height: 80px; display: flex; align-items: center; justify-content: center;
+  border: 1px dashed var(--border); border-radius: 4px;
+  color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px;
+}
+
 /* Image lightbox — click a generated image to zoom (P1.5) */
 .forge-lightbox {
   position: fixed; inset: 0; z-index: 900;

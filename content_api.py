@@ -235,6 +235,15 @@ def build_user_prompt(ctx):
 
     parts = [template['instruction']]
 
+    # Carousel slide count (Phase B): the picker drives how many slides the
+    # copy writes; each slide then gets its own generated image.
+    if content_type == 'social_carousel':
+        try:
+            n = max(2, min(10, int(ctx.get('n_slides') or 5)))
+        except (TypeError, ValueError):
+            n = 5
+        parts.append(f"\nWrite EXACTLY {n} slides (separated by \"---\").")
+
     # Artist context
     artist_data = ctx.get('artist_data')
     if artist_data:
