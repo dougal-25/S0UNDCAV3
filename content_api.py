@@ -9,6 +9,7 @@ import json
 import time
 import base64
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -987,11 +988,25 @@ def generate_image_endpoint():
         return jsonify({'error': str(e)}), 500
 
 
+def _assert_safe_storage_url(url):
+    """SSRF guard for the refine loop. The base image is always a prior output we
+    saved to Supabase Storage, so restrict fetches to https on the Supabase
+    project host — this blocks metadata (169.254.169.254), loopback and internal
+    RFC1918 targets by construction. Raises ValueError on anything else."""
+    allowed = (urlparse(os.environ['SUPABASE_URL']).hostname or '').lower().rstrip('.')
+    p = urlparse(url)
+    host = (p.hostname or '').lower().rstrip('.')
+    if p.scheme != 'https' or not allowed or host != allowed:
+        raise ValueError('base_image_url must be an https Supabase storage URL')
+
+
 def _fetch_image_as_data_url(url, timeout=30):
-    """Fetch an image URL → a data:image/...;base64,... string for handing back
-    to an edit model. Used by the refine loop to feed the last output in."""
-    r = http_requests.get(url, timeout=timeout)
-    r.raise_for_status()
+    """Fetch a (pre-validated, see _assert_safe_storage_url) image URL → a
+    data:image/...;base64,... string for handing back to an edit model. Redirects
+    are disabled so a 3xx can't bounce the fetch to an internal host."""
+    r = http_requests.get(url, timeout=timeout, allow_redirects=False)
+    if r.status_code != 200:
+        raise ValueError(f'base image fetch returned {r.status_code}')
     media_type = (r.headers.get('Content-Type') or 'image/jpeg').split(';')[0].strip()
     if not media_type.startswith('image/'):
         media_type = 'image/jpeg'
@@ -1017,6 +1032,10 @@ def refine_image_endpoint():
         return jsonify({'error': 'base_image_url is required'}), 400
     if not instruction:
         return jsonify({'error': 'instruction is required'}), 400
+    try:
+        _assert_safe_storage_url(base_url)   # SSRF guard — must run before any fetch/debit
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
 
     content_type = ctx.get('content_type', 'event_poster')
 
@@ -1058,7 +1077,8 @@ def refine_image_endpoint():
         })
     except Exception as e:
         _refund(uid, 'image', f'refund:refine:{content_type}')
-        return jsonify({'error': str(e)}), 500
+        print(f"⚠️  refine failed: {e}")   # detail to server log only — not echoed (SSRF info-leak)
+        return jsonify({'error': 'refine failed'}), 500
 
 
 # ── Auth helpers (Phase B) ────────────────────────────────
