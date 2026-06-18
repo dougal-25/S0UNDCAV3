@@ -90,6 +90,27 @@
       <path d="M4 12a8 8 0 1 0 2.3-5.6"/>
       <path d="M4 4v4h4"/>
     `),
+    soundcloud: WRAP(`
+      <path d="M4 15v2.5M7 12v5.5M10 10v7.5M13 9.5v8"/>
+      <path d="M13 17.5h6a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8.8-1"/>
+    `),
+    download: WRAP(`
+      <path d="M12 3v12"/>
+      <path d="M8 11l4 4 4-4"/>
+      <path d="M5 20h14"/>
+    `),
+    location: WRAP(`
+      <path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11z"/>
+      <circle cx="12" cy="10" r="2.5"/>
+    `),
+    grip: WRAP(`
+      <circle cx="9" cy="6" r="1.6" fill="currentColor" stroke="none"/>
+      <circle cx="15" cy="6" r="1.6" fill="currentColor" stroke="none"/>
+      <circle cx="9" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+      <circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+      <circle cx="9" cy="18" r="1.6" fill="currentColor" stroke="none"/>
+      <circle cx="15" cy="18" r="1.6" fill="currentColor" stroke="none"/>
+    `),
     trash: WRAP(`
       <path d="M4 7h16"/>
       <path d="M9 7V4h6v3"/>

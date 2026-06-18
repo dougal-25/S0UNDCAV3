@@ -1808,7 +1808,13 @@ def artist_stats(username):
     except Exception as e:
         record['warning'] = f'cache write failed: {e}'
 
-    return jsonify({**record, 'top_tracks': top_tracks, 'cached': False, 'age_seconds': 0})
+    # Location from the SoundCloud profile (shown in the artist modal when shared).
+    # Returned in the response only — not upserted, so no `artists` table migration.
+    city = (profile.get('city') or '').strip()
+    country = (profile.get('country') or '').strip()
+    location = ', '.join([p for p in (city, country) if p])
+    return jsonify({**record, 'top_tracks': top_tracks, 'city': city, 'country': country,
+                    'location': location, 'cached': False, 'age_seconds': 0})
 
 
 # ── Scheduled searches store (committed JSON the weekly Action runs) ──────

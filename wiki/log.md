@@ -1,5 +1,15 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-18] Artist modal v4 — header reflow + drag-reorder tracks + cut/remove clarified
+From Doug's BLAM! modal screenshot. The shared `#artistPanel` (Mural + Clan + Foraging + Footprints — one component) got a five-part redesign. Spec + build notes: `wiki/spec/artist_modal_v4_header_reflow.md`. **3-way picker sign-off.**
+- **Two-column header:** identity (avatar, name, `genre · location`, SoundCloud **logo** replacing the old "SoundCloud ↗" text, platform marks) left; **Notes moved up** beside it, right.
+- **Tracks** now **drag-to-reorder** by preference (`⠿` grip, HTML5 DnD → persists `preferred_tracks`, sorts preferred-first). Heading "Suggested tracks" → "Tracks".
+- **Cut vs Remove clarified** as icon buttons (orange hover): ✂ **Cut** now moves the artist to the **Watch list** (`status='cut'` + added to `sc_watching`, record kept so Restore reverses it); 🗑 **Remove** = permanent delete (red).
+- **Location:** backend `artist_stats` returns `city`/`country` (cache-miss response, no DB migration); frontend shows it when shared. Frontend display verified; live SC fetch not yet proven.
+- **Files:** `index.html` (panel markup), `js/app.js` (renderPanel reflow + drag + toggleCut→watchlist + refreshArtistLive location), `js/icons.js` (soundcloud/download/location/grip), `css/style.css` (two-col header, icon-btn, grip), `content_api.py` (location in response).
+- **NEXT pass (needs Doug's SoundCloud profile URL):** swap the track list to Doug's *real* SoundCloud likes of each artist — likely readable via the existing app token (public likes), no full OAuth. Reorder UI already in place.
+- **Verified** via Playwright (8 seeded clan): reflow, SC logo, `genre · London, GB`, 7 grip rows, drag persists + re-applies, Cut→watchlist + Restore, Clan opens the same modal, 0 console errors.
+
 ## [2026-06-18] Cave clan-aggregate chart → interactive single-metric + stat-card cleanup
 Doug's mural screenshot: the bottom "Weekly stats · clan aggregate" strip looked broken (flat lines, oversized axis numbers, not clickable) and the stat cards carried a noisy "· 9/18 tracked" tag. Fixed both. Spec + full build notes: `wiki/spec/cave_chart_interactive.md`.
 - **Chart rebuilt as one-metric-at-a-time** (Doug picked this model). Legend chips (Followers/Likes/Listens) are now buttons; click swaps the chart to that single series, auto-scaled to its own range so it never flatlines. Default Followers; Pl. Adds = disabled "soon" chip. Hover a point → floating tooltip (value + date), clamped inside the strip.

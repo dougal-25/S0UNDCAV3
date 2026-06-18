@@ -341,12 +341,25 @@ function removeFavourite() {
 function toggleCut() {
   if (!activeArtist) return;
   const favs = getFavourites();
-  if (!favs[activeArtist]) return;
-  favs[activeArtist].status = favs[activeArtist].status === 'cut' ? 'active' : 'cut';
+  const a = favs[activeArtist];
+  if (!a) return;
+  const watching = getWatching();
+  if (a.status === 'cut') {
+    // Restore: back into the active Clan, off the Watch list.
+    a.status = 'active';
+    saveWatching(watching.filter(u => u !== activeArtist));
+  } else {
+    // Cut: leave the Clan (hidden from tracking) and drop into the Watch list.
+    // Record is kept so Restore brings back notes/links/history.
+    a.status = 'cut';
+    if (!watching.includes(activeArtist)) saveWatching([...watching, activeArtist]);
+  }
   saveFavourites(favs);
-  document.getElementById('cutBtn').textContent = favs[activeArtist].status === 'cut' ? 'RESTORE TO TRACKING' : 'CUT FROM TRACKING';
+  window.rosterSync?.pushArtist(a);
+  window.rosterSync?.pushPrefs?.();
+  updateCounts();
+  renderPanel(activeArtist);
   refreshCurrentTab();
-  window.rosterSync?.pushArtist(favs[activeArtist]);
 }
 
 function savePlatform(username, platform, value) {
@@ -850,6 +863,7 @@ async function refreshArtistLive(username) {
       avatar_url: live.avatar_url,
       updated_at: live.updated_at,
       age_seconds: live.age_seconds || 0,
+      location: live.location || [live.city, live.country].filter(Boolean).join(', ') || '',
     };
     // top_tracks only arrives on an API cache miss — persist the latest set so
     // the panel always has a top 5 between refreshes.
@@ -903,8 +917,14 @@ function renderPanel(username) {
     : '·';
   document.getElementById('panelAvatar').innerHTML = avatarHTML;
   document.getElementById('panelName').textContent = a.display_name;
-  document.getElementById('panelGenre').textContent = a.genre;
-  document.getElementById('panelSCLink').href = a.artist_url;
+  // Genre · location (location only shows when SoundCloud shared it — arrives
+  // async via refreshArtistLive). Spec: artist_modal_v4_header_reflow.md.
+  const loc = (a.live && a.live.location) || a.location || '';
+  document.getElementById('panelGenre').textContent = [a.genre, loc].filter(Boolean).join(' · ');
+  // SoundCloud identity link → logo (replaces the old "SoundCloud ↗" text).
+  const scLink = document.getElementById('panelSCLink');
+  scLink.href = a.artist_url || '#';
+  scLink.innerHTML = (typeof scIcon === 'function' ? scIcon('soundcloud') : 'SoundCloud');
 
   // Star toggle — inline SVG so it takes the brand orange (emoji stars render
   // gold and can't be CSS-coloured). Wired via listener, no inline JS.
@@ -1014,10 +1034,26 @@ function renderPanel(username) {
       (m.title && t.title && m.title.toLowerCase() === t.title.toLowerCase()));
     if (!dupe) merged.push(t);
   }
-  const tracks = merged.slice(0, 5);
-  document.getElementById('tracksSeen').innerHTML = tracks.length
+  // Apply the user's saved preference order (clan only): preferred first in
+  // saved order, the rest after. Drag-to-reorder writes back to
+  // preferred_tracks. Spec: artist_modal_v4_header_reflow.md.
+  const keyOf = t => (t.url || t.title || '');
+  if (isClan && Array.isArray(a.preferred_tracks) && a.preferred_tracks.length) {
+    const pref = a.preferred_tracks;
+    merged.sort((x, y) => {
+      const ix = pref.indexOf(keyOf(x)), iy = pref.indexOf(keyOf(y));
+      if (ix === -1 && iy === -1) return 0;
+      if (ix === -1) return 1;
+      if (iy === -1) return -1;
+      return ix - iy;
+    });
+  }
+  const tracks = merged.slice(0, 8);
+  const tracksEl = document.getElementById('tracksSeen');
+  tracksEl.innerHTML = tracks.length
     ? tracks.map(t => `
-        <div class="track-row">
+        <div class="track-row"${isClan ? ' draggable="true"' : ''} data-key="${esc(keyOf(t))}">
+          ${isClan ? `<span class="track-drag" title="Drag to reorder by preference" aria-hidden="true">⠿</span>` : ''}
           <div class="track-row-info">
             <div class="track-row-title">${esc(t.title)}</div>
             <div class="track-row-meta">${esc(t.date || '')}${t._scout ? ` · Score ${t.score?.toFixed(1)||'—'}` : (t.plays != null ? ` · ${fmt(t.plays)} plays` : '')}</div>
@@ -1025,9 +1061,59 @@ function renderPanel(username) {
           ${t.url ? `<a class="track-row-play" href="${esc(t.url)}" target="_blank" rel="noopener" title="Listen on SoundCloud">▶</a>` : ''}
         </div>`).join('')
     : '<div style="color:var(--muted);font-size:13px">No tracks recorded yet.</div>';
+  if (typeof scHydrateIcons === 'function') scHydrateIcons(tracksEl);
+  if (isClan && tracks.length > 1) wireTrackDrag(tracksEl, username);
 
   document.getElementById('artistNotes').value = a.notes||'';
-  document.getElementById('cutBtn').textContent = a.status === 'cut' ? 'RESTORE TO TRACKING' : 'CUT FROM TRACKING';
+  // Cut button reflects state: ✂ Cut (active) ↔ ↺ Restore (already cut).
+  const isCut = a.status === 'cut';
+  const cutLabel = document.getElementById('cutBtnLabel');
+  const cutIco = document.getElementById('cutBtnIco');
+  const cutBtn = document.getElementById('cutBtn');
+  if (cutLabel) cutLabel.textContent = isCut ? 'Restore' : 'Cut';
+  if (cutIco && typeof scIcon === 'function') cutIco.innerHTML = scIcon(isCut ? 'restore' : 'cut');
+  if (cutBtn) cutBtn.title = isCut ? 'Restore to your Clan' : 'Cut from tracking — moves to your Watch list';
+}
+
+// Drag-to-reorder the track list; persists order to favs[username].preferred_tracks.
+// Vanilla HTML5 DnD, no deps. Spec: artist_modal_v4_header_reflow.md.
+function wireTrackDrag(container, username) {
+  let dragged = null;
+  container.querySelectorAll('.track-row[draggable="true"]').forEach(row => {
+    row.addEventListener('dragstart', (e) => {
+      dragged = row; row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', row.dataset.key || ''); } catch (_) {}
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      container.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+      dragged = null;
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!dragged || dragged === row) return;
+      const rect = row.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      container.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+      container.insertBefore(dragged, before ? row : row.nextSibling);
+    });
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over');
+      saveTrackOrder(container, username);
+    });
+  });
+}
+
+function saveTrackOrder(container, username) {
+  const favs = getFavourites();
+  if (!favs[username]) return;
+  favs[username].preferred_tracks = [...container.querySelectorAll('.track-row')]
+    .map(r => r.dataset.key).filter(Boolean);
+  saveFavourites(favs);
+  window.rosterSync?.pushArtist(favs[username]);
 }
 
 function togglePanelStar(username) {

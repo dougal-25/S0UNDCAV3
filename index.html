@@ -925,11 +925,23 @@
       <div id="panelStar"></div>
       <button class="panel-close" onclick="closePanel()">✕</button>
     </div>
-    <div class="panel-avatar" id="panelAvatar"></div>
-    <div class="panel-name" id="panelName"></div>
-    <div class="panel-genre" id="panelGenre"></div>
-    <a id="panelSCLink" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--red)">SoundCloud ↗</a>
-    <div class="platform-grid" id="platformGrid"></div>
+    <div class="panel-head-grid">
+      <div class="panel-identity">
+        <div class="panel-id-top">
+          <div class="panel-avatar" id="panelAvatar"></div>
+          <div class="panel-id-text">
+            <div class="panel-name" id="panelName"></div>
+            <div class="panel-genre" id="panelGenre"></div>
+            <a id="panelSCLink" class="panel-sc-link" href="#" target="_blank" rel="noopener" title="Open on SoundCloud" aria-label="Open on SoundCloud"></a>
+          </div>
+        </div>
+        <div class="platform-grid" id="platformGrid"></div>
+      </div>
+      <div class="panel-head-notes" id="panelNotesSection">
+        <h3>Notes</h3>
+        <textarea class="notes-area" id="artistNotes" placeholder="Add notes about this artist..." oninput="saveNotes()"></textarea>
+      </div>
+    </div>
   </div>
   <div class="panel-body">
     <div class="panel-section" id="panelAddClanSection" style="display:none">
@@ -942,18 +954,20 @@
       <div id="playsChart" class="plays-chart"></div>
     </div>
     <div class="panel-section">
-      <h3>Suggested tracks</h3>
+      <h3 id="tracksHeading">Tracks</h3>
       <div id="tracksSeen"></div>
     </div>
-    <div class="panel-section" id="panelNotesSection">
-      <h3>Notes</h3>
-      <textarea class="notes-area" id="artistNotes" placeholder="Add notes about this artist..." oninput="saveNotes()"></textarea>
-    </div>
     <div class="panel-section" id="panelActionRow">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-outline" type="button" onclick="toggleCut()" id="cutBtn">CUT FROM TRACKING</button>
-        <button class="btn-outline" type="button" onclick="exportSingleArtist(activeArtist)">EXPORT CSV</button>
-        <button class="btn-outline" type="button" onclick="removeFavourite()" style="color:#ff4444;border-color:#ff4444">REMOVE</button>
+      <div class="panel-actions">
+        <button class="icon-btn" type="button" onclick="toggleCut()" id="cutBtn" title="Cut from tracking — moves to your Watch list">
+          <span class="icon-btn-ico" id="cutBtnIco"></span><span class="icon-btn-label" id="cutBtnLabel">Cut</span>
+        </button>
+        <button class="icon-btn" type="button" onclick="exportSingleArtist(activeArtist)" title="Export this artist as CSV">
+          <span class="icon-btn-ico" data-icon="download"></span><span class="icon-btn-label">Export</span>
+        </button>
+        <button class="icon-btn danger" type="button" onclick="removeFavourite()" title="Remove permanently from your roster">
+          <span class="icon-btn-ico" data-icon="trash"></span><span class="icon-btn-label">Remove</span>
+        </button>
       </div>
     </div>
   </div>
