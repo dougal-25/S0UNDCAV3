@@ -16,16 +16,25 @@ CLIENT_ID = os.getenv('SOUNDCLOUD_CLIENT_ID')
 CLIENT_SECRET = os.getenv('SOUNDCLOUD_CLIENT_SECRET')
 
 _token = None
+_token_expiry = 0.0   # epoch seconds; client_credentials tokens last ~1h
 _HANDLE_RE = re.compile(r"soundcloud\.com/([^/?#]+)")
 
 
-def get_token():
-    global _token
-    if _token:
-        return _token
+def get_token(force_refresh=False):
+    """Return a valid OAuth token, minting a fresh one when the cached token
+    is missing, expired, or a caller forces a refresh (e.g. after a 401).
+
+    The previous version cached the token forever, so a long-running process
+    (Railway/gunicorn) kept using an expired token and every call 401'd until
+    the next redeploy. We now track expiry and re-mint, with a 401-triggered
+    force_refresh backstop in request_with_retry.
+    """
+    global _token, _token_expiry
+    # A stored long-lived token (if provided) takes precedence and isn't minted.
     stored = os.getenv('SOUNDCLOUD_OAUTH_TOKEN')
     if stored:
-        _token = stored
+        return stored
+    if not force_refresh and _token and time.time() < _token_expiry:
         return _token
     if not CLIENT_ID or not CLIENT_SECRET:
         return None
@@ -36,15 +45,18 @@ def get_token():
             timeout=10,
         )
         if r.status_code == 200:
-            _token = r.json().get('access_token', '')
+            body = r.json()
+            _token = body.get('access_token', '')
+            # Re-mint 60s before the stated expiry to dodge edge-of-expiry 401s.
+            _token_expiry = time.time() + max(0, (body.get('expires_in') or 3600) - 60)
             return _token
     except Exception:
         pass
     return None
 
 
-def _headers():
-    t = get_token()
+def _headers(force_refresh=False):
+    t = get_token(force_refresh=force_refresh)
     return {'Authorization': f'OAuth {t}'} if t else {}
 
 
@@ -107,7 +119,10 @@ def request_with_retry(url, params=None, attempts=3, backoff=(1, 2, 4), timeout=
     last_err = None
     for i in range(attempts):
         try:
-            r = http_requests.get(url, params=params, headers=_headers(), timeout=timeout)
+            # On a prior 401, force a fresh token for this attempt — an expired
+            # cached token is the common cause and re-minting fixes it.
+            force = last_err == 'HTTP 401'
+            r = http_requests.get(url, params=params, headers=_headers(force_refresh=force), timeout=timeout)
             if r.status_code == 200:
                 return r.json(), None
             if r.status_code == 404:
