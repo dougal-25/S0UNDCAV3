@@ -839,7 +839,7 @@ _PAYLOAD_BUILDERS = {
 
 
 def generate_for_job(job_type, prompt, *, image_refs=None, width=1080, height=1350,
-                     seed=None, model_override=None, timeout=90):
+                     seed=None, model_override=None, timeout=180):
     """Image Gen v2 router — picks model by job type.
 
     Returns (image_bytes, provider, model_slug). Raises on any failure;
