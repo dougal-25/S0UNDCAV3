@@ -458,7 +458,7 @@ function buildSparkline(data, w=80, h=28, color='#e63946') {
   </svg>`;
 }
 
-function buildLineChart(datasets, labels, width=600, height=220) {
+function buildLineChart(datasets, labels, width=600, height=220, opts={}) {
   const pl=52, pr=16, pt=12, pb=32;
   const cw=width-pl-pr, ch=height-pt-pb;
   const all = datasets.flatMap(d=>d.data);
@@ -500,6 +500,15 @@ function buildLineChart(datasets, labels, width=600, height=220) {
     ds.data.forEach((v,i) => {
       svg += `<circle cx="${toX(i).toFixed(1)}" cy="${toY(v).toFixed(1)}" r="3" fill="#545454" stroke="${ds.color}" stroke-width="1.5"/>`;
     });
+    // Interactive hover targets — transparent, generously sized, carry the
+    // formatted value + label so the caller's tooltip handler reads them off
+    // getBoundingClientRect (works through the SVG's responsive scaling).
+    if (opts.interactive) {
+      ds.data.forEach((v,i) => {
+        const val = fmt(v) + (opts.unit ? ` ${opts.unit}` : '');
+        svg += `<circle class="lc-hit" cx="${toX(i).toFixed(1)}" cy="${toY(v).toFixed(1)}" r="14" fill="transparent" data-d="${esc(labels[i]||'')}" data-v="${esc(val)}"/>`;
+      });
+    }
   });
   svg += '</svg>';
   return svg;

@@ -380,10 +380,11 @@ function renderCaveStatPanels(clan) {
     const sign = delta >= 0 ? '+' : '';
     const arrow = delta >= 0 ? '▲' : '▼';
     const cls = delta >= 0 ? 'up' : 'down';
-    const cov = covered < clan.length ? ` <span class="panel-coverage">· ${covered}/${clan.length} tracked</span>` : '';
+    // Coverage tag ("· 9/18 tracked") removed 2026-06-18 — Doug found it noisy
+    // on the card. Keep the clean "▲ +17 this week" line only.
     return `<div class="panel-label">${label}</div>
       <div class="panel-value">${sign}${fmt(delta)}</div>
-      <div class="panel-trend ${cls}">${arrow} ${trendStr}${cov}</div>`;
+      <div class="panel-trend ${cls}">${arrow} ${trendStr}</div>`;
   };
 
   setHTML(followersEl, renderStat('Followers gained', dF, coveredF));
@@ -452,51 +453,99 @@ function renderCaveTracksPanel(clan) {
     </div>`);
 }
 
+// ━━━ Clan-aggregate strip chart — one metric at a time ━━━
+// Spec: wiki/spec/cave_chart_interactive.md. Sources from the clean daily
+// snapshots (caveAggregateSeries), NOT the noisy 2-point weekly reports.
+// Single series → auto-scales → never flat. Legend chips switch metric.
+const CAVE_CHART_METRICS = [
+  { key: 'followers', label: 'Followers', color: '#ff6a1f' },
+  { key: 'likes',     label: 'Likes',     color: '#e8e8e8' },
+  { key: 'listens',   label: 'Listens',   color: '#888888' },
+];
+let _caveActiveMetric = 'followers';
+
+const caveMetricHasData = key => caveAggregateSeries(key).length >= 2;
+
 function renderCaveChart(clan) {
   const el = document.getElementById('caveChart');
   if (!el) return;
-  if (!clan.length || typeof allReports === 'undefined' || allReports.length < 2) {
-    el.dataset.empty = 'true';
-    setHTML(el, '');
-    return;
-  }
-  const clanU = new Set(clan.map(a => a.username));
-  const followers = [], likes = [], plays = [], plAdds = [];
-  const labels = [];
-  allReports.slice(0, 6).reverse().forEach(r => {
-    let f = 0, l = 0, p = 0;
-    (r.tracks || []).forEach(t => {
-      if (clanU.has(t.artist_username)) {
-        f += t.followers || 0;
-        l += t.likes || 0;
-        p += t.plays || 0;
-      }
-    });
-    let pa = 0;
-    clan.forEach(a => { pa += a.playlist_adds || 0; });
-    followers.push(f); likes.push(l); plays.push(p); plAdds.push(pa);
-    labels.push(r.date ? r.date.slice(5) : `Wk${r.week}`);
-  });
-  if (followers.length < 2) {
+  // Need ≥2 snapshot days on at least one metric, else hide the strip.
+  if (!clan.length || !CAVE_CHART_METRICS.some(m => caveMetricHasData(m.key))) {
     el.dataset.empty = 'true';
     setHTML(el, '');
     return;
   }
   delete el.dataset.empty;
+  // Keep the active metric on something that actually has data.
+  if (!caveMetricHasData(_caveActiveMetric)) {
+    const fallback = CAVE_CHART_METRICS.find(m => caveMetricHasData(m.key));
+    _caveActiveMetric = fallback ? fallback.key : 'followers';
+  }
   setHTML(el, `
     <div class="strip-header">
       <div class="strip-title">Weekly stats · clan aggregate</div>
-      <div class="strip-legend">
-        <span style="color:#ff6a1f"><i></i>Followers</span>
-        <span style="color:#e8e8e8"><i></i>Likes</span>
-        <span style="color:#888"><i></i>Listens</span>
-        <span style="color:#4a4a4a"><i></i>Pl. Adds</span>
+      <div class="strip-legend" id="caveChartLegend">
+        ${CAVE_CHART_METRICS.map(m => `
+          <button type="button" class="strip-chip" data-metric="${m.key}" style="--chip:${m.color}"><i></i>${m.label}</button>`).join('')}
+        <span class="strip-chip is-soon"><i></i>Pl. Adds<em>soon</em></span>
       </div>
     </div>
-    ${buildLineChart([
-      {label:'Followers',color:'#ff6a1f',data:followers},
-      {label:'Likes',    color:'#e8e8e8',data:likes},
-      {label:'Listens',  color:'#888888',data:plays},
-      {label:'Pl. Adds', color:'#4a4a4a',data:plAdds},
-    ], labels)}`);
+    <div class="strip-canvas" id="caveChartCanvas"></div>
+    <div class="chart-tip" id="caveChartTip" hidden></div>`);
+  el.querySelectorAll('.strip-chip[data-metric]').forEach(btn => {
+    btn.addEventListener('click', () => { _caveActiveMetric = btn.dataset.metric; drawCaveChart(); });
+  });
+  drawCaveChart();
+  wireCaveChartHover();
+}
+
+// Redraw just the canvas for the active metric (keeps stack/scroll state).
+function drawCaveChart() {
+  const canvas = document.getElementById('caveChartCanvas');
+  if (!canvas) return;
+  const legend = document.getElementById('caveChartLegend');
+  if (legend) legend.querySelectorAll('.strip-chip[data-metric]').forEach(b => {
+    b.classList.toggle('is-active', b.dataset.metric === _caveActiveMetric);
+  });
+  const m = CAVE_CHART_METRICS.find(x => x.key === _caveActiveMetric) || CAVE_CHART_METRICS[0];
+  const series = caveAggregateSeries(m.key);
+  if (series.length < 2) {
+    canvas.innerHTML = `<div class="chart-empty">Baseline set — the chart draws as daily snapshots land.</div>`;
+    return;
+  }
+  // Render at the canvas's real pixel width so the SVG isn't upscaled (which
+  // was magnifying the 9px axis text to ~18px). 1 unit ≈ 1px → crisp, on-scale.
+  const w = Math.max(canvas.clientWidth || 1000, 600);
+  canvas.innerHTML = buildLineChart(
+    [{ label: m.label, color: m.color, data: series.map(s => s.total) }],
+    series.map(s => (s.date || '').slice(5)),
+    w, 240,
+    { interactive: true, unit: m.label.toLowerCase() }
+  );
+}
+
+// Floating tooltip on point hover. Delegated on the persistent canvas, so it
+// survives metric-switch redraws; positioned off each hit circle's screen rect.
+function wireCaveChartHover() {
+  const canvas = document.getElementById('caveChartCanvas');
+  const tip = document.getElementById('caveChartTip');
+  const strip = document.getElementById('caveChart');
+  if (!canvas || !tip || !strip || canvas._tipBound) return;
+  canvas._tipBound = true;
+  canvas.addEventListener('mouseover', e => {
+    const hit = e.target.closest('.lc-hit');
+    if (!hit) return;
+    tip.innerHTML = `<span class="tip-v">${esc(hit.getAttribute('data-v') || '')}</span><span class="tip-d">${esc(hit.getAttribute('data-d') || '')}</span>`;
+    tip.hidden = false;
+    const cr = hit.getBoundingClientRect(), sr = strip.getBoundingClientRect();
+    // Centre on the point, then clamp so the box never overruns the strip edges
+    // (the tooltip is translateX(-50%), so clamp its centre by half its width).
+    const half = tip.offsetWidth / 2 + 8;
+    const center = cr.left + cr.width / 2 - sr.left;
+    tip.style.left = `${Math.max(half, Math.min(center, sr.width - half))}px`;
+    tip.style.top = `${cr.top - sr.top}px`;
+  });
+  canvas.addEventListener('mouseout', e => {
+    if (e.target.closest('.lc-hit')) tip.hidden = true;
+  });
 }

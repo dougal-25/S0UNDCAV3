@@ -423,6 +423,7 @@
 
 /* ─── Chart strip ─── */
 .cave-chart-strip {
+  position: relative;          /* tooltip anchor */
   margin-top: var(--space-6);
   padding: var(--space-5);
   background: var(--color-bg-warm);
@@ -444,20 +445,81 @@
 }
 .cave-chart-strip .strip-legend {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  align-items: center;
 }
-.cave-chart-strip .strip-legend span {
+/* Legend chips double as metric switches (buttons) + the disabled "soon" tag. */
+.cave-chart-strip .strip-chip {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: var(--tracking-mono);
   text-transform: uppercase;
-  color: var(--color-muted);
+  color: var(--color-faint);
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: none;
+  border: 0;
+  padding: 4px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-soft),
+              background var(--motion-fast) var(--ease-soft);
 }
-.cave-chart-strip .strip-legend i {
-  width: 10px; height: 2px; background: currentColor;
+.cave-chart-strip .strip-chip i {
+  width: 10px; height: 2px;
+  background: var(--chip, currentColor);
+  opacity: 0.45;
+  transition: opacity var(--motion-fast) var(--ease-soft);
+}
+.cave-chart-strip .strip-chip:hover { color: var(--color-muted); }
+.cave-chart-strip .strip-chip:hover i { opacity: 0.8; }
+.cave-chart-strip .strip-chip.is-active {
+  color: var(--color-text);
+  background: rgba(255,255,255,0.04);
+}
+.cave-chart-strip .strip-chip.is-active i { opacity: 1; height: 3px; }
+/* Disabled "Pl. Adds · soon" — not clickable */
+.cave-chart-strip .strip-chip.is-soon { cursor: default; color: var(--color-faint); }
+.cave-chart-strip .strip-chip.is-soon i { opacity: 0.25; }
+.cave-chart-strip .strip-chip.is-soon em {
+  font-style: normal;
+  font-size: 8px;
+  margin-left: 4px;
+  padding: 1px 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 2px;
+  color: var(--color-faint);
+}
+
+.cave-chart-strip .strip-canvas { min-height: 240px; }
+
+/* Point-hover tooltip */
+.cave-chart-strip .chart-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  pointer-events: none;
+  background: rgba(10,10,10,0.95);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 3px;
+  padding: 5px 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: nowrap;
+}
+.cave-chart-strip .chart-tip[hidden] { display: none; }
+.cave-chart-strip .chart-tip .tip-v {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text);
+}
+.cave-chart-strip .chart-tip .tip-d {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: var(--tracking-mono);
+  color: var(--color-muted);
 }
 
 /* Hide chart strip when no data */
