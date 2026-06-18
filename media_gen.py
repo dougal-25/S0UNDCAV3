@@ -759,10 +759,14 @@ _JOB_REGISTRY = {
     # both seeds; FLUX garbled small print on 1 of 2. scratch/forge_bakeoff2/.
     JOB_RESTYLE:        ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
     # Role-tagged compose routes (context-pipeline spec, 2026-06-11):
-    # person present → Nano Banana Pro (strongest character consistency, ≤14 refs);
-    # mixed refs without a person → FLUX.2 /edit (strong multi-ref blending, cheaper).
+    # person present → Nano Banana Pro (strongest character consistency, ≤14 refs).
+    # 2026-06-18: mixed refs WITHOUT a person also route to Nano Banana Pro.
+    # fal-ai/flux-2-pro/edit was returning 422 Unprocessable Entity for this path,
+    # so generate_image_endpoint silently fell back to text-only flux-schnell —
+    # which ignores all reference images and garbles baked text. Nano Banana Pro
+    # handles multi-ref compose reliably; one proven model for every compose path.
     JOB_COMPOSE_PERSON: ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
-    JOB_COMPOSE:        ('fal-ai/flux-2-pro/edit',                           '_payload_for_flux2'),
+    JOB_COMPOSE:        ('fal-ai/nano-banana-pro/edit',                      '_payload_for_nano_banana'),
 }
 
 

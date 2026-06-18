@@ -1,5 +1,13 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-18] Cave clan-aggregate chart → interactive single-metric + stat-card cleanup
+Doug's mural screenshot: the bottom "Weekly stats · clan aggregate" strip looked broken (flat lines, oversized axis numbers, not clickable) and the stat cards carried a noisy "· 9/18 tracked" tag. Fixed both. Spec + full build notes: `wiki/spec/cave_chart_interactive.md`.
+- **Chart rebuilt as one-metric-at-a-time** (Doug picked this model). Legend chips (Followers/Likes/Listens) are now buttons; click swaps the chart to that single series, auto-scaled to its own range so it never flatlines. Default Followers; Pl. Adds = disabled "soon" chip. Hover a point → floating tooltip (value + date), clamped inside the strip.
+- **Three root-cause fixes:** (1) data source switched from the noisy 2-point weekly `allReports` to the clean daily snapshots via `caveAggregateSeries()`; (2) single series instead of 4-on-one-axis (which crushed everything but Followers flat); (3) render at the canvas's real pixel width so axis text stays ~9px instead of being upscaled to ~18px.
+- **Stat cards:** removed the `· X/Y tracked` coverage tag from `renderStat`; kept "▲ +17 this week". Playlist Adds stays "coming soon" untouched.
+- **Files:** `js/app.js` (`buildLineChart` gains optional `opts={interactive,unit}`, back-compatible), `js/cave.js` (`renderCaveChart`/`drawCaveChart`/`wireCaveChartHover` + coverage-tag deletion), `css/dashboard.css` (`.strip-chip`, `.strip-canvas`, `.chart-tip`).
+- **Verified** via Playwright (8 seeded clan, 3 snapshot days): metric switch + auto-scale (Followers ~20.6K band → Likes 621→148.8K), tooltip clamped, 9px axis, cards clean, 0 console errors. Screenshots: `scratch/cave_chart_followers.png`, `scratch/cave_chart_likes_tip.png`.
+
 ## [2026-06-12] Phase E (part 1) — Spirits become forged cartoon characters
 Doug's complaint ("Spirits not good, untested") addressed: a Spirit is now a **forged cartoon persona**, not a raw photo set.
 - **`POST /api/avatars/<id>/forge-character`** (avatars_api): runs the Spirit's reference photos + description through Nano Banana (`compose_person`) → a clean illustrated mascot on a neutral bg → saved as `character_url` + `preview_url`, and led into `reference_image_urls` so the Forge composes from the LOCKED character (resilient if `db/0019` isn't applied yet — degrades to preview only).
@@ -919,3 +927,10 @@ Note: an editor open on Doug's side clobbered some uncommitted edits mid-P3 (aut
 - **Security** (`a05d133`): commit review flagged SSRF on the client-supplied `base_image_url`. Fixed — allowlist the Supabase host (blocks metadata/loopback/RFC1918/external by construction), `allow_redirects=False`, generic error (no host-reachability leak). Guard tested against all vectors.
 - **Phase 2 — frontend** (`ui-change-protocol` ran; layout = *behind a ✎ REFINE button*, Doug's pick): `✎ REFINE` toggles a version strip + "describe one change" box under the Forge output. `index.html` + `css/style.css` (mirrors slide-strip pattern, palette-law) + `js/firepit.js` (`refineImage`/`renderVersionStrip`/`setActiveVersion`, client-side chain, XSS-escaped). Single-image formats only. **Layout screenshot-confirmed** (`scratch/_verify/refine_panel_check.png`).
 - **Phase 3 — remaining:** browser end-to-end (restart server + login → generate → refine → confirm). Not yet run.
+
+## [2026-06-18 PM] BUGFIX — no-person compose route 422'd → silent flux-schnell fallback
+
+- **Symptom (Doug's Phase-3 test):** a Flyer with STYLE + WHAT + WHAT (no WHO) ignored all refs + direction and garbled the text. Output meta showed `fal-ai/flux-schnell`.
+- **Root cause:** `roles=['style','what','what']` → `job_type=compose` → `JOB_COMPOSE` was mapped to `fal-ai/flux-2-pro/edit`, which returns **422 Unprocessable Entity**. `generate_image_endpoint` caught it and silently fell back to legacy `generate_image` = text-only `flux-schnell` (can't read refs, mangles text). This no-person compose path had **never been run live** — every prior win used a WHO ref → compose_person → nano-banana.
+- **Fix:** route `JOB_COMPOSE` → `nano-banana-pro/edit` (proven workhorse; one model for all compose). Verified at model level (`scratch/compose_route_fix.png`): same inputs now give a ref-aware flyer with legible, correctly-spelled text.
+- **Still open (next):** (1) the silent fallback to a ref-blind model is dangerous — it ships garbage that looks like a real attempt; should surface the error or fall back to another ref-capable model, not flux-schnell. (2) Doug flagged the post-caption box under the flyer as confusing/redundant for baked-text flyers — UX review pending.
