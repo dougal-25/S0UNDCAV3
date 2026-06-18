@@ -440,8 +440,13 @@ def build_compose_prompt(content_type, ctx, roled_refs, generated_text=''):
     if what:
         lines.append(f"Include the object from {' and '.join(what)}, recreated "
                      "faithfully but rendered to fit the final style.")
+    # Generic style hint is SUPPRESSED when a STYLE ref is present — the
+    # reference defines the look. The hardcoded "dark brutalist backdrop" intent
+    # was overriding light/cream STYLE references and flipping the palette to
+    # black (2026-06-18: Doug's cream TECHNO HOUSE ref came out a dark starfield).
+    # With no STYLE ref, the hint still seeds a sensible default backdrop.
     hint = STYLE_HINTS.get(content_type)
-    if hint:
+    if hint and not style:
         lines.append(f'Output intent: {hint}')
     # L4 — facts, quoted and exact
     text_lines = _baked_text_lines(ctx)
