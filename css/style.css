@@ -1369,7 +1369,7 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 /* ── Image generation ──────────────────────────────────── */
 .forge-image-area { margin-bottom: 12px; }  /* image sits ABOVE the caption (P1.5) */
 .forge-image-preview {
-  width: 100%; max-height: 420px; object-fit: contain;
+  width: 100%; max-height: 70vh; object-fit: contain;
   border-radius: 8px; border: 1px solid var(--border);
   cursor: zoom-in;
 }
@@ -1427,6 +1427,17 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
   font-size: 11px; color: var(--muted); margin-top: 6px;
   font-family: 'DM Mono', monospace;
 }
+
+/* Caption box (forge_output_column.md) — concise facts, editable, ✨ enhance */
+.forge-caption-box {
+  margin-top: 10px; padding: 12px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--elevated);
+}
+.forge-caption-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.forge-caption-box textarea { width: 100%; }
+.btn-xs { padding: 3px 9px; font-size: 11px; }
 
 /* Image lightbox — click a generated image to zoom (P1.5) */
 .forge-lightbox {

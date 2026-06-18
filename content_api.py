@@ -958,7 +958,16 @@ def generate_image_endpoint():
                 width=w, height=h, seed=seed,
             )
         except Exception as v2_err:
-            print(f"⚠️  v2 router failed ({v2_err}); falling back to legacy generate_image")
+            # A ref-based generation must NOT silently fall back to a ref-blind,
+            # text-only model (legacy generate_image = flux-schnell ignores every
+            # reference and garbles baked text — the 2026-06-18 regression that
+            # shipped garbage looking like a real attempt). Surface the error.
+            # Only fall back when there were no references to honour anyway.
+            if image_refs:
+                print(f"❌ v2 router failed on a ref-based gen ({v2_err}); "
+                      f"NOT downgrading to a ref-blind model")
+                raise
+            print(f"⚠️  v2 router failed ({v2_err}); falling back to legacy generate_image (no refs)")
             image_bytes, provider, model = generate_image(image_prompt, w, h)
 
         # WHO carbon-copy composite RETIRED 2026-06-18: the person is now
@@ -1079,6 +1088,41 @@ def refine_image_endpoint():
         _refund(uid, 'image', f'refund:refine:{content_type}')
         print(f"⚠️  refine failed: {e}")   # detail to server log only — not echoed (SSRF info-leak)
         return jsonify({'error': 'refine failed'}), 500
+
+
+@app.route('/api/enhance-caption', methods=['POST'])
+def enhance_caption_endpoint():
+    """Output-column rework (wiki/spec/forge_output_column.md). Expand a concise
+    facts caption into a fuller social caption on demand (the ✨ Enhance button).
+    Optional — the base caption is assembled client-side from the form facts."""
+    uid, err = _require_user()
+    if err: return err
+    ctx = request.get_json() or {}
+    caption = (ctx.get('caption') or '').strip()
+    if not caption:
+        return jsonify({'error': 'caption is required'}), 400
+    content_type = ctx.get('content_type', 'event_poster')
+
+    balance, err = _debit(uid, 'text', f'enhance:{content_type}')
+    if err: return err
+    try:
+        system = ("You write concise, scene-correct captions for underground music "
+                  "events. Punchy and authentic — no hype, no emoji spam, no "
+                  "hashtag walls. Preserve every fact (names, date, venue, time, "
+                  "price) exactly as given.")
+        user = ("Expand this event caption into a short, engaging social post "
+                "(2-4 short lines). Keep ALL the facts intact and correctly "
+                "spelled; add one line of vibe and a clear call to action (e.g. "
+                "tickets in bio). Return ONLY the caption text, nothing else.\n\n"
+                + caption)
+        msg = client.messages.create(
+            model='claude-haiku-4-5-20251001', max_tokens=400,
+            system=system, messages=[{'role': 'user', 'content': user}])
+        return jsonify({'caption': msg.content[0].text.strip(), 'credits_balance': balance})
+    except Exception as e:
+        _refund(uid, 'text', f'refund:enhance:{content_type}')
+        print(f"⚠️  enhance-caption failed: {e}")
+        return jsonify({'error': 'enhance failed'}), 500
 
 
 # ── Auth helpers (Phase B) ────────────────────────────────

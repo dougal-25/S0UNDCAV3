@@ -521,9 +521,73 @@ function gatherForgeContext() {
 
 // Straight to output (P1.5, 2026-06-11): no variant-pick step — copy + image in
 // one hit, iterate via REGEN. The 3-angle picker died with Doug's live review.
+
+// ── Caption (wiki/spec/forge_output_column.md) — concise facts, per-format ──
+// Base caption is assembled CLIENT-SIDE from the form facts (instant, no API);
+// only ✨ Enhance hits the model. Keyed by content_type so new formats (tour,
+// album release…) add a template, not a rewrite.
+const _CAPTION_TEMPLATES = {
+  event_poster(ctx) {
+    const v = k => (ctx[k] || '').trim();
+    const lineup = v('artist_list').split('\n').map(s => s.trim()).filter(Boolean).join(' · ');
+    const when = [v('date'), [v('doors'), v('curfew')].filter(Boolean).join('–')].filter(Boolean).join(' · ');
+    const place = [v('venue'), v('city')].filter(Boolean).join(' — ');
+    return [v('event'), lineup, when, place, v('tickets')].filter(Boolean).join('\n');
+  },
+};
+function _assembleCaption(ctx) {
+  const fn = _CAPTION_TEMPLATES[ctx.content_type];
+  return fn ? fn(ctx) : '';
+}
+function _showCaptionBox(text) {
+  const box = document.getElementById('forgeCaptionBox');
+  const ta = document.getElementById('forgeCaptionText');
+  if (!box || !ta) return;
+  ta.value = text || '';
+  box.style.display = 'block';
+}
+function _hideCaptionBox() {
+  const box = document.getElementById('forgeCaptionBox');
+  if (box) box.style.display = 'none';
+}
+
+async function enhanceCaption() {
+  const ta = document.getElementById('forgeCaptionText');
+  const base = (ta.value || '').trim();
+  if (!base) { ta.focus(); return; }
+  const btn = document.getElementById('btnEnhanceCaption');
+  const orig = btn.textContent;
+  btn.textContent = '✨ …'; btn.disabled = true;
+  try {
+    const ctx = gatherForgeContext();
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/enhance-caption`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caption: base, content_type: ctx.content_type }),
+    });
+    if (r.status === 402) { const j = await r.json().catch(() => ({})); throw new Error(`Insufficient credits — enhance costs ${j.cost || 1}.`); }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Enhance API error: ${r.status}`); }
+    const data = await r.json();
+    if (typeof data.credits_balance === 'number') updateCreditsDisplay(data.credits_balance);
+    if (data.caption) { ta.value = data.caption; forgeGeneratedContent = data.caption; updateCharCount(); }
+  } catch (e) { alert(e.message); }
+  btn.textContent = orig; btn.disabled = false;
+}
+
 async function generateContent(variation) {
   const ctx = gatherForgeContext();
   if (variation) ctx.variation = variation;
+
+  // Flyers (forge_output_column.md): caption = concise FACTS assembled
+  // client-side (no flowery /api/generate call). The image still generates.
+  if (ctx.content_type === 'event_poster') {
+    document.getElementById('forgeOutputArea').innerHTML = '';
+    forgeGeneratedContent = _assembleCaption(ctx);
+    document.getElementById('forgeActions').style.display = 'block';
+    _showCaptionBox(forgeGeneratedContent);
+    updateCharCount();
+    generateImage({ ...ctx, generated_text: '' });
+    return;
+  }
 
   const outputArea = document.getElementById('forgeOutputArea');
   const actionsEl = document.getElementById('forgeActions');
@@ -531,6 +595,7 @@ async function generateContent(variation) {
     <span>Generating<span class="dot">.</span><span class="dot" style="animation-delay:0.2s">.</span><span class="dot" style="animation-delay:0.4s">.</span></span>
   </div>`;
   actionsEl.style.display = 'none';
+  _hideCaptionBox();
   _forgePickedSnapshot = '';
 
   try {
@@ -609,6 +674,7 @@ function resetForgeOutput() {
   imgArea.innerHTML = '';
   _seedForgeVersions('');
   const _ri = document.getElementById('btnRefineImage'); if (_ri) _ri.style.display = 'none';
+  _hideCaptionBox();
   document.getElementById('forgeActions').style.display = 'none';
   updateCharCount();
 }
@@ -1026,6 +1092,7 @@ function editStashItem(id) {
   });
   if (ctx.freeform) document.getElementById('forgeFreeform').value = ctx.freeform;
   forgeGeneratedContent = item.content;
+  _hideCaptionBox();   // caption box is a generate-flow feature; Stash uses the output area
   forgeGeneratedImageUrl = item.imageUrl || '';
   // Restore a carousel set's slide strip (Phase B).
   const _slides = Array.isArray(ctx.slideUrls) ? ctx.slideUrls : [];

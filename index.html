@@ -496,9 +496,9 @@
           <div class="forge-stack-label" id="forgeFactsLabel">4 · Facts</div>
           <div id="forgeFactFields"></div>
 
-          <div class="forge-stack-label">5 · Direction &amp; Mood</div>
+          <div class="forge-stack-label">5 · Direction</div>
           <div class="forge-input-group">
-            <label class="forge-label">Direction &amp; Notes <span style="color:var(--muted);font-weight:normal">(followed closely — placement, type size, graphic instructions + the vibe)</span></label>
+            <label class="forge-label">Direction <span style="color:var(--muted);font-weight:normal">(followed closely — what to do with the references: placement, type size, graphic instructions + the vibe)</span></label>
             <textarea class="input" id="forgeFreeform" rows="4" placeholder="Design instructions + mood — e.g. headliner name huge across the top, artist photo bottom-left, black &amp; white, acid warehouse energy..."></textarea>
           </div>
           <div class="forge-input-group">
@@ -574,6 +574,14 @@
                 <button class="btn-red" type="button" id="btnRefineGo" onclick="refineImage()">REFINE</button>
               </div>
               <div class="forge-refine-hint" id="forgeRefineHint">One change at a time lands best — the model keeps everything else.</div>
+            </div>
+            <!-- Caption (wiki/spec/forge_output_column.md) — concise facts, editable, ✨ enhance -->
+            <div id="forgeCaptionBox" class="forge-caption-box" style="display:none">
+              <div class="forge-caption-head">
+                <span class="forge-stack-label" style="margin:0">Caption</span>
+                <button class="btn-outline btn-xs" type="button" id="btnEnhanceCaption" onclick="enhanceCaption()" title="Expand into a fuller caption with AI">✨ Enhance</button>
+              </div>
+              <textarea class="input" id="forgeCaptionText" rows="5" placeholder="Event facts — edit freely" oninput="forgeGeneratedContent=this.value;updateCharCount()"></textarea>
             </div>
             <!-- Phase D: Beat → composite MP4 (still + motion + waveform to the beat) -->
             <div id="forgeBeatPanel" class="forge-beat-panel" style="display:none">
