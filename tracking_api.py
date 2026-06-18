@@ -9,7 +9,7 @@ without changes. Auth pattern mirrors roster_api.py. Apply
 db/0019_artist_tracking.sql before use, or these endpoints 500.
 """
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request
 
@@ -241,3 +241,71 @@ def list_runs():
         .order('started_at', desc=True).limit(limit).execute()
     ).data or []
     return jsonify({'runs': rows})
+
+
+@tracking_bp.route('/health', methods=['GET'])
+def health():
+    """Public watchdog endpoint (NO auth) — lets an external monitor catch a
+    silent tracking failure. The 2026-06-13→17 token outage produced runs that
+    'completed' with every artist failed, so it stayed invisible for 5 days;
+    this surfaces that the moment it happens.
+
+    severity:
+      'down'     — no fresh data TODAY, an unfinished run, or zero artists
+                   collected. The catastrophic case; the GitHub Action hard-
+                   fails (→ emails Doug) on this.
+      'degraded' — fresh data exists but the latest run had some failed/partial
+                   artists (one dead account ≠ outage). Warn, don't page.
+      'ok'       — fresh data today, every artist collected cleanly.
+    """
+    sb = supabase()
+    today = datetime.now(timezone.utc).date()
+
+    run_rows = (
+        sb.table('snapshot_runs').select('*')
+        .order('started_at', desc=True).limit(1).execute()
+    ).data or []
+    run = run_rows[0] if run_rows else None
+
+    last_ok_rows = (
+        sb.table('artist_snapshots').select('snapshot_date')
+        .eq('platform', 'soundcloud').eq('fetch_status', 'ok')
+        .order('snapshot_date', desc=True).limit(1).execute()
+    ).data or []
+    last_ok_date = last_ok_rows[0]['snapshot_date'] if last_ok_rows else None
+
+    # Fresh = at least one OK SoundCloud snapshot dated TODAY (UTC). The daily
+    # cron runs 07:00 UTC and the watchdog 10:00 UTC, so by check-time a healthy
+    # pipeline must have produced today's data; a >0-day gap means it didn't.
+    days_since_ok = (today - date.fromisoformat(last_ok_date)).days if last_ok_date else 9999
+    fresh = days_since_ok == 0
+
+    ok      = (run or {}).get('artists_ok') or 0
+    failed  = (run or {}).get('artists_failed') or 0
+    partial = (run or {}).get('artists_partial') or 0
+    completed = (run or {}).get('status') == 'completed'
+
+    if not fresh or not completed or ok == 0:
+        severity = 'down'
+    elif failed or partial:
+        severity = 'degraded'
+    else:
+        severity = 'ok'
+
+    return jsonify({
+        'severity': severity,
+        'healthy': severity == 'ok',
+        'data_fresh': fresh,
+        'days_since_ok': days_since_ok,
+        'last_ok_date': last_ok_date,
+        'last_run': {
+            'run_date': (run or {}).get('run_date'),
+            'trigger': (run or {}).get('trigger'),
+            'status': (run or {}).get('status'),
+            'artists_ok': ok,
+            'artists_partial': partial,
+            'artists_failed': failed,
+            'started_at': (run or {}).get('started_at'),
+        } if run else None,
+        'checked_at': datetime.now(timezone.utc).isoformat(),
+    }), 200
