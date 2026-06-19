@@ -929,6 +929,7 @@ async function refineImage() {
         instruction,
         content_type: ctx.content_type,
         size: ctx.size,
+        reference_images: ctx.reference_images || [],   // re-anchor: keep the STYLE ref in play
       }),
     });
     if (r.status === 402) {

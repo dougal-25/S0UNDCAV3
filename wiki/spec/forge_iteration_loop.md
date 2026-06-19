@@ -42,6 +42,11 @@ Refine prompt shape:
 
 Version chain = **client-side** for MVP (frontend state / localStorage): each version `{ id, image_url, instruction, parent_id }`. No DB migration. Save-to-Stash persists a chosen version through the existing path.
 
+### Re-anchoring (2026-06-19) — feed the STYLE ref back on every refine
+**Problem (Doug's v1→v4 drift):** the loop fed back *only* the previous output. After v1 the original STYLE reference's authority was gone, so each refine edited an increasingly-drifted *copy* — drift compounded over 4 passes (symmetry/fidelity lost). Bundling 5–7 changes per refine amplified it (edit models reliably do *one* change).
+**Fix:** the frontend passes the original `reference_images` on refine; the backend feeds **[working image (image 1), …STYLE refs]** to `nano-banana-pro/edit` and the prompt anchors image 1 to *"the reference's layout, symmetry, typography and palette — re-align toward it, do not let it drift."* Anchored on **structure, not content**, so the user's deliberate changes (e.g. swapped hands) survive while the reference keeps the composition grounded.
+**Usage guidance (surface in UX / coaching):** one change per refine; branch from the *best* version (not always the latest); big structural moves → regenerate from refs, not refine a drifted copy.
+
 ## UI framing (signed off 2026-06-18, via `ui-change-protocol`)
 - **References:** the existing Forge output card + the carousel slide-strip (internal precedent) — mirror, don't reinvent.
 - **Feel:** identical to Forge today — dark, brutalist, one-accent, functional.

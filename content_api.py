@@ -1055,22 +1055,37 @@ def refine_image_endpoint():
         w, h = SIZE_DIMENSIONS.get(ctx.get('size'),
                                    IMAGE_DIMENSIONS.get(content_type, (1080, 1350)))
 
-        # Hand the current output back to the edit model as the single reference.
+        # Re-anchor (forge_iteration_loop.md): feed the STYLE reference back in
+        # ALONGSIDE the working image, so refines stay grounded in the original
+        # reference's layout/symmetry/type — not just a drifting copy of the last
+        # output (the v1→v4 drift Doug hit). Working image is image 1 (the one
+        # being edited); style refs follow as the anchor. reference_images are
+        # inline data URLs (no fetch → no SSRF surface).
         base_data = _fetch_image_as_data_url(base_url)
+        style_anchors = [r['data'] for r in _normalize_reference_images(ctx.get('reference_images'))
+                         if r.get('role') == 'style' and r.get('data')][:4]
+        image_refs = [base_data] + style_anchors
+        anchor_line = (
+            "The remaining image(s) are the STYLE REFERENCE — keep image 1 "
+            "faithful to the reference's layout, symmetry, typography and palette; "
+            "re-align toward it, do not let it drift. "
+            if style_anchors else ""
+        )
         prompt = (
-            "Image 1 is the current event flyer. Apply ONLY this change and keep "
-            "everything else identical — same composition, subject, framing, text, "
-            "colour palette, grain and typography unless the change itself requires "
-            f"altering them: {instruction}. Re-render as one integrated image, "
-            "never a paste or overlay."
+            "Image 1 is the current event flyer — edit THIS image. "
+            + anchor_line +
+            "Apply ONLY this change and keep everything else identical — same "
+            "composition, subject, framing, text, colour and type unless the change "
+            f"itself requires altering them: {instruction}. Re-render as one "
+            "integrated image, never a paste or overlay."
         )
         seed = ctx.get('seed')
 
-        print(f"🪄 Forge refine — type={content_type} seed={seed}")
+        print(f"🪄 Forge refine — type={content_type} anchors={len(style_anchors)} seed={seed}")
         print(f"   instruction: {instruction[:200]}")
 
         image_bytes, provider, model = generate_for_job(
-            JOB_EDIT, prompt, image_refs=[base_data],
+            JOB_EDIT, prompt, image_refs=image_refs,
             width=w, height=h, seed=seed,
         )
         image_url = save_image(image_bytes, content_type, user_id=uid)
