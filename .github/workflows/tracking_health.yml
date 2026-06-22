@@ -1,0 +1,44 @@
+name: Tracking Health Watchdog
+
+# Catches a SILENT tracking failure. The 2026-06-13→17 SoundCloud token outage
+# was invisible for 5 days because the Railway cron kept "completing" runs with
+# every artist failed. This is an EXTERNAL check (independent of Railway's own
+# scheduler) so it fires even if Railway itself is down — and a failed run here
+# emails Doug for free via GitHub's workflow-failure notifications.
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 10:00 UTC — 3h after the 07:00 UTC daily collector
+  workflow_dispatch:        # manual trigger from the GitHub Actions UI
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check tracking health endpoint
+        run: |
+          URL="https://soundcave-api-production.up.railway.app/api/tracking/health"
+          echo "Querying $URL"
+          resp=$(curl -fsS --max-time 30 "$URL") || {
+            echo "::error::Tracking health endpoint unreachable — the Railway API may be down. Tracking data is NOT being collected."
+            exit 1
+          }
+          echo "Response: $resp"
+          severity=$(printf '%s' "$resp" | python3 -c "import sys,json;print(json.load(sys.stdin).get('severity','down'))")
+          days=$(printf '%s' "$resp" | python3 -c "import sys,json;print(json.load(sys.stdin).get('days_since_ok','?'))")
+          case "$severity" in
+            down)
+              echo "::error::Tracking is DOWN (days_since_ok=$days). The daily snapshot stopped producing fresh data — same failure class as the June token outage. Check https://soundcave-api-production.up.railway.app/api/tracking/runs and Railway logs."
+              exit 1
+              ;;
+            degraded)
+              echo "::warning::Tracking DEGRADED — data is fresh but some artists failed/partial in the latest run. Not an outage; check /api/tracking/runs to see which artist."
+              ;;
+            ok)
+              echo "Tracking healthy ✅ — fresh data today, every artist collected cleanly."
+              ;;
+            *)
+              echo "::error::Unexpected health severity '$severity'."
+              exit 1
+              ;;
+          esac

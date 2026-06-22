@@ -7,6 +7,7 @@ duplicate this logic; we don't refactor those yet.
 """
 import os
 import re
+import time
 import urllib.parse
 
 import requests as http_requests
@@ -15,16 +16,25 @@ CLIENT_ID = os.getenv('SOUNDCLOUD_CLIENT_ID')
 CLIENT_SECRET = os.getenv('SOUNDCLOUD_CLIENT_SECRET')
 
 _token = None
+_token_expiry = 0.0   # epoch seconds; client_credentials tokens last ~1h
 _HANDLE_RE = re.compile(r"soundcloud\.com/([^/?#]+)")
 
 
-def get_token():
-    global _token
-    if _token:
-        return _token
+def get_token(force_refresh=False):
+    """Return a valid OAuth token, minting a fresh one when the cached token
+    is missing, expired, or a caller forces a refresh (e.g. after a 401).
+
+    The previous version cached the token forever, so a long-running process
+    (Railway/gunicorn) kept using an expired token and every call 401'd until
+    the next redeploy. We now track expiry and re-mint, with a 401-triggered
+    force_refresh backstop in request_with_retry.
+    """
+    global _token, _token_expiry
+    # A stored long-lived token (if provided) takes precedence and isn't minted.
     stored = os.getenv('SOUNDCLOUD_OAUTH_TOKEN')
     if stored:
-        _token = stored
+        return stored
+    if not force_refresh and _token and time.time() < _token_expiry:
         return _token
     if not CLIENT_ID or not CLIENT_SECRET:
         return None
@@ -35,15 +45,18 @@ def get_token():
             timeout=10,
         )
         if r.status_code == 200:
-            _token = r.json().get('access_token', '')
+            body = r.json()
+            _token = body.get('access_token', '')
+            # Re-mint 60s before the stated expiry to dodge edge-of-expiry 401s.
+            _token_expiry = time.time() + max(0, (body.get('expires_in') or 3600) - 60)
             return _token
     except Exception:
         pass
     return None
 
 
-def _headers():
-    t = get_token()
+def _headers(force_refresh=False):
+    t = get_token(force_refresh=force_refresh)
     return {'Authorization': f'OAuth {t}'} if t else {}
 
 
@@ -95,6 +108,37 @@ def fetch_user_tracks(user_id, limit=3):
     except Exception:
         pass
     return []
+
+
+def request_with_retry(url, params=None, attempts=3, backoff=(1, 2, 4), timeout=15):
+    """GET with retries. Returns (json_or_none, error_str_or_none).
+
+    A 404 is returned immediately (retrying won't change it); 429/5xx and
+    network errors are retried with backoff. Never raises.
+    """
+    last_err = None
+    for i in range(attempts):
+        try:
+            # On a prior 401, force a fresh token for this attempt — an expired
+            # cached token is the common cause and re-minting fixes it.
+            force = last_err == 'HTTP 401'
+            r = http_requests.get(url, params=params, headers=_headers(force_refresh=force), timeout=timeout)
+            if r.status_code == 200:
+                return r.json(), None
+            if r.status_code == 404:
+                return None, 'HTTP 404'
+            last_err = f'HTTP {r.status_code}'
+        except Exception as e:
+            last_err = f'{type(e).__name__}: {e}'
+        if i < attempts - 1:
+            time.sleep(backoff[min(i, len(backoff) - 1)])
+    return None, last_err
+
+
+def fetch_user_by_id(user_id):
+    """Fetch a user profile by stable numeric id. Returns (profile_or_none, error).
+    Once an id is known, daily fetches never go through /resolve again."""
+    return request_with_retry(f'https://api.soundcloud.com/users/{user_id}')
 
 
 def handle_from_url(url):

@@ -83,6 +83,31 @@ Branch `forge-output-ux` (naming rule: branches say what's being built now — w
 - **NOT yet live-fired:** a real compose generation (fal spend) — Doug's 4-image test (me + palace + crown + loved flyer) is the acceptance gate, to run on his account.
 - **Next (parked in spec):** P2 real multi-image carousel (IG ≤20, TikTok ≤35, optimal 5–8); P3 post-generation reveal + button reshape (hero = poster reveal).
 
+## [2026-06-12] 📊 Clan Data Tracking v2 — Phase 2 LIVE (Footprints A&R redesign + accurate data on prod)
+Shipped + deployed (frontend Vercel `bb0e7a2`, backend Railway). Footprints now reads the accurate Supabase tracking series; the old static-JSON path is the signed-out fallback only.
+- **Chart cutover:** `app.js init()` loads `/api/tracking/snapshots` when signed in (5 days incl. 06-12); `syncDailySnapshots` rebuilds daily points from the API so server-side corrections propagate; failed/partial points excluded so they can't fake jumps.
+- **Footprints rebuilt for A&R:** WHOLE CLAN aggregate is the default chart; GENRE + ARTIST dropdowns; UPPERCASE metric toggle (FOLLOWERS/PLAYS/LIKES/REPOSTS); MOVERS leaderboard with its own FOLLOWERS/PLAYS toggle and clickable rows; artist name is a white→orange hover hyperlink to SoundCloud; report builder popover (whole clan / per genre / per artist → CSV, artist scope = day-by-day series). Spec: `spec/footprints_clean_chart.md`.
+- **Live headline:** new `GET /api/tracking/artist/<key>/live` fetches current stats by the STABLE numeric id; headline shows the live value + green ● LIVE so it matches soundcloud.com exactly (verified on prod: 81zaki 831 = SoundCloud). Chart line stays daily history.
+- **Chart hover tooltips** (date · value); fixed a clipping bug where top-of-chart tooltips rendered off the top edge — now flip below.
+- **Data accuracy resolved (not a bug):** verified 81zaki against SoundCloud's API — we match to the play at 07:00 capture; the "wrong numbers" were snapshot-vs-live drift. Authoritative contract written: `spec/tracking_metrics_definitions.md`. SKH legacy rows confirmed wrong-user (different account) and marked failed with Doug's approval.
+- **Process hazard hit again:** the parallel Forge session's servers grabbed :3000/:8000 and served a stale build mid-review; reclaimed ports + bumped mtimes. One session driving the local app at a time.
+- **Still open:** Phase 3 screenshot-ingest lane (playlist adds + other platforms); Phase 4 retire GH-Actions/static pipeline after ≥3-day parity.
+
+## [2026-06-11] 📈 Clan Data Tracking v2 — Phase 1 LIVE (registry + robust collector + Supabase time-series)
+Spec: `wiki/spec/clan_data_tracking_v2.md` (approved via plan sign-off). Commit `deb67e7`, deployed to Railway. The "data I can't trust" problem diagnosed and fixed — it was our pipeline, not SoundCloud:
+- **Root causes found:** display-name `/resolve` (fails on spaces/unicode — 12/20 scouted artists never tracked; worse, `Lucki`/`BELFORT`/`TREMUR` in old snapshots were a *different user's* numbers); failed fetches stored as zeros; pagination failures silently undercounting; tracker reading stale weekly reports instead of the Clan roster.
+- **Shipped:** `db/0019` (`tracked_artists` registry + `artist_snapshots` time-series + `snapshot_runs` log); `tracking_collector.py` (identity = numeric SoundCloud user id resolved once from `artist_url`; retries w/ backoff; **failed ⇒ NULL metrics, never zeros**; partial pagination flagged; resume-safe upserts); `tracking_api.py` (`/api/tracking/snapshots` mirrors the legacy static shape for a one-line Phase 2 cutover; `/artist/<key>/series`, `/run`, `/runs`, `/artists`); scheduler cron 07:00Z + hourly catch-up inside `_start_executor()`.
+- **Backfill:** registry seeded — **10/10 Clan+Watching artists resolved**, incl. every previously-impossible name ("Mulda (NL)", "Blam!", "𝐇𝐚𝐭𝐬𝐮𝐦𝐢 𝐂𝐡𝐚𝐧"); legacy snapshots imported with honesty flags (wrong-user rows → `failed`, 05-12 undercounts → `partial`).
+- **Calibration vs public SoundCloud pages: EXACT.** Followers 4/4 exact (Blam!, real Lucki, Mulda (NL), James Ray); Blam! per-track plays hand-summed from public pages = 807 = ours, to the play. Negative test: invalid id ⇒ `failed` + NULL metrics, omitted from the snapshots endpoint (gap, not zero-dip). First full collection run: 10/10 ok.
+- **Verified live post-deploy:** health 200, tracking routes 401-without-auth, Railway log shows `tracking cron=07:00Z + hourly catch-up`. Data accrues daily from tomorrow.
+- **Next:** Phase 2 frontend cutover (charts read `/api/tracking/snapshots`; clean toggle chart in Footprints), Phase 3 screenshot-ingest lane (extract→confirm→image deleted), Phase 4 retire GH-Actions/static pipeline (needs ≥3-day parity window — keep dual-running until then).
+
+## [2026-06-11] 🔒 CORS hardened — API restricted to known origins (deployed + live-verified)
+- `content_api.py`: `CORS(app)` (open to any origin) → `CORS(app, origins=[https://thesoundcave.vercel.app, http://localhost:3000, http://127.0.0.1:3000])`. Vercel *preview* deploys are deliberately not allowed — test against prod or localhost. Commit `9aa16f9`.
+- **Deploy fact worth remembering:** Railway does NOT auto-deploy from GitHub pushes — deploys are CLI uploads. Recipe: `railway link -p 1d496daa-30f8-45e3-af72-5bb478b2790f -e production -s soundcave-api && railway up`. Deployed from an isolated `git worktree` of `main` so a parallel session's WIP couldn't ride along.
+- **Live-verified post-deploy:** preflight from `evil.example` → no `access-control-allow-origin` header (refused); from the prod origin → allowed; real data endpoint (`/api/artist/dazegxd`) 200 with the correct header; health 200.
+- Closes open item 3 of the handoff list below. Remaining: snapshots-via-API, favicon 404.
+
 ## [2026-06-11] ✅ Auth-redirect blocker closed — login verified on prod (no change needed)
 The handoff's "DO THIS FIRST" item (Supabase Auth URL config) turned out to be **already configured** — Doug had set it himself. No config was changed; this session *verified* it end-to-end on production:
 - `scAuth.signInWithEmail('…')` fired from `https://thesoundcave.vercel.app` → `{}` (no "invalid redirect URL").
@@ -106,7 +131,7 @@ Also observed: prod now serves **4** daily snapshots (CI fix accruing as designe
 **⚠️ OPEN / NEXT (do these to finish):**
 1. ~~**Supabase auth redirect**~~ ✅ CLOSED 2026-06-11 — was already configured; verified live (see entry above). In the Supabase dashboard → Auth → URL Configuration (project ref `agmmdrqmjywggtsycsri`): set **Site URL** = `https://thesoundcave.vercel.app`; add **Redirect URLs** `https://thesoundcave.vercel.app/**` and `http://localhost:3000/**`. Frontend uses `origin+pathname` as `emailRedirectTo`/reset `redirectTo` (`js/lib/supabase.js`). Until set, magic-link / password-reset redirects fail on prod. Verify by firing `scAuth.signInWithEmail` from the live site (expect no "invalid redirect URL").
 2. **Live charts need data** — populate only with ≥2 snapshot days AND the artist in your Clan. 3 days on record now (05-12, 06-09, 06-10); accrues daily via the now-fixed tracker.
-3. **CORS hardening** — `content_api` uses `CORS(app)` (open). Restrict to the Vercel origin once stable.
+3. ~~**CORS hardening**~~ ✅ CLOSED 2026-06-11 — restricted + deployed (see entry above).
 4. **Snapshots delivery (proper)** — current fix ships static JSON in the Vercel bundle (only refreshes on redeploy). Better: serve from `content_api`/Supabase (decision 0007 follow-up #2).
 5. `APP_BASE_URL` on Railway set to `https://thesoundcave.vercel.app` (Stripe/reset redirects).
 
@@ -901,6 +926,24 @@ Spec: `wiki/spec/scheduled_searches.md` (signed off, API-backed model). Live-fir
 - P2 `db366a4` — artist detail centered modal + compact platform links
 - P3 `45faff1` — accurate own-track play tracking + plays chart
 - P4 (this) — real weekly scheduled searches
+
+## [2026-06-18] Tracking outage diagnosed + fixed · Phase 3 (screenshots) PARKED
+
+**Assessment first (Doug's ask): what's actually collecting data?** Two parallel SoundCloud-API collectors — *no screenshot system has ever run* (0 rows `source='screenshot'`; all 103 snapshots are `source='api'`):
+1. **Old static** — `clan_tracker.py` via GitHub Actions → `data/snapshots/*.json` → Vercel. Running daily (6/6 success). The *buggy* one (display-name resolve → wrong-user bug; zeros-on-failure). Still live as the signed-out fallback.
+2. **New Supabase** — `tracking_collector.py` on Railway → Supabase. The *robust* one (stable user-id, NULL-not-zero). What the Footprints charts read when signed in.
+
+**The frozen-charts cause:** the Supabase pipeline 401'd every run **2026-06-13 → 06-17** (5 days `failed`/NULL — the chart hole). Root cause = `get_token()` cached the OAuth token forever; the long-running Railway process used an expired token. Fixed: expiry tracking + 60s safety margin + force-refresh on 401 (`soundcloud_helpers.py`). Deployed to Railway 12:10 UTC (`railway up`); manual run after = **21/21 ok**. Token fix cherry-picked onto `main` (`2a256d6`) — it was live on Railway but missing from git, a drift risk now closed. **First autonomous proof = the 00:04/07:00 UTC scheduled run (today's 07:00 predated the deploy).**
+
+**Decision — Phase 3 screenshot-ingest lane PARKED (not built).** Rationale: the inaccuracy that motivated screenshots was *our bug* (token expiry + display-name resolve), now fixed at source; the API lane gives guaranteed-live followers/plays/likes/reposts for clan+watching. Vision extraction tested *framing-sensitive/unreliable* (misread 765/171 vs real 834/1144) → would re-introduce inaccuracy. Screenshots only uniquely add playlist-adds + cross-platform (Spotify/IG/TikTok) — a future A&R enhancement, not today's need. Phase 3 backend stays on branch `tracking-v2-phase3` (also inert-live on Railway); no frontend built. Static pipeline kept as fallback for now (retire later, after several clean Supabase days — Doug declined immediate retirement + gap-backfill).
+
+### Same day — Tracking Health Watchdog SHIPPED (so a silent failure can't recur)
+Doug's deeper ask ("real, live, consistent, no more delays"): the token bug fixed *one* outage, but the real damage was that it stayed **invisible for 5 days**. Built a monitor — spec [spec/tracking_health_monitor.md](spec/tracking_health_monitor.md), commit `02cc42f`, on `main` + deployed:
+- **`GET /api/tracking/health`** (public, no auth) — computes `severity` ok|degraded|down from the latest `snapshot_runs` row + freshness (an OK SoundCloud snapshot dated *today* UTC). `down` = stale / unfinished run / `artists_ok==0` (the June failure class); `degraded` = fresh but some artists failed (one dead account, warn-not-page); `ok` = fresh + clean.
+- **`.github/workflows/tracking_health.yml`** — daily 10:00 UTC (3h after the 07:00 collector), curls the endpoint, **hard-fails on `down` → GitHub emails Doug**. *External* to Railway, so it fires even if Railway's scheduler/host is dead. No new secrets (uses GitHub's free failure-email; `SLACK_BOT_TOKEN` ping is a noted future add).
+- **Verified end-to-end:** local Flask test-client → live Railway curl (HTTP 200) → `workflow_dispatch` run green, log shows it parsed real data (`severity:ok`, 21 OK) and passed. During 06-13→17 the latest run had `artists_ok:0` ⇒ `down` ⇒ would have alarmed on day one.
+- **Deploy note:** `railway up` from the `main`-based branch also dropped the inert Phase 3 screenshot endpoints from Railway (Phase 3 stays parked on `tracking-v2-phase3`). Prod deploy + main-merge were gated by the auto-mode classifier → Doug authorized via AskUserQuestion.
+- **Branch hygiene:** `tracking-health-alert` fast-forwarded into `main`, then deleted (worktree + local + remote).
 
 Note: an editor open on Doug's side clobbered some uncommitted edits mid-P3 (auto-saved stale buffers over disk); re-applied + committed. Mitigation: commit promptly / keep project files closed in the editor during a session.
 

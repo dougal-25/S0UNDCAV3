@@ -216,8 +216,6 @@ let allReports  = [];
 let currentData = null;
 let currentTab  = 'cave';
 let activeArtist = null;
-let reportMode  = false;
-let reportSelected = [];
 let filtersOpen = true;
 let searchMode  = 'quick';
 
@@ -327,6 +325,9 @@ function addFavourite(track) {
   // Write through to the account (no-op when signed out).
   window.rosterSync?.pushArtist(favs[username]);
   window.rosterSync?.pushPrefs();
+  // Register for daily tracking — captures the stable SoundCloud identity
+  // at add time (Clan Data Tracking v2).
+  window.rosterSync?.registerTracking(favs[username]);
 }
 
 function addSnapshot(favs, username, track) {
@@ -536,7 +537,25 @@ function buildLineChart(datasets, labels, width=600, height=220, opts={}) {
     const lineD = ds.data.map((v,i) => `${i===0?'M':'L'} ${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
     svg += `<path d="${lineD}" fill="none" stroke="${ds.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
     ds.data.forEach((v,i) => {
-      svg += `<circle cx="${toX(i).toFixed(1)}" cy="${toY(v).toFixed(1)}" r="3" fill="#545454" stroke="${ds.color}" stroke-width="1.5"/>`;
+      const x = parseFloat(toX(i).toFixed(1)), y = parseFloat(toY(v).toFixed(1));
+      // Each point is a hover group: visible dot + a tooltip (date · value)
+      // revealed on hover via CSS. A wide invisible hit-circle makes it easy
+      // to land on. Pure SVG/CSS — no JS listeners.
+      const tipW = 96, tipH = 26;
+      const tipX = Math.min(Math.max(x - tipW/2, 2), width - tipW - 2);
+      // Flip below the point when there's no room above (top-of-chart points
+      // were rendering off-screen and getting clipped).
+      const above = y - tipH - 10;
+      const tipY = above < 2 ? Math.min(y + 10, height - tipH - 2) : above;
+      const label = labels[i] != null ? `${labels[i]} · ${fmt(v)}` : `${fmt(v)}`;
+      svg += `<g class="lc-pt">
+        <circle cx="${x}" cy="${y}" r="11" fill="transparent"/>
+        <circle cx="${x}" cy="${y}" r="3.5" fill="#0d0d0d" stroke="${ds.color}" stroke-width="1.5"/>
+        <g class="lc-tip" opacity="0" style="pointer-events:none">
+          <rect x="${tipX.toFixed(1)}" y="${tipY.toFixed(1)}" width="${tipW}" height="${tipH}" rx="5" fill="#0d0d0d" stroke="${ds.color}" stroke-width="1.3"/>
+          <text x="${(tipX+tipW/2).toFixed(1)}" y="${(tipY+tipH/2+4.5).toFixed(1)}" fill="#fff" font-size="12.5" font-weight="600" text-anchor="middle" font-family="DM Mono,monospace">${esc(label)}</text>
+        </g>
+      </g>`;
     });
     // Interactive hover targets — transparent, generously sized, carry the
     // formatted value + label so the caller's tooltip handler reads them off
@@ -548,8 +567,8 @@ function buildLineChart(datasets, labels, width=600, height=220, opts={}) {
       });
     }
   });
-  svg += '</svg>';
-  return svg;
+  svg += `<style>#${uid} .lc-pt:hover .lc-tip{opacity:1}#${uid} .lc-pt:hover circle:nth-child(2){r:5}</style></svg>`;
+  return svg.replace('<svg ', `<svg id="${uid}" `);
 }
 
 // Build an artist's play timeseries from the backend daily snapshots
@@ -724,16 +743,30 @@ async function init() {
     syncFavouriteSnapshots();
   }
 
-  // Load daily snapshots
-  if (manifest && manifest.snapshots && manifest.snapshots.length) {
+  // Load daily snapshots — signed in: accurate Supabase series via the
+  // tracking API (Clan Data Tracking v2, wiki/spec/clan_data_tracking_v2.md);
+  // signed out / API down: legacy static files as a transition fallback.
+  try {
+    if (window.scAuth && await scAuth.session()) {
+      const r = await scAuth.authedFetch(`${scApiBase()}/api/tracking/snapshots?days=365`);
+      if (r.ok) {
+        const data = await r.json();
+        (data.snapshots || []).forEach(s => allSnapshots.push(s));
+        if (allSnapshots.length) {
+          window._snapshotsFromApi = true; // authoritative: sync replaces cached daily points
+          console.log(`Loaded ${allSnapshots.length} snapshot day(s) from tracking API`);
+        }
+      }
+    }
+  } catch (e) { console.warn('tracking API snapshots unavailable, using static fallback', e); }
+
+  if (!allSnapshots.length && manifest && manifest.snapshots && manifest.snapshots.length) {
     for (const file of manifest.snapshots) {
       try { const d = await fetchJSON(`data/snapshots/${file}`); if (d) allSnapshots.push(d); } catch(e) {}
     }
-    if (allSnapshots.length) {
-      syncDailySnapshots();
-      console.log(`Loaded ${allSnapshots.length} daily snapshot(s)`);
-    }
+    if (allSnapshots.length) console.log(`Loaded ${allSnapshots.length} daily snapshot(s) (static fallback)`);
   }
+  if (allSnapshots.length) syncDailySnapshots();
 
   // Populate genre filter
   const genres = new Set();
@@ -768,12 +801,22 @@ function syncDailySnapshots() {
   const favs = getFavourites();
   if (!Object.keys(favs).length) return;
 
+  // API data is the source of truth for the daily series — drop any cached
+  // daily points first so corrected history (e.g. wrong-user rows marked
+  // bad server-side) actually disappears instead of lingering in the cache.
+  if (window._snapshotsFromApi) {
+    for (const a of Object.values(favs)) {
+      if (a.snapshots) a.snapshots = a.snapshots.filter(s => s.source !== 'daily');
+    }
+  }
+
   for (const snapshot of allSnapshots) {
     const date = snapshot.date;
     const artists = snapshot.artists || {};
 
     for (const [username, data] of Object.entries(artists)) {
       if (!favs[username]) continue;
+      if (data.fetch_status === 'failed') continue; // gap, not a zero-dip
       const snaps = favs[username].snapshots;
 
       if (snaps.find(s => s.date === date)) continue;
@@ -787,6 +830,7 @@ function syncDailySnapshots() {
         playlist_adds: favs[username].playlist_adds || null,
         score:         0,
         source:        'daily',
+        fetch_status:  data.fetch_status || 'ok',
       });
     }
 
