@@ -328,10 +328,14 @@ def health():
 # before launch). COGS VERIFIED from fal live pricing + Doug's usage dashboard
 # (decision 0010): Kling v2.6 pro i2v 5s (audio off)=£0.28, 10s=£0.55,
 # nano-banana=£0.12. Animations priced LOW as an adoption hook (Doug's call).
+# Only the GENERATIVE media steps are charged (image + video). Captions/text and
+# the song/audio insert (the Beat composite) are FREE — they're cheap/manual, and
+# their tiny cost (~£0.004 / ~£0.003) is absorbed by the image/video margin, which
+# dwarfs it. (Doug's call 2026-06-23: "don't charge for song or caption insert.")
 CREDIT_COST = {
-    'text': 1,                  # Claude Haiku            ~£0.004
+    'text': 0,                  # caption/copy — FREE     ~£0.004 (absorbed)
     'image': 2,                 # nano-banana-pro/edit    ~£0.12   (~82%)
-    'video_composite': 1,       # FFmpeg Ken Burns        ~£0.002
+    'video_composite': 0,       # Beat / song insert — FREE ~£0.002 (absorbed)
     'video_standard': 2,        # Fal LTX (unused)        ~£0.08
     'video_premium': 4,         # Kling v2.6 pro 5s       ~£0.28   (~80%)
     'video_premium_10s': 8,     # Kling v2.6 pro 10s      ~£0.55   (~80%)
@@ -340,6 +344,8 @@ CREDIT_COST = {
 def _debit(uid, kind, reason):
     """Atomic debit via SQL helper. Returns (new_balance, error_response_or_None)."""
     cost = CREDIT_COST[kind]
+    if cost <= 0:
+        return None, None       # free action — skip the debit entirely
     sb = _stash_client()
     try:
         res = sb.rpc('debit_credits', {
@@ -355,6 +361,8 @@ def _debit(uid, kind, reason):
 
 def _refund(uid, kind, reason):
     cost = CREDIT_COST[kind]
+    if cost <= 0:
+        return                  # free action — nothing was charged
     try:
         _stash_client().rpc('refund_credits', {
             'p_user_id': uid, 'p_amount': cost, 'p_reason': reason
