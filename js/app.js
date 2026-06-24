@@ -1222,7 +1222,8 @@ function togglePanelStar(username) {
       emailEl.textContent = me.email || '';
       avatarEl.textContent = (me.email || '?')[0];
       tierEl.textContent = me.tier || '—';
-      credEl.textContent = me.credits_balance != null ? me.credits_balance : '—';
+      window.scAdmin = !!me.admin;   // admin = unlimited (fal balance is the real limit)
+      credEl.textContent = me.admin ? '∞' : (me.credits_balance != null ? me.credits_balance : '—');
       manageBtn.hidden = !(me.tier && me.tier !== 'solo');
       try {
         const sr = await scAuth.authedFetch(`${apiBase}/api/ayrshare/profiles`);

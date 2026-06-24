@@ -10,7 +10,7 @@ import time
 import base64
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from dotenv import load_dotenv
 import anthropic
@@ -29,6 +29,17 @@ import conjure_gen   # Forge "Conjure" format — generative image edit + video 
 
 # Load .env from workspace root (one level up from project)
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
+# Admin allowlist (env-driven — never hardcode an email, this repo is public).
+# Comma-separated emails in ADMIN_EMAILS bypass in-app credit charges entirely:
+# their generations still hit fal with the real key, so the FAL balance is their
+# only ceiling. Missing/empty var = no admins = normal billing for everyone (safe
+# default). Must be set in BOTH local .env and Railway (prod) to take effect live.
+ADMIN_EMAILS = {
+    e.strip().lower()
+    for e in os.getenv('ADMIN_EMAILS', '').split(',')
+    if e.strip()
+}
 
 app = Flask(__name__)
 # Browser origins allowed to call this API: prod frontend + local dev only.
@@ -343,6 +354,8 @@ CREDIT_COST = {
 
 def _debit(uid, kind, reason):
     """Atomic debit via SQL helper. Returns (new_balance, error_response_or_None)."""
+    if g.get('is_admin'):
+        return None, None       # admin — never charged; fal balance is the real ceiling
     cost = CREDIT_COST[kind]
     if cost <= 0:
         return None, None       # free action — skip the debit entirely
@@ -360,6 +373,8 @@ def _debit(uid, kind, reason):
         return None, (jsonify({'error': f'credit debit failed: {msg}'}), 500)
 
 def _refund(uid, kind, reason):
+    if g.get('is_admin'):
+        return                  # admin was never charged — nothing to refund
     cost = CREDIT_COST[kind]
     if cost <= 0:
         return                  # free action — nothing was charged
@@ -1223,8 +1238,11 @@ def enhance_caption_endpoint():
 def _resolve_user_id():
     """Return the authed user_id from the request JWT, or None if missing/invalid.
 
-    Endpoints calling this must 401 when None is returned.
+    Also stamps g.is_admin for this request: admin accounts (ADMIN_EMAILS) bypass
+    in-app credit charges entirely — see _debit/_refund. Endpoints calling this
+    must 401 when None is returned.
     """
+    g.is_admin = False
     auth = request.headers.get('Authorization', '')
     if not auth.startswith('Bearer '):
         return None
@@ -1232,6 +1250,7 @@ def _resolve_user_id():
     try:
         res = _stash_client().auth.get_user(token)
         if res and res.user:
+            g.is_admin = (res.user.email or '').strip().lower() in ADMIN_EMAILS
             return res.user.id
     except Exception as e:
         print('JWT validation failed:', e)
@@ -1300,6 +1319,7 @@ def me():
         'email': email,
         'tier': p.get('tier'),
         'credits_balance': p.get('credits_balance'),
+        'admin': (email or '').strip().lower() in ADMIN_EMAILS,
     })
 
 

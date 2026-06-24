@@ -1109,3 +1109,13 @@ Closed the DRAFT flag above. Triggered by Doug's question: while pre-customer, s
 - **⚠️ Pricing fallout:** the 240cr/480cr animation prices were reverse-engineered from that 6×-high COGS for an "80% floor" — so the real margin is **~96.5%, not 80%**. A true 80%-floor price is **~42cr / ~83cr**. Image 18cr is correct (nano-banana $0.15 verified). **Doug to decide:** keep fat margin vs drop animation price ~5.7× as an adoption hook (rec: drop it).
 - **Forward estimate:** 25 videos + 25 images/mo with refinement ≈ **~£35/mo** on fal. Trivial; no sub.
 - **Code follow-ups (not done):** fix the stale `COST_ESTIMATES` video constants; optionally wire the fal MCP (`mcp.fal.ai/mcp`) for in-session runs (generation-only — no billing access). No code touched this session — knowledge capture only.
+
+## [2026-06-23] Admin accounts bypass in-app credits — unlimited for owner, fal balance is the ceiling (decision 0011)
+
+Doug's call: his personal/owner account (`douglaswoolfenden@gmail.com`) should generate freely to dogfood Forge + make Sound Cave's own promo content, bounded only by his real fal.ai credit. First "admin" concept in the product. Branch `admin-unlimited-credits` (cut off `firepit-embers`, which holds the live credit/conjure code — the `forge-output-ux` trunk is stale and lacks it). Full reasoning: [decision 0011](decisions/0011_admin_unlimited_credits.md).
+
+- **Mechanism (server-side, no DB migration, no endpoint changes):** the credit gate is entirely backend — `_debit()` runs before the fal call and the frontend only blocks on a `402`. So: `_resolve_user_id()` stamps `g.is_admin` from the JWT email vs `ADMIN_EMAILS`; `_debit()`/`_refund()` short-circuit for admins (same "free action" path captions use). Never charged → never a `402` → generation runs → fal bills the real balance.
+- **Env-driven, never hardcoded** — repo is public, so the email lives in gitignored `.env` (`ADMIN_EMAILS=…`, comma-sep) + Railway. Missing var = no admins = normal billing (safe default).
+- **UI:** `/api/me` returns `admin: true`; the credits chip (`#reflectionCredits`) shows **∞** instead of a number ([app.js](../js/app.js), [firepit.js](../js/firepit.js)).
+- **⚠️ Prod step Doug must do:** set `ADMIN_EMAILS=douglaswoolfenden@gmail.com` in **Railway** env — local `.env` only covers localhost. Until then the live app charges normally.
+- **Not yet:** real-flow verification (log in as admin on live → fire a generation → confirm no charge + ∞). Branch not merged/pushed.

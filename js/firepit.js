@@ -667,7 +667,7 @@ async function generateContent(variation) {
 // if the Reflection tab hasn't been opened yet.
 function updateCreditsDisplay(n) {
   const el = document.getElementById('reflectionCredits');
-  if (el) el.textContent = n;
+  if (el) el.textContent = window.scAdmin ? '∞' : n;   // admin stays ∞ (never charged)
 }
 
 // ── Discard (P1.5) — clear the output column back to its resting state ──
