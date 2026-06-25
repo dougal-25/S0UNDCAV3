@@ -357,8 +357,38 @@ async function openManageTemplates() {
   }
 }
 
+// Custom icon-dropdowns (Format/Size): trigger + menu show per-option icons; the
+// hidden native <select> stays the source-of-truth so every reader is unchanged.
+// forgeDDPick sets the value + fires change; syncForgeDD mirrors the trigger to the
+// current value (covers init + programmatic sets, e.g. reopening a Stash item).
+function forgeDDToggle(trigger) {
+  const dd = trigger.closest('.forge-dd');
+  const willOpen = !dd.classList.contains('open');
+  document.querySelectorAll('.forge-dd.open').forEach(o => o.classList.remove('open'));
+  if (willOpen) dd.classList.add('open');
+}
+function forgeDDPick(opt) {
+  const dd = opt.closest('.forge-dd');
+  const sel = dd.querySelector('select');
+  sel.value = opt.dataset.value;
+  sel.dispatchEvent(new Event('change'));   // Format → updateForgeFields()
+  syncForgeDD(dd);
+  dd.classList.remove('open');
+}
+function syncForgeDD(dd) {
+  const sel = dd.querySelector('select');
+  const opt = dd.querySelector(`.forge-dd-opt[data-value="${sel.value}"]`) || dd.querySelector('.forge-dd-opt');
+  const trigger = dd.querySelector('.forge-dd-trigger');
+  if (opt && trigger) trigger.innerHTML = opt.innerHTML + '<span class="forge-dd-caret">▾</span>';
+}
+function syncAllForgeDDs() { document.querySelectorAll('.forge-dd').forEach(syncForgeDD); }
+document.addEventListener('click', e => {
+  if (!e.target.closest('.forge-dd')) document.querySelectorAll('.forge-dd.open').forEach(o => o.classList.remove('open'));
+});
+
 function updateForgeFields() {
   const type = document.getElementById('forgeContentType').value;
+  syncAllForgeDDs();   // mirror Format/Size triggers (init + editStashItem set the value)
   const ct = CONTENT_TYPES[type];
   if (!ct) return;
   // Animation swaps the whole standard input stack for its generative sub-form

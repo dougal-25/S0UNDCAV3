@@ -424,23 +424,43 @@
           <div class="forge-input-group">
             <!-- Format + Size on one row (compact dropdowns). Size shows for ALL
                  formats incl. Animation (output follows the source artwork). -->
+            <!-- Format + Size: custom icon-dropdowns (icons per option, compact on
+                 one row). The hidden native <select> stays the source-of-truth;
+                 forgeDDPick/syncForgeDD drive it + mirror the trigger. -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <div>
                 <label class="forge-label">Format</label>
-                <select class="input" id="forgeContentType" onchange="updateForgeFields()">
-                  <option value="social_post">Still</option>
-                  <option value="social_carousel">Carousel</option>
-                  <option value="event_poster">Flyer</option>
-                  <option value="animation">Animation</option>
-                </select>
+                <div class="forge-dd" data-for="forgeContentType">
+                  <button type="button" class="forge-dd-trigger" onclick="forgeDDToggle(this)"></button>
+                  <div class="forge-dd-menu">
+                    <button type="button" class="forge-dd-opt" data-value="social_post" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="3" width="12" height="10" rx="1"/><circle cx="5.5" cy="6.5" r="1"/><path d="M3 12l3-3 2 2 2.5-2.5L13 11"/></svg>Still</button>
+                    <button type="button" class="forge-dd-opt" data-value="social_carousel" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5" y="3.5" width="8" height="9" rx="1"/><path d="M3 5.5v6a1 1 0 0 0 1 1h6"/></svg>Carousel</button>
+                    <button type="button" class="forge-dd-opt" data-value="event_poster" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Flyer</button>
+                    <button type="button" class="forge-dd-opt" data-value="animation" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M7 6.3l3 1.7-3 1.7z" fill="currentColor" stroke="none"/></svg>Animation</button>
+                  </div>
+                  <select class="input" id="forgeContentType" onchange="updateForgeFields()" hidden>
+                    <option value="social_post">Still</option>
+                    <option value="social_carousel">Carousel</option>
+                    <option value="event_poster">Flyer</option>
+                    <option value="animation">Animation</option>
+                  </select>
+                </div>
               </div>
               <div id="forgeSizeWrap">
                 <label class="forge-label">Size</label>
-                <select class="input" id="forgeSize">
-                  <option value="4:5">4:5 — feed</option>
-                  <option value="9:16">9:16 — Reels</option>
-                  <option value="1:1">1:1 — square</option>
-                </select>
+                <div class="forge-dd" data-for="forgeSize">
+                  <button type="button" class="forge-dd-trigger" onclick="forgeDDToggle(this)"></button>
+                  <div class="forge-dd-menu">
+                    <button type="button" class="forge-dd-opt" data-value="4:5" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="4.5" y="2.5" width="7" height="11" rx="0.5"/></svg>4:5</button>
+                    <button type="button" class="forge-dd-opt" data-value="9:16" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5.5" y="1.5" width="5" height="13" rx="0.5"/></svg>9:16</button>
+                    <button type="button" class="forge-dd-opt" data-value="1:1" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/></svg>1:1</button>
+                  </div>
+                  <select class="input" id="forgeSize" hidden>
+                    <option value="4:5">4:5</option>
+                    <option value="9:16">9:16</option>
+                    <option value="1:1">1:1</option>
+                  </select>
+                </div>
               </div>
             </div>
             <!-- Carousel only: how many stills in the set (Phase B) -->
@@ -510,7 +530,13 @@
             <div class="forge-stack-label">2 · Artwork</div>
             <div class="forge-input-group">
               <label class="forge-label">Artwork <span style="color:var(--muted);font-weight:normal">(the image to animate)</span></label>
-              <input type="file" class="input" id="forgeAnimSource" accept="image/jpeg,image/png,image/webp" onchange="forgeAnimPreview()">
+              <div class="forge-dropzone" role="button" tabindex="0" aria-label="Add artwork to animate"
+                   onclick="document.getElementById('forgeAnimSource').click()"
+                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('forgeAnimSource').click()}">
+                <span class="forge-dropzone-plus" aria-hidden="true">+</span>
+                <span class="forge-dropzone-label">Add artwork</span>
+              </div>
+              <input type="file" id="forgeAnimSource" accept="image/jpeg,image/png,image/webp" onchange="forgeAnimPreview()" hidden>
               <div id="forgeAnimPreview" class="forge-ref-thumbs"></div>
             </div>
 
@@ -523,7 +549,7 @@
             <div class="forge-stack-label">4 · Length</div>
             <div class="forge-input-group">
               <div class="forge-range">
-                <input type="range" id="forgeAnimDuration" min="5" max="10" step="5" value="5"
+                <input type="range" id="forgeAnimDuration" min="5" max="10" step="1" value="5"
                        oninput="document.getElementById('forgeAnimDurationVal').textContent=this.value+'s'">
                 <span class="forge-range-val" id="forgeAnimDurationVal">5s</span>
               </div>

@@ -73,6 +73,14 @@ The **centre output canvas** — pick an Etching, hit FORGE, and the flyer/anima
 - **Condensed** the References / Direction / Artwork / Motion helper + placeholder text.
 - Native date/time pickers themed dark (`color-scheme: dark`). No JS readers broken; `node --check` clean, div 281/281, no new console errors. Shots: `scratch/forge_pass3_flyer.png`, `forge_pass3_animation.png`.
 
-**Fast-follows (still not done):** **history rail** (Higgsfield-style right panel, client-side v1 — Doug's next pass); **direction interpreter** (Claude rewrites direction for clarity + infers the voice — specced, not built); live credit cost on the FORGE button (needs `CREDIT_COST` via `/api/config`; ∞ for admins); wire aspect→Kling for animation; optional drag-and-drop on the drop-block; make the animation Artwork upload a drop-block too (consistency).
+**Pass 3b (2026-06-25, same branch) — Doug's polish batch:**
+- **Format + Size icons restored** as a **custom icon-dropdown** (`.forge-dd`): native `<select>` can't host SVGs, so the trigger + menu render per-option icons while a hidden `<select>` stays the source-of-truth (`forgeDDToggle`/`forgeDDPick`/`syncForgeDD`; trigger mirrored in `updateForgeFields` for init + `editStashItem`). Compact, one row, current position — icons back without losing the dropdown form. Click-outside closes.
+- **Animation Artwork upload → `+` drop-block** (matches the References drop-block).
+- **Duration → continuous 5–10s slider** (`step=1`, per Doug overriding the 5/10 snap). ⚠️ Kling i2v still only renders 5s or 10s, so the conjure endpoint **snaps the value to the nearest supported length** (≤7→5, ≥8→10) before the model call + bills by the snapped tier — the slider feels continuous and never fails; true in-between needs model support (clamp removable later).
+- `node --check` + `py_compile` clean, div 286/286. Shot: `scratch/forge_pass4_icondd.png`.
+
+**MAJOR next (Doug's vision, needs its own spec):** unify **References + Subject (Spirit) + Artist into one "Elements" section** (Higgsfield-style) — create Spirits inline, and auto-populate **artist assets from the Cave** (avatar / artist artwork / SoundCloud tracks) as drop-in elements. This is the "@elements is the prize" idea + a Cave↔Firepit bridge. Spec before building.
+
+**Fast-follows (still not done):** **history rail** (client-side v1); **direction interpreter** (rewrite + infer voice); live credit cost on the FORGE button; wire aspect→Kling for animation; drag-and-drop on the drop-blocks.
 
 **Open for Doug's review:** (1) is the rail width right (340px)? (2) want the FORGE CTA *louder* (solid fill, Higgsfield-style) or keep the consistent outline? (3) `FORGE` rename OK, or keep `GENERATE CONTENT`?

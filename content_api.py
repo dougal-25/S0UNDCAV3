@@ -897,6 +897,14 @@ def conjure_endpoint():
         return jsonify({'error': "action must be 'edit' or 'animate'"}), 400
     image_bytes = f.read()
     duration = str(request.form.get('duration', '5'))
+    # The UI exposes a 5–10s slider, but Kling i2v only renders 5s or 10s — snap any
+    # in-between value to the nearest supported length so a 7s request never fails.
+    # (Drop this once the model supports continuous durations.)
+    try:
+        _d = int(float(duration))
+    except (ValueError, TypeError):
+        _d = 5
+    duration = '5' if _d <= 7 else '10'
 
     # Animation cost scales with clip length — Kling ~2x COGS for 10s, so the
     # longer clip bills the higher tier. Edits bill the image tier. (Parsed
