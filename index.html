@@ -417,7 +417,7 @@
         <!-- Input card walks the CONTEXT STACK top-to-bottom (master spec §4,
              2026-06-12): Format → Style → Subject → Facts → Direction & Mood.
              Same order in every format; a format hides layers it doesn't use. -->
-        <div class="card">
+        <div class="card forge-controls">
           <div class="section-label">Input</div>
 
           <div class="forge-stack-label">1 · Format</div>
@@ -520,7 +520,7 @@
             </select>
           </div>
 
-          <button class="btn-red" type="button" style="width:100%" onclick="generateContent()">GENERATE CONTENT</button>
+          <button class="btn-red forge-go" type="button" style="width:100%" onclick="generateContent()">FORGE</button>
           </div><!-- /#forgeStandardStack -->
 
           <!-- ANIMATION format (generative i2v): upload a finished artwork →
@@ -549,11 +549,11 @@
               </select>
             </div>
 
-            <button class="btn-red" type="button" style="width:100%" onclick="generateContent()">ANIMATE</button>
+            <button class="btn-red forge-go" type="button" style="width:100%" onclick="generateContent()">ANIMATE</button>
           </div><!-- /#forgeAnimationStack -->
         </div>
 
-        <div class="card">
+        <div class="card forge-canvas">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div class="section-label" style="margin:0">Output</div>
             <div class="forge-char-count" id="forgeCharCount"></div>
