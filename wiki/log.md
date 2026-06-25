@@ -1208,3 +1208,10 @@ Goal (Doug): make S0UNDCAV3 "fit for purpose on mobile … show people on the mo
 - **Forge hero:** sticky FORGE/ANIMATE CTA above the tab bar (core action always thumb-reachable).
 - **Full-screen sheets** for the artist panel + centred modals; full-width Trail Map drawer; trimmed cavernous gaps.
 - **Verified** via headless-Chromium harness at 390×844 across all 9 screens + the panel sheet (`scratch/mobile_shots.js`, gitignored). Not deployed; built in a worktree off `main` for review.
+
+## [2026-06-25] Mobile fixes — dead cave sub-nav + silent ambient drone (branch `mobile-ux`)
+
+Two bugs Doug hit testing the preview on his phone.
+
+- **"Tabs in the cave don't work."** Root cause: the empty-state overlay `.stack-empty` (`position:absolute; inset:0; z-index:10`) anchors to the nearest *positioned* ancestor — but `.container` is unpositioned, so on an **empty cave** the overlay escaped to fill the whole viewport, an invisible layer swallowing every cave sub-nav tap (header + bottom tab bar survived — higher z-index). Doug's cave is empty, so he got it square-on. Fix (mobile.css, ≤720px): `.cave-hero{position:relative}` bounds the overlay to the hero box (below the pills), `.cave-subnav{position:relative;z-index:30}` as belt-and-braces. Verified: `elementFromPoint` over the FORAGING pill now returns the button (was `.stack-empty`); a real `.tap()` fires `switchTab:foraging`.
+- **"Can't hear the Soundcave noise."** Not a regression — ambient sound starts OFF by design (autoplay is gesture-gated) and only ever started if you found the `{SOUND}` toggle (a small chip on mobile). Fix (`cave_entrance.js`): start the drone on the **first `pointerdown` anywhere**, unless explicitly muted (`sc_sound_on === '0'`); fires once; the toggle still mutes and persists. Audio asset is committed + serves 200, so no 404. Also bumped the mobile sound toggle to a 44px target. **Behaviour change (global, not just mobile) — flag for Doug:** the drone now auto-starts on first interaction; revert to toggle-only if unwanted.

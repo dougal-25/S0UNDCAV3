@@ -52,11 +52,12 @@
   /* Sound toggle: the desktop rule hides .htab labels ≤700px, which left an
      empty bordered box. Re-show it as a compact ghost control (brand microcopy). */
   .app-sound-toggle.htab {
-    min-height: 38px; min-width: 0; align-self: center;
+    min-height: 44px; min-width: 0; align-self: center;
     padding: var(--space-2) var(--space-3);
     background: transparent; border: 1px solid var(--border);
     color: var(--muted); border-radius: 2px;
   }
+  .app-sound-toggle.is-on { color: var(--color-accent); border-color: var(--color-accent); }
   .app-sound-toggle .htab-label { display: block !important; font-size: 10px; }
   .app-sound-toggle.is-on { color: var(--color-accent); border-color: var(--color-accent); }
 
@@ -202,6 +203,15 @@
   .cave-stage { min-height: 360px !important; }
   .cave-hero { gap: var(--space-4) !important; margin-bottom: var(--space-5); }
   .cave-rail { gap: var(--space-3); }
+
+  /* CRITICAL TAP FIX: the empty-state overlay (`.stack-empty`, position:absolute
+     inset:0 z-index:10) is anchored to the nearest *positioned* ancestor. The
+     `.container` is unpositioned, so on an empty cave the overlay escaped to fill
+     the whole viewport — an invisible layer that swallowed every sub-nav tap
+     ("the tabs in the cave don't work"). Anchor it to the hero box instead, and
+     lift the sub-nav into its own stacking context so the pills always win. */
+  .cave-hero { position: relative; }
+  .cave-subnav { position: relative; z-index: 30; }
 
   /* Generic card stacks: consistent vertical rhythm. */
   .two-col, .stats-row, .metric-tiles { gap: var(--space-3); }
