@@ -646,7 +646,7 @@
               <input class="input" id="forgeBeatProof" style="margin-top:10px" placeholder="Proof link (licence receipt / written permission / CC0 link)">
               <div style="display:flex;gap:8px;margin-top:10px">
                 <button class="btn-red" type="button" onclick="makeBeatVideo(this)">FORGE THE VIDEO</button>
-                <button class="btn-outline" type="button" onclick="document.getElementById('forgeBeatPanel').style.display='none'">CANCEL</button>
+                <button class="btn-outline no-glitch" type="button" onclick="document.getElementById('forgeBeatPanel').style.display='none'">CANCEL</button>
               </div>
               <div id="forgeBeatError" class="forge-ref-error" style="display:none"></div>
             </div>
@@ -740,7 +740,7 @@
         <div class="trail-modal-actions">
           <button class="trail-btn trail-btn-danger" onclick="deleteTrailModal()">Delete</button>
           <button class="trail-btn trail-btn-secondary" onclick="closeTrailModal()">Cancel</button>
-          <button class="trail-btn trail-btn-primary" onclick="saveTrailModal()">Save</button>
+          <button class="trail-btn trail-btn-primary glitch-cta" onclick="saveTrailModal()">Save</button>
         </div>
       </div>
     </div>
@@ -768,7 +768,7 @@
           <div class="brands-eyebrow">YOUR IDENTITIES</div>
           <h1 class="brands-title">BRANDS</h1>
         </div>
-        <button class="brands-new" id="brandsNew" type="button">+ New brand kit</button>
+        <button class="brands-new glitch-cta" id="brandsNew" type="button">+ New brand kit</button>
       </header>
 
       <section class="brands-grid" id="brandsGrid" aria-live="polite">
@@ -780,7 +780,7 @@
         <p class="brands-empty-body">
           A brand kit holds your logo, fonts, and colours so every poster, lineup, and social post looks like <em>you</em>.
         </p>
-        <button class="brands-new" id="brandsEmptyCta" type="button">+ Create your first brand kit</button>
+        <button class="brands-new glitch-cta" id="brandsEmptyCta" type="button">+ Create your first brand kit</button>
       </section>
 
       <!-- ── EDITOR (slides over the grid; full-page swap, not modal) ── -->
@@ -861,7 +861,7 @@
 
             <div class="brand-editor-actions">
               <button class="brand-cancel" id="brandEditorCancel" type="button">Cancel</button>
-              <button class="brand-save"   id="brandEditorSave"   type="button">Save kit</button>
+              <button class="brand-save glitch-cta"   id="brandEditorSave"   type="button">Save kit</button>
             </div>
 
             <div class="brand-editor-msg" id="brandEditorMsg" aria-live="polite"></div>
@@ -1055,7 +1055,7 @@
   <div class="billing-panel" role="dialog" aria-modal="true" aria-labelledby="billingTitle">
     <button class="billing-close" id="billingClose" type="button" aria-label="Close">×</button>
     <h2 class="billing-title" id="billingTitle">Choose your plan</h2>
-    <p class="billing-sub">Credits power generation. Text 1cr · Image 5cr.</p>
+    <p class="billing-sub">Credits power generation. Images 2cr · Animations 4–8cr · Captions free.</p>
     <div class="billing-cards" id="billingCards"></div>
     <div class="billing-pack" id="billingPack"></div>
     <div class="billing-note" id="billingNote"></div>

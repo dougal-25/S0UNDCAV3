@@ -41,6 +41,36 @@ ADMIN_EMAILS = {
     if e.strip()
 }
 
+# Free-trial invite gate (2026-06-25). New accounts start with 0 credits (see
+# db/0020); trial credits are gifted ONLY by redeeming a valid code, verified
+# server-side here. Gating the gift (not signup) is what actually protects the
+# fal balance — the Supabase anon key is public, so signup itself can't be gated
+# in the browser. Missing INVITE_CODES = nothing redeemable = safe default.
+import hmac, time as _time
+from collections import defaultdict as _defaultdict
+INVITE_CODES = {
+    c.strip().upper()                       # codes are case-insensitive
+    for c in os.getenv('INVITE_CODES', '').split(',')
+    if c.strip()
+}
+FREE_TRIAL_CREDITS = int(os.getenv('FREE_TRIAL_CREDITS', '100'))  # non-expiring gift size
+
+# Tiny in-memory per-IP rate limiter for the invite-redeem endpoint (its only
+# attack surface: farming the gift). No new dependency; resets on restart. For a
+# single Railway instance this is sufficient; note it's per-process if scaled out.
+_redeem_hits = _defaultdict(list)
+def _client_ip():
+    fwd = request.headers.get('X-Forwarded-For', '')
+    return fwd.split(',')[0].strip() if fwd else (request.remote_addr or 'unknown')
+def _rate_limited(bucket, ip, max_hits, window_s):
+    now = _time.time()
+    hits = [t for t in bucket[ip] if now - t < window_s]
+    bucket[ip] = hits
+    if len(hits) >= max_hits:
+        return True
+    hits.append(now)
+    return False
+
 app = Flask(__name__)
 # Browser origins allowed to call this API: prod frontend + local dev only.
 # Vercel preview deploys are NOT allowed — test against prod or localhost.
@@ -1320,8 +1350,16 @@ def me():
     except Exception as e:
         return jsonify({'error': f'token error: {e}'}), 401
     sb = _stash_client()
-    profile = sb.table('users').select('tier,credits_balance').eq('id', user_id).execute()
-    p = (profile.data or [{}])[0]
+    try:
+        profile = sb.table('users').select('tier,credits_balance,trial_claimed').eq('id', user_id).execute()
+        p = (profile.data or [{}])[0]
+    except Exception:
+        # trial_claimed column may not exist yet (pre-0020 deploy) — degrade
+        # gracefully so /api/me never 500s on deploy-order. Treat as claimed so
+        # existing users aren't shown the claim prompt before the migration lands.
+        profile = sb.table('users').select('tier,credits_balance').eq('id', user_id).execute()
+        p = (profile.data or [{}])[0]
+        p['trial_claimed'] = True
     return jsonify({
         'id': user_id,
         'email': email,
@@ -1329,6 +1367,42 @@ def me():
         'credits_balance': p.get('credits_balance'),
         'admin': (email or '').strip().lower() in ADMIN_EMAILS,
     })
+
+
+@app.route('/api/redeem-invite', methods=['POST'])
+def redeem_invite():
+    """Gift the free-trial credits in exchange for a valid invite code.
+
+    The gate is here (server-side), not on signup: a fresh account has 0 credits
+    and can't generate, so it costs nothing until a code is redeemed. One claim
+    per account (users.trial_claimed). Rate-limited per IP to blunt code-leak farming."""
+    uid, err = _require_user()
+    if err:
+        return err
+    if _rate_limited(_redeem_hits, _client_ip(), max_hits=8, window_s=3600):
+        return jsonify({'error': 'rate_limited', 'detail': 'too many attempts — try later'}), 429
+    code = ((request.get_json(silent=True) or {}).get('code') or '').strip().upper()
+    if not code:
+        return jsonify({'error': 'code_required'}), 400
+    # Constant-time compare against the allowlist (avoids timing oracles).
+    if not any(hmac.compare_digest(code, c) for c in INVITE_CODES):
+        return jsonify({'error': 'invalid_code'}), 403
+    sb = _stash_client()
+    # Atomic one-time claim: only the request that flips false→true gets to grant.
+    claim = sb.table('users').update({'trial_claimed': True}) \
+        .eq('id', uid).eq('trial_claimed', False).execute()
+    if not claim.data:
+        return jsonify({'error': 'already_claimed'}), 409
+    try:
+        new_balance = sb.rpc('grant_credits', {
+            'p_user_id': uid, 'p_amount': FREE_TRIAL_CREDITS, 'p_reason': 'free_trial_invite',
+        }).execute().data
+    except Exception as e:
+        # Roll back the claim so the user isn't locked out of a retry.
+        sb.table('users').update({'trial_claimed': False}).eq('id', uid).execute()
+        print('grant on redeem failed:', e)
+        return jsonify({'error': 'grant_failed'}), 500
+    return jsonify({'ok': True, 'granted': FREE_TRIAL_CREDITS, 'credits_balance': new_balance})
 
 
 @app.route('/api/stash', methods=['GET'])
@@ -1513,18 +1587,19 @@ def _ensure_stripe_customer(uid, email):
 
 @app.route('/api/billing/plans', methods=['GET'])
 def billing_plans():
-    """Static plan list — used by the pricing modal. Public (no auth required).
-    Credit grants are on the SMALL scale (÷10, 2026-06-23) to match CREDIT_COST;
-    £/credit (and thus ~81% margin) is preserved. NOTE: these are the DISPLAY
-    values — the actual grant comes from Stripe Price metadata, so re-run
-    scripts/stripe_bootstrap.py with the new amounts before taking real payments."""
+    """Plan list for the pricing modal. Public (no auth required).
+
+    BETA (2026-06-25): only Free Trial is active. Starter + Pro are shown but
+    `disabled` (greyed "Coming soon") while Doug gathers industry feedback and
+    before paid billing is re-validated — Stripe Price metadata is stale
+    (scripts/stripe_bootstrap.py must be re-run before these go live). Free Trial
+    credits are gifted via /api/redeem-invite (an invite code), NOT Stripe."""
     return jsonify({
         'plans': [
-            {'lookup_key': 'tier_solo_monthly',   'tier': 'solo',   'name': 'Solo',   'price_pence': 2900,  'credits': 50,  'highlighted': False},
-            {'lookup_key': 'tier_label_monthly',  'tier': 'label',  'name': 'Label',  'price_pence': 7900,  'credits': 200, 'highlighted': True},
-            {'lookup_key': 'tier_agency_monthly', 'tier': 'agency', 'name': 'Agency', 'price_pence': 19900, 'credits': 600, 'highlighted': False},
+            {'lookup_key': 'free_trial',           'tier': 'free',    'name': 'Free Trial', 'price_pence': 0,    'credits': FREE_TRIAL_CREDITS, 'highlighted': True,  'disabled': False, 'invite': True},
+            {'lookup_key': 'tier_starter_monthly', 'tier': 'starter', 'name': 'Starter',    'price_pence': 2900, 'credits': 50,                 'highlighted': False, 'disabled': True},
+            {'lookup_key': 'tier_pro_monthly',     'tier': 'pro',     'name': 'Pro',        'price_pence': 7900, 'credits': 200,                'highlighted': False, 'disabled': True},
         ],
-        'pack': {'lookup_key': 'credit_pack_200', 'name': '20 Credit Pack', 'price_pence': 1000, 'credits': 20},
         'currency': 'gbp',
         'configured': bool(STRIPE_KEY),
     })

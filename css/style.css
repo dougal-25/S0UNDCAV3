@@ -460,10 +460,11 @@
 .plan-features li { padding: 4px 0; color: var(--secondary); }
 .plan-features li::before { content: '✓ '; color: var(--green); margin-right: 4px; }
 .plan-cta {
-  width: 100%; padding: 11px;
+  width: 100%; padding: 12px 14px;
   background: var(--red); color: #fff;
-  border: 0; border-radius: 6px;
-  font: inherit; font-weight: 600;
+  border: 0; border-radius: 2px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
   cursor: pointer; transition: background 0.15s;
 }
 .plan-cta:hover:not(:disabled) { background: var(--red-dark); }
@@ -489,6 +490,24 @@
 .billing-pack button:hover { background: var(--red-faint); }
 .billing-note { margin-top: 14px; font-size: 12px; color: var(--muted); text-align: center; }
 .billing-note.error { color: var(--red); }
+
+/* Free-trial invite gate (2026-06-25) — greyed "coming soon" tiers + claim input */
+.plan-card.disabled { opacity: 0.45; }
+.plan-card.disabled:hover { transform: none; border-color: var(--border); box-shadow: none; }
+.plan-card.disabled .plan-cta:disabled { cursor: not-allowed; background: var(--red-darker); }
+.plan-trial .trial-redeem { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.trial-code-input {
+  width: 100%; padding: 11px 12px;
+  background: var(--elevated); color: var(--heading);
+  border: 1px solid var(--border); border-radius: 2px;
+  font-family: var(--font-mono); font-size: 12px;
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
+}
+.trial-code-input:focus { outline: none; border-color: var(--red); }
+.trial-code-input::placeholder { color: var(--muted); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+.trial-msg { min-height: 14px; font-size: 12px; color: var(--muted); text-align: center; }
+.trial-msg.error { color: var(--red); }
+.trial-msg.success { color: var(--green); }
 
 /* Phase 1 — mouth-open: small cave mouth visible behind the logo */
 .cave-entrance.mouth-open::before {

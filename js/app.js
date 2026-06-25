@@ -1221,10 +1221,15 @@ function togglePanelStar(username) {
       const me = await r.json();
       emailEl.textContent = me.email || '';
       avatarEl.textContent = (me.email || '?')[0];
-      tierEl.textContent = me.tier || '—';
+      // DB tier enum (solo/label/agency) maps to the beta plan names. Base tier
+      // 'solo' = the Free Trial; paid tiers aren't purchasable yet so won't appear.
+      const TIER_LABEL = { solo: 'Free Trial', free: 'Free Trial', label: 'Starter', starter: 'Starter', agency: 'Pro', pro: 'Pro' };
+      tierEl.textContent = me.admin ? 'Admin' : (TIER_LABEL[me.tier] || me.tier || '—');
       window.scAdmin = !!me.admin;   // admin = unlimited (fal balance is the real limit)
       credEl.textContent = me.admin ? '∞' : (me.credits_balance != null ? me.credits_balance : '—');
       manageBtn.hidden = !(me.tier && me.tier !== 'solo');
+      // Fresh tester who hasn't redeemed an invite: make the action obviously a claim.
+      if (upgradeBtn) upgradeBtn.textContent = (!me.admin && !me.trial_claimed) ? '🎁 Claim free credits' : 'View plans';
       try {
         const sr = await scAuth.authedFetch(`${apiBase}/api/ayrshare/profiles`);
         if (sr.ok) {
@@ -1318,38 +1323,107 @@ async function openBillingModal() {
     const data = await r.json();
     const fmt = (p) => `£${(p / 100).toFixed(0)}`;
 
-    cards.innerHTML = data.plans.map(p => `
-      <div class="plan-card${p.highlighted ? ' highlighted' : ''}">
-        ${p.highlighted ? '<div class="plan-badge">Most popular</div>' : ''}
+    cards.innerHTML = data.plans.map(p => {
+      // Free Trial — the only active tier during the industry beta. Credits are
+      // gifted by redeeming an invite code (see redeemInvite), not via Stripe.
+      if (p.invite) {
+        return `
+      <div class="plan-card highlighted plan-trial">
+        <div class="plan-badge">Start here</div>
+        <div class="plan-name">${p.name}</div>
+        <div class="plan-price">Free</div>
+        <div class="plan-credits">${p.credits} credits — yours to keep, no expiry</div>
+        <ul class="plan-features">
+          <li>All content types</li>
+          <li>Image + animation generation</li>
+          <li>Stash + Trail Map</li>
+        </ul>
+        <div class="trial-redeem">
+          <input class="trial-code-input" id="trialCodeInput" type="text"
+                 placeholder="INVITE CODE" autocomplete="off" spellcheck="false">
+          <button class="plan-cta" id="claimTrialBtn" type="button">Claim free credits</button>
+          <div class="trial-msg" id="trialMsg" aria-live="polite"></div>
+        </div>
+      </div>`;
+      }
+      // Starter / Pro — shown but greyed ("Coming soon") during the beta.
+      return `
+      <div class="plan-card${p.disabled ? ' disabled' : ''}">
         <div class="plan-name">${p.name}</div>
         <div class="plan-price">${fmt(p.price_pence)}<span class="plan-price-period"> /mo</span></div>
         <div class="plan-credits">${p.credits.toLocaleString()} credits / month</div>
         <ul class="plan-features">
           <li>All content types</li>
-          <li>Image generation</li>
-          <li>SoundCloud scouting</li>
+          <li>Image + animation generation</li>
           <li>Stash + Trail Map</li>
         </ul>
-        <button class="plan-cta" data-lookup="${p.lookup_key}" data-tier="${p.tier}">Subscribe</button>
-      </div>
-    `).join('');
+        <button class="plan-cta" data-lookup="${p.lookup_key}" data-tier="${p.tier}" ${p.disabled ? 'disabled' : ''}>${p.disabled ? 'Coming soon' : 'Subscribe'}</button>
+      </div>`;
+    }).join('');
 
-    pack.innerHTML = `
-      <div class="billing-pack-info">Top up: <strong>${data.pack.credits} credits</strong> for ${fmt(data.pack.price_pence)} — one-off, no subscription.</div>
-      <button data-lookup="${data.pack.lookup_key}">Buy pack</button>
-    `;
+    pack.innerHTML = '';   // credit pack hidden during the beta (paid tiers parked)
 
-    if (!data.configured) {
-      note.textContent = 'Stripe is not configured on the server (STRIPE_SECRET_KEY missing). Subscribe will fail until set.';
-      note.className = 'billing-note error';
-    }
+    // Wire the Free Trial claim (Enter in the field also submits).
+    const claimBtn = document.getElementById('claimTrialBtn');
+    if (claimBtn) claimBtn.addEventListener('click', redeemInvite);
+    const codeInput = document.getElementById('trialCodeInput');
+    if (codeInput) codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); redeemInvite(); }
+    });
 
-    modal.querySelectorAll('button[data-lookup]').forEach(btn => {
+    // Live (paid) subscribe buttons — none active in beta, but keep wiring for later.
+    modal.querySelectorAll('button[data-lookup]:not([disabled])').forEach(btn => {
       btn.addEventListener('click', () => startCheckout(btn));
     });
   } catch (e) {
     note.textContent = `Failed to load plans: ${e.message}`;
     note.className = 'billing-note error';
+  }
+}
+
+// Redeem a free-trial invite code → server gifts non-expiring credits, once.
+async function redeemInvite() {
+  const apiBase = scApiBase();
+  const input = document.getElementById('trialCodeInput');
+  const btn   = document.getElementById('claimTrialBtn');
+  const msg   = document.getElementById('trialMsg');
+  const code  = (input && input.value || '').trim().toUpperCase();   // codes are case-insensitive
+  if (!code) {
+    if (msg) { msg.textContent = 'Enter your invite code.'; msg.className = 'trial-msg error'; }
+    if (input) input.focus();
+    return;
+  }
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Claiming…';
+  msg.textContent = '';
+  msg.className = 'trial-msg';
+  try {
+    const r = await scAuth.authedFetch(`${apiBase}/api/redeem-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      const friendly = {
+        invalid_code:    'That code isn’t valid.',
+        already_claimed: 'You’ve already claimed your free credits.',
+        rate_limited:    'Too many tries — wait a bit and retry.',
+        code_required:   'Enter your invite code.',
+      }[data.error] || data.error || `Error ${r.status}`;
+      throw new Error(friendly);
+    }
+    msg.textContent = `🎉 ${data.granted} credits added — they’re yours to keep.`;
+    msg.className = 'trial-msg success';
+    if (input) input.value = '';
+    btn.textContent = 'Claimed ✓';
+    if (typeof window.refreshReflection === 'function') window.refreshReflection();
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = orig;
+    msg.textContent = e.message;
+    msg.className = 'trial-msg error';
   }
 }
 

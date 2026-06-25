@@ -21,26 +21,38 @@
     if (!el) return;
     if (el._glitchTimer) { clearInterval(el._glitchTimer); el._glitchTimer = null; }
 
+    // Scramble only the LABEL text — preserve any icon/element children (e.g. an
+    // SVG in "icon + Clan" buttons) by writing to the label text node, not
+    // textContent (which would delete the icon). Falls back to textContent for
+    // pure-text buttons (login, plan CTA).
+    let textNode = null;
+    for (const n of el.childNodes) {
+      if (n.nodeType === 3 && n.nodeValue.trim()) { textNode = n; break; }
+    }
+    const write = textNode ? (s) => { textNode.nodeValue = s; }
+                           : (s) => { el.textContent = s; };
+
     const frames = Math.ceil(TOTAL_MS / FRAME_MS);
     let frame = 0;
     el._glitchTimer = setInterval(() => {
       frame += 1;
       const progress = frame / frames;             // 0 → 1
-      const lockCount = Math.floor(target.length * progress);
+      const chars = Array.from(target);             // code-point safe (keeps emoji whole)
+      const lockCount = Math.floor(chars.length * progress);
       let out = '';
-      for (let i = 0; i < target.length; i++) {
-        const ch = target[i];
+      for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
         if (i < lockCount || ch === ' ' || ch === '{' || ch === '}') {
           out += ch;
         } else {
           out += pickGlitch();
         }
       }
-      el.textContent = out;
+      write(out);
       if (frame >= frames) {
         clearInterval(el._glitchTimer);
         el._glitchTimer = null;
-        el.textContent = target;
+        write(target);
       }
     }, FRAME_MS);
   };
@@ -274,13 +286,22 @@
     // until the user clicks a toggle.
     startPulseLFO();
 
-    // Glitch the CTA on hover for life.
-    const btn = document.getElementById('caveLoginBtn');
-    if (btn) {
-      btn.addEventListener('mouseenter', () => {
-        const t = btn.dataset.glitchText || btn.textContent;
-        if (!btn.disabled) window.caveGlitch(btn, t);
-      });
-    }
+    // Glitch every major CTA on hover, site-wide. Delegated on document so it
+    // also covers buttons rendered dynamically (e.g. the plan-selector cards).
+    // Add `.glitch-cta` to opt any other button in. Disabled buttons are skipped.
+    // Action buttons site-wide use .btn-red (primary) / .btn-outline (secondary).
+    // Glitch those + the login/plan CTAs + anything tagged .glitch-cta. Opt a
+    // non-action button OUT with .no-glitch (e.g. CANCEL / ← BACK).
+    const GLITCH_SELECTOR = '.cave-login-btn, .plan-cta, .btn-red:not(.no-glitch), .btn-outline:not(.no-glitch), .glitch-cta';
+    document.addEventListener('mouseover', (e) => {
+      const t = e.target.closest && e.target.closest(GLITCH_SELECTOR);
+      if (!t || t.disabled || t._glitchHover) return;
+      t._glitchHover = true;                       // guard: don't restart on inner re-enter
+      window.caveGlitch(t, (t.dataset.glitchText || t.textContent).trim());
+    });
+    document.addEventListener('mouseout', (e) => {
+      const t = e.target.closest && e.target.closest(GLITCH_SELECTOR);
+      if (t && !(e.relatedTarget && t.contains(e.relatedTarget))) t._glitchHover = false;
+    });
   });
 })();

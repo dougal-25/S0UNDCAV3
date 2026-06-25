@@ -36,7 +36,7 @@
     });
 
     const topRow = h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' } }, [
-      h('button', { type: 'button', class: 'btn-outline', onClick: E.renderList }, '← BACK'),
+      h('button', { type: 'button', class: 'btn-outline no-glitch', onClick: E.renderList }, '← BACK'),
       h('h2', { style: { ...MONO_HEAD, margin: 0, flex: 1 } }, e.name),
       h('button', { type: 'button', class: 'btn-outline', onClick: () => E.startEdit(e.id) }, '{EDIT}'),
     ]);

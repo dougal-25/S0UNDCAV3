@@ -77,7 +77,7 @@
 
   function topBar(title, backFn) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' } }, [
-      backFn ? h('button', { type: 'button', class: 'btn-outline', onClick: backFn }, '← BACK') : null,
+      backFn ? h('button', { type: 'button', class: 'btn-outline no-glitch', onClick: backFn }, '← BACK') : null,
       h('h2', { style: { ...MONO_HEAD, margin: 0 } }, title),
     ]);
   }
