@@ -1186,3 +1186,14 @@ The moat connection. Pick an artist in the Forge → a **"From the Cave — tap 
 - **Frontend:** `loadArtistAssets()` (firepit.js) renders the strip on artist change; `addForgeRefFromUrl()` (forge_refs.js) proxies the tapped image → `_forgeRefImages`. Display via CDN URL (cross-origin `<img>` ok); only the add proxies. URLs upsized `-large`→`-t500x500`.
 - **Verified end-to-end (localhost, admin):** "konzo" → 3 assets (avatar t500x500 + 2 track arts) → tapped avatar → added as WHO data-URL ref (refs 0→1, no error). `py_compile`+`node --check` clean, div 285/285. Shot: `scratch/forge_elements_p2_cavebridge.png`. NOT pushed.
 - **Elements feature now P1+P2 = a coherent release.** Phase 3 (tracks as Animation audio/Beat) is the remaining piece. Bridge currently on single-artist formats (Still/Carousel); Flyer lineup could extend later.
+
+## [2026-06-25] Forge "Elements" P1+P2 — SHIPPED LIVE + recovered from a concurrent-session branch tangle ✅
+
+The Elements feature (UI merge + Cave→Firepit bridge) is live on prod. Getting there hit — and recovered from — the exact one-session-per-repo hazard our CLAUDE.md warns about.
+
+- **The tangle:** a second session (free-trial-invite-gate) shared this working tree and `git checkout`'d its branch *between* my two Elements commits, so Phase 2 (`568581c`) landed on their branch + accidentally captured an early snapshot of their uncommitted invite-gate code (whole-file `git add`). They then shipped Free Trial to `main` rebased *without* my Elements. Net: my Phase 2 was orphaned-but-recoverable; main had their work, not mine.
+- **Recovery:** branched off `568581c`, `git rebase --onto main 324b2f0` to replant Phase 1+2 onto the new main. Resolved conflicts: `wiki/log.md` (kept both entries); `content_api.py` (kept HEAD = main's finalized invite-gate for all 3 conflicts) + **removed the stray `trial_claimed` line my bad capture had added to `/api/me`**, so the diff vs main is *pure Elements*. Verified `git diff main -- content_api.py` = only `proxy_image` + `artwork`.
+- **SSRF fix (commit security review):** `/api/proxy-image` now `allow_redirects=False` + 200-only (a whitelisted host can't 302 → internal). Verified sndcdn serves images at a direct 200, so the bridge still works.
+- **Shipped + verified LIVE on prod:** merged `forge-elements-ship` → `main` (ff `25ffaa3..75a62bc`), pushed (Vercel), `railway up`. Live checks (authed): `/api/artist/konzo` → avatar + 2 track artworks; `/api/proxy-image` of a real sndcdn image → **data-URL (200)**; SSRF guard on `169.254.169.254` → **400**; invite-gate intact (`/api/billing/plans` 200, `/api/me` 401). Frontend serves `2·Elements`.
+- **Lesson (again):** one session per repo, or worktrees. I should have re-checked `git branch` before the second commit. Branch cleanup done (mine deleted; `free-trial-invite-gate` left for the other session).
+- **NEXT:** Elements Phase 3 (artist tracks → Animation audio/Beat).
