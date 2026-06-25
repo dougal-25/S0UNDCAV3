@@ -1197,3 +1197,14 @@ The Elements feature (UI merge + Cave→Firepit bridge) is live on prod. Getting
 - **Shipped + verified LIVE on prod:** merged `forge-elements-ship` → `main` (ff `25ffaa3..75a62bc`), pushed (Vercel), `railway up`. Live checks (authed): `/api/artist/konzo` → avatar + 2 track artworks; `/api/proxy-image` of a real sndcdn image → **data-URL (200)**; SSRF guard on `169.254.169.254` → **400**; invite-gate intact (`/api/billing/plans` 200, `/api/me` 401). Frontend serves `2·Elements`.
 - **Lesson (again):** one session per repo, or worktrees. I should have re-checked `git branch` before the second commit. Branch cleanup done (mine deleted; `free-trial-invite-gate` left for the other session).
 - **NEXT:** Elements Phase 3 (artist tracks → Animation audio/Beat).
+
+## [2026-06-25] Mobile elevation pass — native-grade phone UX (branch `mobile-ux`)
+
+Goal (Doug): make S0UNDCAV3 "fit for purpose on mobile … show people on the move," same essence/branding, on a worktree off `main`. The app was already *functional* on phones (stage-1 shell + scattered component media queries); this pass takes it functional → native-grade. All changes additive inside `@media (max-width:720px)`/`560px`, built on `tokens.css`, palette law intact, **desktop untouched** (verified `mobileTabbar` = `display:none` @1280px). Files: `css/mobile.css` (expanded), `index.html` (tab-bar markup). Full detail + follow-ups in [spec/mobile_responsive.md → Build log](spec/mobile_responsive.md).
+
+- **Icon bottom tab bar** (cave/firepit/person `sc-icon`s inlined as HTML — the `data-icon` hydrate path renders SVG-namespaced nodes CSS can't size, so they came out 0×0; inline fixes it), active-glow + indicator, backdrop blur, safe-area, tap feedback.
+- **Header fix:** the ≤700px `.htab span:not(.count){display:none}` rule was blanking the sound toggle into an empty box — restored as a compact ghost control; logo shrunk; notch-safe top.
+- **Segmented scroll sub-nav pills · ≥46px touch targets · 16px inputs (no iOS zoom) · full-width primary CTAs · legibility bump.**
+- **Forge hero:** sticky FORGE/ANIMATE CTA above the tab bar (core action always thumb-reachable).
+- **Full-screen sheets** for the artist panel + centred modals; full-width Trail Map drawer; trimmed cavernous gaps.
+- **Verified** via headless-Chromium harness at 390×844 across all 9 screens + the panel sheet (`scratch/mobile_shots.js`, gitignored). Not deployed; built in a worktree off `main` for review.
