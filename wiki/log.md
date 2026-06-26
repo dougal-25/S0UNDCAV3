@@ -1,5 +1,23 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-26] Mural scroll — speed-proportional drain (branch `cave-scroll-speed`)
+Follow-up to the same-day cooldown fix: Doug said the one-card-per-gesture clamp was **too slow** — "the
+quicker I scroll through, the faster it can go through." The flat 480ms cooldown killed *proportionality*
+(every scroll cycled at one fixed rate). Replaced it with a **bank-and-drain** model in `js/cave.js`:
+- `wheel` banks travel into `_caveWheelAccum` (clamped to `CAVE_WHEEL_STEP × CAVE_WHEEL_MAX_BANK`), then
+  `drainCaveWheel()` releases **one card per `CAVE_WHEEL_DRAIN_MS`** via `setTimeout` until less than one
+  card remains (sub-threshold remainder carries into the next scroll). So the faster/more you scroll, the
+  more banks up and the more cards riffle past — **speed-proportional** — but spread over time so each card
+  still glides (not 17 in one frame like the original `while` loop). Gentle nudge banks <1 step → exactly
+  one card; a hard flick is capped (`MAX_BANK`) so it can't rifle the whole clan. Removed the old
+  `_caveWheelLockUntil` / `CAVE_WHEEL_COOLDOWN`.
+- Constants: `STEP=60`, `DRAIN_MS=110` (~9 cards/sec ceiling), `MAX_BANK=8`. Knobs for feel: `DRAIN_MS`
+  (riffle speed), `STEP` (sensitivity), `MAX_BANK` (max burst).
+- Verified with the **real** `drainCaveWheel` + real constants under real timers (extracted from the file):
+  NUDGE→1 card; SOFT FLICK→6 over 556ms; HARD FLICK→10 over 999ms (~110ms apart = each card on its own
+  timer tick → each glides). Monotonic (faster ≥ slower), bounded (~11 ceiling), gentle = one. Arrow keys
+  unchanged (instant single step, bypass the drain).
+
 ## [2026-06-26] Mural scroll smoothness + glitch-button restore (branch `cave-scroll-glitch-polish`)
 Two interaction-polish fixes Doug flagged (both Cave/site-wide, not Firepit → one branch).
 

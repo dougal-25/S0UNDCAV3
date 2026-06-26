@@ -7,14 +7,15 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 let _caveFocusIndex = 0;
-let _caveWheelAccum = 0;            // accumulated wheel travel (px) toward the next card step
-let _caveWheelLockUntil = 0;        // e.timeStamp until which further steps are swallowed (momentum guard)
+let _caveWheelAccum = 0;            // banked wheel travel (px) waiting to be drained into card steps
+let _caveWheelDrainTimer = null;    // setTimeout handle while banked travel drains one card at a time
 let _caveClanCache = [];
 const STACK_VISIBLE_RADIUS = 4;
-const CAVE_WHEEL_STEP = 80;         // wheel px to advance ONE card — higher = less twitchy
-const CAVE_WHEEL_COOLDOWN = 480;    // ms lock after a step: swallows trackpad momentum so one flick =
-                                    // one card and each 600ms card glide settles. Deliberate scrolling
-                                    // still paces ~2 cards/sec; ARROW keys bypass the lock entirely.
+const CAVE_WHEEL_STEP = 60;         // wheel px per ONE card — lower = more sensitive
+const CAVE_WHEEL_DRAIN_MS = 110;    // ms between drained cards during a fast scroll — caps the riffle
+                                    // rate (~9 cards/sec) so each still glides. Lower = faster riffle.
+const CAVE_WHEEL_MAX_BANK = 8;      // max cards a single burst can queue — stops one violent flick
+                                    // from rifling the whole clan (the old `while` loop did ~17 at once).
 
 const setHTML = (el, html) => { if (el) { el['inner' + 'HTML'] = html; } };
 
@@ -266,6 +267,20 @@ function cycleStack(delta) {
   updateStackMeta();
 }
 
+// Drain banked wheel travel into card steps, one per CAVE_WHEEL_DRAIN_MS, so a
+// fast scroll riffles smoothly (each card glides) instead of jumping. Stops when
+// less than one card's worth remains, carrying that remainder into the next scroll.
+function drainCaveWheel() {
+  if (Math.abs(_caveWheelAccum) >= CAVE_WHEEL_STEP) {
+    const dir = _caveWheelAccum > 0 ? 1 : -1;
+    _caveWheelAccum -= dir * CAVE_WHEEL_STEP;
+    cycleStack(dir);
+    _caveWheelDrainTimer = setTimeout(drainCaveWheel, CAVE_WHEEL_DRAIN_MS);
+  } else {
+    _caveWheelDrainTimer = null;            // idle; keep the sub-threshold remainder
+  }
+}
+
 function updateStackMeta() {
   const el = document.getElementById('caveStackMeta');
   if (!el) return;
@@ -300,19 +315,17 @@ function attachStackInteractions() {
     const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
     if (!delta) return;
     e.preventDefault();                       // ALWAYS first → page never moves over the window
-    // One card per deliberate scroll, NOT per pixel. A trackpad flick fires a
-    // long tail of momentum events; the old `while` loop stepped once per
-    // CAVE_WHEEL_STEP px of that tail, so a single flick blew through many
-    // artists and the 600ms card glides never settled (fast + choppy). Now a
-    // step opens a cooldown during which momentum deltas are swallowed
-    // (accumulator pinned at 0) → one flick = one card, and each glide lands.
-    if (e.timeStamp < _caveWheelLockUntil) { _caveWheelAccum = 0; return; }
+    // BANK the scroll travel, then DRAIN it one card at a time on a timer so
+    // each card gets its own glide. The faster/more you scroll, the more banks
+    // up and the more cards riffle past — speed-proportional — but spread over
+    // time (CAVE_WHEEL_DRAIN_MS apart) instead of 17 cards jumping in a single
+    // frame like the old `while` loop. A gentle nudge banks <1 step → exactly
+    // one card; a hard flick is capped at CAVE_WHEEL_MAX_BANK so it can't rifle
+    // the whole clan. Sub-threshold travel carries into the next scroll.
     _caveWheelAccum += delta;
-    if (Math.abs(_caveWheelAccum) >= CAVE_WHEEL_STEP) {
-      cycleStack(_caveWheelAccum > 0 ? 1 : -1);
-      _caveWheelAccum = 0;
-      _caveWheelLockUntil = e.timeStamp + CAVE_WHEEL_COOLDOWN;
-    }
+    const cap = CAVE_WHEEL_STEP * CAVE_WHEEL_MAX_BANK;
+    _caveWheelAccum = Math.max(-cap, Math.min(cap, _caveWheelAccum));
+    if (!_caveWheelDrainTimer && Math.abs(_caveWheelAccum) >= CAVE_WHEEL_STEP) drainCaveWheel();
   }, { passive: false });
 
   document.addEventListener('keydown', (e) => {
