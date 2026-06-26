@@ -717,7 +717,8 @@ def _is_own_storage_url(url):
 
 
 def _dispatch_media(media_type, image_prompt, audio_path, w, h, duration_seconds,
-                    base_image_bytes=None, audio_start_seconds=0):
+                    base_image_bytes=None, audio_start_seconds=0,
+                    loop_audio=False, clip_duration=0):
     """Route to the right media_gen function. Returns (bytes, provider, model, ext)."""
     if media_type == 'image':
         b, p, m = generate_image(image_prompt, w, h)
@@ -725,12 +726,10 @@ def _dispatch_media(media_type, image_prompt, audio_path, w, h, duration_seconds
     if media_type == 'video_composite':
         if not audio_path:
             raise ValueError('video_composite requires an audio_file')
-        # Flagship "make THIS still move": animate the already-generated image
-        # when the frontend passes it; else regenerate a cover (legacy).
-        # audio_start_seconds = the Beat segment the user dragged to on the waveform.
         b, p, m, _ = generate_video_composite(image_prompt, audio_path, w, h,
                                               duration_seconds, base_image_bytes=base_image_bytes,
-                                              audio_start_seconds=audio_start_seconds)
+                                              audio_start_seconds=audio_start_seconds,
+                                              loop_audio=loop_audio, clip_duration=clip_duration)
         return b, p, m, 'mp4'
     if media_type == 'video_standard':
         b, p, m, _ = generate_video_standard(image_prompt, audio_path, w, h, duration_seconds)
@@ -765,6 +764,11 @@ def generate_media_endpoint():
         audio_start_seconds = max(0.0, float(ctx.get('audio_start_seconds', 0) or 0))
     except (TypeError, ValueError):
         audio_start_seconds = 0.0
+    loop_audio = bool(ctx.get('loop_audio', False))
+    try:
+        clip_duration = max(0.0, float(ctx.get('clip_duration', 0) or 0))
+    except (TypeError, ValueError):
+        clip_duration = 0.0
 
     if media_type == 'video_composite' and audio_bytes is None:
         return jsonify({'error': 'video_composite requires an audio_file (multipart)'}), 400
@@ -830,6 +834,7 @@ def generate_media_endpoint():
             w=w, h=h, duration_seconds=duration_seconds,
             base_image_bytes=base_image_bytes,
             audio_start_seconds=audio_start_seconds,
+            loop_audio=loop_audio, clip_duration=clip_duration,
         )
 
         if ext == 'png':

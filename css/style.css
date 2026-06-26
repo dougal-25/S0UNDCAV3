@@ -1490,7 +1490,30 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 }
 .forge-output:focus { outline: none; border-color: var(--red); }
 .forge-output::placeholder { color: var(--muted); }
-.forge-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.forge-actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; align-items: flex-start; }
+
+/* Icon toolbar buttons — icon above label */
+.forge-icon-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; padding: 8px 10px; min-width: 54px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 5px; cursor: pointer; color: var(--muted);
+  transition: border-color var(--motion-fast) var(--ease-soft),
+              color var(--motion-fast) var(--ease-soft),
+              background var(--motion-fast) var(--ease-soft);
+}
+.forge-icon-btn .sc-icon { width: 17px; height: 17px; flex-shrink: 0; }
+.forge-icon-btn-label {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: var(--tracking-mono); text-transform: uppercase;
+  line-height: 1; white-space: nowrap;
+}
+.forge-icon-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.forge-icon-btn--primary {
+  background: var(--color-accent); border-color: var(--color-accent); color: #fff;
+}
+.forge-icon-btn--primary:hover { background: var(--color-accent-hot); border-color: var(--color-accent-hot); }
+.forge-icon-btn--danger:hover { border-color: var(--red, #c0392b); color: var(--red, #c0392b); }
 .forge-char-count {
   font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
   margin-top: 8px; text-align: right;
@@ -1571,31 +1594,49 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 
 /* Beat segment picker — waveform + drag-to-pick window (wiki/spec/forge_beat_segment.md).
    The window dims everything outside via a huge box-shadow "spotlight" (no canvas redraw). */
+.forge-beat-drop { min-height: 64px; margin-top: var(--space-2); }
+
 .beat-segment { margin-top: var(--space-2); }
 .beat-wave-wrap {
   position: relative; width: 100%; height: 84px;
   background: var(--color-bg); border: 1px solid var(--border); border-radius: 6px;
-  overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+  overflow: visible; touch-action: none; user-select: none; -webkit-user-select: none;
+  clip-path: inset(0 round 6px);
 }
 .beat-wave { display: block; width: 100%; height: 100%; }
-.beat-seg-window {
-  position: absolute; top: 0; bottom: 0; left: 0; width: 60px; box-sizing: border-box;
-  border: 2px solid var(--color-accent); border-radius: 5px;
-  background: rgba(255,69,0,0.07);
-  box-shadow: 0 0 0 9999px rgba(0,0,0,0.58);   /* dim outside the window */
-  cursor: grab; touch-action: none;
-  transition: border-color var(--motion-fast) var(--ease-soft);
+
+/* Highlighted region between in/out handles */
+.beat-region {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 0;
+  background: rgba(255,69,0,0.07); pointer-events: none; z-index: 1;
 }
-.beat-seg-window:hover { border-color: var(--color-accent-hot); }
-.beat-seg-window:active { cursor: grabbing; }
-.beat-seg-window:focus-visible { outline: none; border-color: var(--color-accent-hot); box-shadow: 0 0 0 9999px rgba(0,0,0,0.58), 0 0 0 2px var(--color-accent-hot) inset; }
-.beat-seg-grip {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 24px; border-radius: 2px; background: var(--color-accent);
+
+/* Drag handles — left (in-point) and right (out-point) */
+.beat-handle {
+  position: absolute; top: 0; bottom: 0; width: 16px;
+  transform: translateX(-50%);
+  cursor: ew-resize; touch-action: none; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  transition: color var(--motion-fast);
 }
-.beat-seg-grip.left { left: 3px; }
-.beat-seg-grip.right { right: 3px; }
-.beat-seg-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: #fff; pointer-events: none; }
+.beat-handle::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: calc(50% - 1px);
+  width: 2px; background: var(--color-accent); pointer-events: none;
+  transition: background var(--motion-fast);
+}
+.beat-handle-grip {
+  position: relative; z-index: 1;
+  width: 7px; height: 26px; border-radius: 3px;
+  background: var(--color-accent);
+  transition: background var(--motion-fast);
+}
+.beat-handle:hover::before,
+.beat-handle:active::before { background: var(--color-accent-hot); }
+.beat-handle:hover .beat-handle-grip,
+.beat-handle:active .beat-handle-grip { background: var(--color-accent-hot); }
+.beat-handle:active { cursor: grabbing; }
+
+.beat-seg-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: #fff; pointer-events: none; z-index: 4; }
 .beat-seg-row { display: flex; align-items: center; gap: 10px; margin-top: var(--space-2); }
 .beat-seg-play {
   flex: none; width: 34px; height: 34px; border-radius: 50%;
@@ -1606,6 +1647,30 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 .beat-seg-play:hover { background: rgba(255,69,0,0.12); }
 .beat-seg-time { font-family: var(--font-mono); font-size: 12px; color: var(--color-text); letter-spacing: var(--tracking-mono); }
 .beat-seg-hint { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+/* Loop toggle */
+.beat-loop-row { display: flex; align-items: center; gap: 10px; margin-top: var(--space-2); }
+.beat-loop-label {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+}
+.beat-loop-check { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.beat-loop-indicator {
+  flex-shrink: 0; width: 30px; height: 16px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--color-bg);
+  position: relative;
+  transition: border-color var(--motion-fast), background var(--motion-fast);
+}
+.beat-loop-indicator::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--muted);
+  transition: transform var(--motion-fast), background var(--motion-fast);
+}
+.beat-loop-check:checked + .beat-loop-indicator { border-color: var(--color-accent); background: rgba(255,69,0,0.15); }
+.beat-loop-check:checked + .beat-loop-indicator::after { transform: translateX(14px); background: var(--color-accent); }
+.beat-loop-text { font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-mono); text-transform: uppercase; color: var(--muted); }
+.beat-loop-check:checked ~ .beat-loop-text { color: var(--color-accent); }
+.beat-loop-hint { font-size: 11px; color: var(--muted); margin-left: auto; font-family: var(--font-mono); }
 
 /* Carousel set badge on a Stash tile (Phase B) */
 .stash-slide-badge {
