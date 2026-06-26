@@ -812,7 +812,6 @@ function resetForgeOutput() {
   forgeGeneratedImageUrl = '';
   forgeGeneratedVideoUrl = '';
   _forgePickedSnapshot = '';
-  const _mv = document.getElementById('btnMakeVideo'); if (_mv) _mv.style.display = 'none';
   const _bp = document.getElementById('forgeBeatPanel'); if (_bp) _bp.style.display = 'none';
   _forgeSlideUrls = [];
   _forgeSlideTexts = [];
@@ -914,11 +913,7 @@ async function generateImage(ctx) {
     }
 
     forgeGeneratedVideoUrl = '';
-    document.getElementById('btnRegenImage').style.display = '';
     document.getElementById('btnDownloadImage').style.display = '';
-    // ADD A BEAT → composite video (single-still formats only).
-    const _mv = document.getElementById('btnMakeVideo');
-    if (_mv) _mv.style.display = (ctx.content_type === 'social_carousel') ? 'none' : '';
   } catch(e) {
     imgArea.innerHTML = `<div class="forge-image-loading" style="flex-direction:column;gap:8px">
       <span style="font-family:var(--font-mono);color:var(--color-accent);font-weight:600">!</span>
@@ -1001,7 +996,6 @@ async function generateCarouselImages(ctx) {
     renderSlideStrip();
   }
   forgeGeneratedImageUrl = _forgeSlideUrls.find(Boolean) || '';
-  document.getElementById('btnRegenImage').style.display = '';
   document.getElementById('btnDownloadImage').style.display = '';
   const _dlAll = document.getElementById('btnDownloadAll');
   if (_dlAll) _dlAll.style.display = '';
@@ -1023,7 +1017,7 @@ function renderSlideStrip() {
       ? `<img src="${active}" class="forge-image-preview" alt="Slide ${_forgeActiveSlide + 1}" title="Click to zoom" onclick="openForgeLightbox(this.src)">`
       : `<div class="forge-image-loading">slide pending…</div>`)
     + _slideStripHTML()
-    + `<div class="forge-image-meta">slide ${_forgeActiveSlide + 1} / ${_forgeSlideUrls.length} — NEW IMAGE retakes this slide</div>`;
+    + `<div class="forge-image-meta">slide ${_forgeActiveSlide + 1} / ${_forgeSlideUrls.length} — REGEN retakes this slide</div>`;
   forgeGeneratedImageUrl = active || forgeGeneratedImageUrl;
 }
 
@@ -1161,9 +1155,16 @@ async function makeBeatVideo(btn) {
     fd.append('data', JSON.stringify({
       ...ctx, media_type: 'video_composite',
       base_image_url: forgeGeneratedImageUrl,
-      duration_seconds: 10,
-      // The Beat segment the user dragged to on the waveform (forge_beat_segment.md).
       audio_start_seconds: (typeof beatSegmentStart === 'function' ? beatSegmentStart() : 0),
+      ...((() => {
+        const segDur = typeof beatSegmentDuration === 'function' ? beatSegmentDuration() : 10;
+        const loopOn = document.getElementById('forgeBeatLoop')?.checked;
+        return {
+          duration_seconds: loopOn ? Math.min(segDur * 3, 90) : segDur,
+          loop_audio: loopOn ? true : false,
+          clip_duration: segDur,
+        };
+      })()),
       generated_text: forgeGeneratedContent,
       rights: { category, proof_url: proof || null },
     }));
@@ -1428,14 +1429,12 @@ function editStashItem(id) {
   if (_forgeSlideUrls.length > 1) {
     imgArea.style.display = 'block';
     renderSlideStrip();
-    document.getElementById('btnRegenImage').style.display = '';
     document.getElementById('btnDownloadImage').style.display = '';
     _seedForgeVersions('');
     document.getElementById('btnRefineImage').style.display = 'none';
   } else if (forgeGeneratedImageUrl) {
     imgArea.style.display = 'block';
     imgArea.innerHTML = `<img src="${forgeGeneratedImageUrl}" class="forge-image-preview" alt="Generated image" title="Click to zoom" onclick="openForgeLightbox(this.src)">`;
-    document.getElementById('btnRegenImage').style.display = '';
     document.getElementById('btnDownloadImage').style.display = '';
     _seedForgeVersions(forgeGeneratedImageUrl);   // refine a saved flyer too
     document.getElementById('btnRefineImage').style.display = '';

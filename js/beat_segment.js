@@ -1,24 +1,23 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// BEAT SEGMENT PICKER — upload a track, scrub the waveform, drag a window
-// onto the bit you want. That segment scores the composite video.
-// (wiki/spec/forge_beat_segment.md — the slick build of firepit_beat.md's
-//  manual clip-picker.) Emits one value to makeBeatVideo: audio_start_seconds.
+// BEAT SEGMENT PICKER — upload a track, drag in/out handles on the waveform.
+// Emits two values to makeBeatVideo: audio_start_seconds + duration_seconds.
 //
-// Pure vanilla — Web Audio API decodes the file to peaks drawn on a <canvas>;
-// a drag-window with a box-shadow "spotlight" dims everything outside it (no
-// per-frame canvas redraw). Preview auditions ONLY the window via a plain
-// <audio> element with an animated playhead. No audio library.
+// Architecture: Web Audio API decodes peaks into a <canvas>; two drag handles
+// set _beatStart (left) and _beatEnd (right). Canvas redraws on each drag —
+// bars outside the selection are dimmed (alpha 0.2), inside are bright.
+// Preview plays from _beatStart to _beatEnd via a plain <audio> element.
+// No audio library; no fixed clip length.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const BEAT_PEAK_BUCKETS = 480;   // resolution-independent peak array (resize-safe)
+const BEAT_PEAK_BUCKETS = 480;   // resolution-independent peak array
 const BEAT_BAR_STEP = 3;         // px per bar (2px bar + 1px gap)
 
-let _beatPeaks = null;           // Float32Array(BEAT_PEAK_BUCKETS) of 0..1 heights
+let _beatPeaks = null;           // Float32Array of 0..1 heights
 let _beatDur = 0;                // track length, seconds
-let _beatClipLen = 10;           // selection window length, seconds (= composite duration)
-let _beatStart = 0;              // selected start, seconds
-let _beatAudioCtx = null;        // reused AudioContext (decode only)
-let _beatObjUrl = null;          // object URL for the preview <audio>
+let _beatStart = 0;              // in-point, seconds
+let _beatEnd = 0;                // out-point, seconds (= full duration after load)
+let _beatAudioCtx = null;
+let _beatObjUrl = null;
 let _beatPreviewRAF = null;
 
 function _beatCtx() {
@@ -31,26 +30,27 @@ function _beatFmt(s) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// Decode the picked file and show the picker. Async; falls back gracefully if
-// the browser can't decode (selection just stays hidden — the file still uploads).
 async function beatSegmentInit(file) {
   const seg = document.getElementById('beatSegment');
   const errEl = document.getElementById('forgeBeatError');
   if (errEl) errEl.style.display = 'none';
   _beatStopPreview();
   if (!file) { if (seg) seg.style.display = 'none'; return; }
+
+  const dropLabel = document.getElementById('forgeBeatFileName');
+  if (dropLabel) dropLabel.textContent = file.name;
+
   try {
     const buf = await _beatCtx().decodeAudioData(await file.arrayBuffer());
     _beatDur = buf.duration;
-    _beatClipLen = Math.min(10, _beatDur);
     _beatStart = 0;
+    _beatEnd = _beatDur;
     _beatPeaks = _beatComputePeaks(buf, BEAT_PEAK_BUCKETS);
     if (_beatObjUrl) URL.revokeObjectURL(_beatObjUrl);
     _beatObjUrl = URL.createObjectURL(file);
     const audio = document.getElementById('beatSegAudio');
     if (audio) audio.src = _beatObjUrl;
     if (seg) seg.style.display = 'block';
-    // Panel was display:none → measure after a frame so clientWidth is real.
     requestAnimationFrame(() => { _beatDrawWave(); _beatLayout(); });
   } catch (e) {
     if (seg) seg.style.display = 'none';
@@ -58,7 +58,6 @@ async function beatSegmentInit(file) {
   }
 }
 
-// Max-abs over channel 0, bucketed. One pass, O(samples).
 function _beatComputePeaks(buf, buckets) {
   const data = buf.getChannelData(0);
   const per = Math.max(1, Math.floor(data.length / buckets));
@@ -74,7 +73,7 @@ function _beatComputePeaks(buf, buckets) {
     peaks[b] = peak;
     if (peak > max) max = peak;
   }
-  for (let b = 0; b < buckets; b++) peaks[b] /= max;   // normalise to 0..1
+  for (let b = 0; b < buckets; b++) peaks[b] /= max;
   return peaks;
 }
 
@@ -89,56 +88,83 @@ function _beatDrawWave() {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#ff4500';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#ff4500';
   const bars = Math.floor(w / BEAT_BAR_STEP);
   const mid = h / 2;
+  const selL = _beatDur > 0 ? (_beatStart / _beatDur) * bars : 0;
+  const selR = _beatDur > 0 ? (_beatEnd / _beatDur) * bars : bars;
+  ctx.fillStyle = accent;
   for (let i = 0; i < bars; i++) {
     const peak = _beatPeaks[Math.floor((i / bars) * _beatPeaks.length)] || 0;
     const barH = Math.max(2, peak * (h - 6));
+    ctx.globalAlpha = (i >= selL && i <= selR) ? 1 : 0.18;
     ctx.fillRect(i * BEAT_BAR_STEP, mid - barH / 2, 2, barH);
   }
+  ctx.globalAlpha = 1;
 }
 
-// Position the window + time label from _beatStart / _beatClipLen.
 function _beatLayout() {
   const wrap = document.getElementById('beatWaveWrap');
-  const win = document.getElementById('beatSegWindow');
+  const hl = document.getElementById('beatHandleL');
+  const hr = document.getElementById('beatHandleR');
+  const reg = document.getElementById('beatRegion');
   const time = document.getElementById('beatSegTime');
-  if (!wrap || !win || !_beatDur) return;
+  if (!wrap || !hl || !hr || !_beatDur) return;
   const w = wrap.clientWidth;
-  const winW = Math.max(18, (_beatClipLen / _beatDur) * w);
-  const maxLeft = w - winW;
-  const left = Math.min(maxLeft, Math.max(0, (_beatStart / _beatDur) * w));
-  win.style.width = winW + 'px';
-  win.style.left = left + 'px';
-  if (time) time.textContent = `${_beatFmt(_beatStart)} – ${_beatFmt(_beatStart + _beatClipLen)}`;
+  const lPx = Math.max(0, (_beatStart / _beatDur) * w);
+  const rPx = Math.min(w, (_beatEnd / _beatDur) * w);
+  hl.style.left = lPx + 'px';
+  hr.style.left = rPx + 'px';
+  if (reg) { reg.style.left = lPx + 'px'; reg.style.width = (rPx - lPx) + 'px'; }
+  const dur = _beatEnd - _beatStart;
+  const loopEl = document.getElementById('forgeBeatLoop');
+  const hintEl = document.getElementById('beatLoopHint');
+  if (hintEl) {
+    hintEl.textContent = (loopEl && loopEl.checked && dur > 0)
+      ? `→ ${_beatFmt(Math.min(dur * 3, 90))} total`
+      : '';
+  }
+  if (time) time.textContent = `${_beatFmt(_beatStart)} – ${_beatFmt(_beatEnd)}  (${_beatFmt(dur)})`;
+  _beatDrawWave();
 }
 
-// ── Drag the window to pick the start ──────────────────────
-function _beatPointerDown(e) {
+// ── Left handle drags the in-point ──────────────────────────
+function _beatPointerDownL(e) {
   const wrap = document.getElementById('beatWaveWrap');
-  const win = document.getElementById('beatSegWindow');
-  if (!wrap || !win || !_beatDur) return;
+  if (!wrap || !_beatDur) return;
   e.preventDefault();
   _beatStopPreview();
+  const rect = wrap.getBoundingClientRect();
   const w = wrap.clientWidth;
-  const winW = win.offsetWidth;
-  const maxLeft = w - winW;
-  const grab = e.clientX - win.offsetLeft;
   const onMove = (ev) => {
-    const left = Math.min(maxLeft, Math.max(0, ev.clientX - grab));
-    _beatStart = (left / w) * _beatDur;
+    const x = ev.clientX - rect.left;
+    _beatStart = Math.max(0, Math.min(_beatEnd - 0.5, (x / w) * _beatDur));
     _beatLayout();
   };
-  const onUp = () => {
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-  };
+  const onUp = () => { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); };
   document.addEventListener('pointermove', onMove);
   document.addEventListener('pointerup', onUp);
 }
 
-// ── Preview: audition ONLY the selected window, animated playhead ──
+// ── Right handle drags the out-point ────────────────────────
+function _beatPointerDownR(e) {
+  const wrap = document.getElementById('beatWaveWrap');
+  if (!wrap || !_beatDur) return;
+  e.preventDefault();
+  _beatStopPreview();
+  const rect = wrap.getBoundingClientRect();
+  const w = wrap.clientWidth;
+  const onMove = (ev) => {
+    const x = ev.clientX - rect.left;
+    _beatEnd = Math.max(_beatStart + 0.5, Math.min(_beatDur, (x / w) * _beatDur));
+    _beatLayout();
+  };
+  const onUp = () => { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); };
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+}
+
+// ── Preview: audition from in-point to out-point ─────────────
 function beatSegmentPreview() {
   const audio = document.getElementById('beatSegAudio');
   const btn = document.getElementById('beatSegPlay');
@@ -152,7 +178,7 @@ function beatSegmentPreview() {
     if (head) head.style.display = 'block';
     const tick = () => {
       if (audio.paused) return;
-      if (audio.currentTime >= _beatStart + _beatClipLen) { _beatStopPreview(); return; }
+      if (audio.currentTime >= _beatEnd) { _beatStopPreview(); return; }
       if (head && wrap) head.style.left = ((audio.currentTime / _beatDur) * wrap.clientWidth) + 'px';
       _beatPreviewRAF = requestAnimationFrame(tick);
     };
@@ -170,25 +196,31 @@ function _beatStopPreview() {
   if (head) head.style.display = 'none';
 }
 
-// The one value makeBeatVideo reads. 2dp is plenty for an FFmpeg seek.
+// Values read by makeBeatVideo.
 function beatSegmentStart() {
   return Math.round(_beatStart * 100) / 100;
 }
+function beatSegmentDuration() {
+  return Math.max(0.5, Math.round((_beatEnd - _beatStart) * 100) / 100);
+}
 
-// Tear down — called on CANCEL, after a successful forge, and on panel open.
 function beatSegmentReset() {
   _beatStopPreview();
-  _beatPeaks = null; _beatDur = 0; _beatStart = 0;
+  _beatPeaks = null; _beatDur = 0; _beatStart = 0; _beatEnd = 0;
   if (_beatObjUrl) { URL.revokeObjectURL(_beatObjUrl); _beatObjUrl = null; }
   const audio = document.getElementById('beatSegAudio'); if (audio) audio.removeAttribute('src');
   const seg = document.getElementById('beatSegment'); if (seg) seg.style.display = 'none';
   const file = document.getElementById('forgeBeatFile'); if (file) file.value = '';
+  const dropLabel = document.getElementById('forgeBeatFileName'); if (dropLabel) dropLabel.textContent = 'Add audio';
 }
 
-// Wire the drag handle + keep layout correct on resize.
 document.addEventListener('DOMContentLoaded', () => {
-  const win = document.getElementById('beatSegWindow');
-  if (win) win.addEventListener('pointerdown', _beatPointerDown);
+  const hl = document.getElementById('beatHandleL');
+  const hr = document.getElementById('beatHandleR');
+  if (hl) hl.addEventListener('pointerdown', _beatPointerDownL);
+  if (hr) hr.addEventListener('pointerdown', _beatPointerDownR);
+  const loopEl = document.getElementById('forgeBeatLoop');
+  if (loopEl) loopEl.addEventListener('change', () => _beatLayout());
   let rt = null;
   window.addEventListener('resize', () => {
     clearTimeout(rt);
