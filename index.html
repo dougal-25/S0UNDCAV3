@@ -397,15 +397,9 @@
 
   <!-- ─── FIREPIT TAB ─────────────────────────────────── -->
   <div id="tab-firepit" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">FIREPIT</h2>
-        <p class="subtitle" style="margin-bottom:20px">Create, store and plan content for your artists, labels and events.</p>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:11px;color:var(--muted)">API:</span>
-        <span id="apiStatus" style="font-size:11px;color:var(--muted)">Not connected</span>
-      </div>
+    <div style="margin-bottom:6px">
+      <h2 style="font-size:20px;font-weight:700;color:var(--heading)">FIREPIT</h2>
+      <p class="subtitle" style="margin-bottom:20px">Create, store and plan content for your artists, labels and events.</p>
     </div>
 
     <!-- (internal firepit-modes strip removed 2026-05-28 — replaced by global #firepitSubnav, see spec/firepit_headline.md) -->
@@ -466,7 +460,7 @@
             <!-- Carousel only: how many stills in the set (Phase B) -->
             <div id="forgeSlideCountWrap" style="display:none;margin-top:10px">
               <label class="forge-label">Slides <span style="color:var(--muted);font-weight:normal">(one image per slide, one locked style)</span></label>
-              <select class="input" id="forgeSlideCount">
+              <select class="input" id="forgeSlideCount" onchange="syncSlideTextCount()">
                 <option value="2">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>
@@ -477,6 +471,11 @@
                 <option value="9">9</option>
                 <option value="10">10</option>
               </select>
+            </div>
+            <!-- Per-slide text baked into each image (carousel only) -->
+            <div id="forgeSlideTextsWrap" style="display:none;margin-top:12px">
+              <label class="forge-label">Slide text <span style="color:var(--muted);font-weight:normal">(baked into each image — artist, date, venue…)</span></label>
+              <div id="forgeSlideTextInputs"></div>
             </div>
           </div>
 
@@ -610,6 +609,7 @@
               <button class="btn-outline" type="button" id="btnRefineImage" onclick="toggleRefinePanel()" style="display:none" title="Make one small change — keep everything else">✎ REFINE</button>
               <button class="btn-outline" type="button" id="btnMakeVideo" onclick="openBeatPanel()" style="display:none" title="Add a track — export a video that pulses to the beat">+ ADD A BEAT</button>
               <button class="btn-outline" type="button" id="btnDownloadImage" onclick="downloadForgeImage()" style="display:none">DOWNLOAD</button>
+              <button class="btn-outline" type="button" id="btnDownloadAll" onclick="downloadAllSlides()" style="display:none" title="Download all slides as individual files">DOWNLOAD ALL</button>
               <button class="btn-outline" type="button" onclick="resetForgeOutput()" title="Clear this output">DISCARD</button>
             </div>
             <!-- Iteration loop (wiki/spec/forge_iteration_loop.md) — refine the last output, never reroll -->
@@ -670,6 +670,11 @@
               <div id="forgeBeatError" class="forge-ref-error" style="display:none"></div>
             </div>
           </div>
+        </div>
+
+        <!-- Generation meta — direction, format, refs, model (populated by updateForgeMetaPanel) -->
+        <div id="forgeMetaPanel" class="forge-meta-panel" style="display:none">
+          <div class="forge-meta-grid" id="forgeMetaGrid"></div>
         </div>
 
         <!-- Image lightbox — click any generated image to zoom (Esc / click-away closes) -->

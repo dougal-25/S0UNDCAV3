@@ -159,7 +159,6 @@ async function renderFirepit() {
   updateStashCount();
   populateStashTypeFilter();
   if (firepitMode === 'stash') renderStash();
-  checkApiStatus();
 }
 
 // ── Brand kits (for the Forge selector + compositor handoff) ─────
@@ -477,10 +476,45 @@ function updateForgeFields() {
   // A format with no fact fields (Still) hides the section label.
   const factsLabel = document.getElementById('forgeFactsLabel');
   if (factsLabel) factsLabel.style.display = factsHtml ? '' : 'none';
-  // Carousel only: the slide-count picker (Phase B).
+  // Carousel only: the slide-count picker + per-slide text inputs.
   const slideWrap = document.getElementById('forgeSlideCountWrap');
-  if (slideWrap) slideWrap.style.display = type === 'social_carousel' ? '' : 'none';
+  const textsWrap = document.getElementById('forgeSlideTextsWrap');
+  const isCarousel = type === 'social_carousel';
+  if (slideWrap) slideWrap.style.display = isCarousel ? '' : 'none';
+  if (textsWrap) textsWrap.style.display = isCarousel ? '' : 'none';
+  if (isCarousel) syncSlideTextCount();
   updateCharCount();
+}
+
+function syncSlideTextCount() {
+  const n = parseInt(document.getElementById('forgeSlideCount')?.value || '5', 10);
+  const container = document.getElementById('forgeSlideTextInputs');
+  if (!container) return;
+  // Preserve any values the user already typed.
+  const existing = Array.from(container.querySelectorAll('input[data-slide]'))
+    .map(el => el.value);
+  container.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'forge-slide-text-group';
+    const heading = document.createElement('div');
+    heading.className = 'forge-slide-text-heading';
+    heading.textContent = `Slide ${String(i + 1).padStart(2, '0')}`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'input';
+    input.dataset.slide = i;
+    input.placeholder = 'Artist name, date, venue, event info…';
+    if (existing[i] !== undefined) input.value = existing[i];
+    wrap.appendChild(heading);
+    wrap.appendChild(input);
+    container.appendChild(wrap);
+  }
+}
+
+function _getSlideTexts() {
+  const inputs = document.querySelectorAll('#forgeSlideTextInputs input[data-slide]');
+  return Array.from(inputs).map(el => el.value.trim());
 }
 
 function updateCharCount() {
@@ -575,9 +609,10 @@ function gatherForgeContext() {
   const ctx = { content_type: type };
   // L7 delivery: per-generation output size (4:5 / 9:16 / 1:1).
   ctx.size = document.getElementById('forgeSize')?.value || '4:5';
-  // Carousel: slide count drives the copy (one slide = one image, Phase B).
+  // Carousel: slide count + per-slide baked text (one slide = one image, Phase B).
   if (type === 'social_carousel') {
     ctx.n_slides = parseInt(document.getElementById('forgeSlideCount')?.value || '5', 10);
+    ctx.slide_texts = _getSlideTexts();
   }
 
   if (ct.fields.includes('artist')) {
@@ -714,6 +749,8 @@ async function generateContent(variation) {
   actionsEl.style.display = 'none';
   _hideCaptionBox();
   _forgePickedSnapshot = '';
+  // Seed the meta panel immediately with inputs (model fills in once image returns).
+  updateForgeMetaPanel(ctx, null);
 
   try {
     const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate`, {
@@ -781,6 +818,8 @@ function resetForgeOutput() {
   _forgeSlideTexts = [];
   _forgeActiveSlide = 0;
   _compositorActive = false;
+  _forgeMetaCtx = null;
+  const _mp = document.getElementById('forgeMetaPanel'); if (_mp) _mp.style.display = 'none';
   if (window.scCompositor) try { scCompositor.hide(); } catch (e) {}
   document.getElementById('forgeOutputArea').innerHTML =
     `<div class="forge-loading" style="border:1px dashed var(--border);border-radius:8px">
@@ -791,6 +830,7 @@ function resetForgeOutput() {
   imgArea.innerHTML = '';
   _seedForgeVersions('');
   const _ri = document.getElementById('btnRefineImage'); if (_ri) _ri.style.display = 'none';
+  const _da = document.getElementById('btnDownloadAll'); if (_da) _da.style.display = 'none';
   _hideCaptionBox();
   document.getElementById('forgeActions').style.display = 'none';
   updateCharCount();
@@ -867,6 +907,7 @@ async function generateImage(ctx) {
         <div class="forge-image-meta">
           ${data.dimensions.width}x${data.dimensions.height} | ${data.provider}/${data.model}
         </div>`;
+      updateForgeMetaPanel(null, { provider: data.provider, model: data.model, dims: `${data.dimensions.width}×${data.dimensions.height}` });
       // Iteration loop: seed the version chain + offer refine (single images only).
       _seedForgeVersions(forgeGeneratedImageUrl);
       document.getElementById('btnRefineImage').style.display = '';
@@ -931,14 +972,29 @@ async function _generateOneSlide(ctx, i, seed) {
 async function generateCarouselImages(ctx) {
   const imgArea = document.getElementById('forgeImageArea');
   imgArea.style.display = 'block';
-  _forgeSlideTexts = _splitSlides(forgeGeneratedContent, ctx.n_slides);
+  // Use user-supplied per-slide texts when any are filled in; fall back to
+  // splitting the LLM-generated copy (legacy behaviour when inputs are blank).
+  const userTexts = Array.isArray(ctx.slide_texts) ? ctx.slide_texts.filter(Boolean) : [];
+  if (userTexts.length) {
+    _forgeSlideTexts = ctx.slide_texts.slice(0, ctx.n_slides || userTexts.length);
+    // Pad with empty strings if user filled fewer than slide count.
+    while (_forgeSlideTexts.length < (ctx.n_slides || 5)) _forgeSlideTexts.push('');
+  } else {
+    _forgeSlideTexts = _splitSlides(forgeGeneratedContent, ctx.n_slides);
+  }
   _forgeSlideUrls = new Array(_forgeSlideTexts.length).fill(null);
   _forgeActiveSlide = 0;
   const seed = Math.floor(Math.random() * 1e9);   // one seed = one locked style
+  let _firstSlideModel = null;
   for (let i = 0; i < _forgeSlideTexts.length; i++) {
     imgArea.innerHTML = `<div class="forge-image-loading">Forging slide ${i + 1} / ${_forgeSlideTexts.length}…</div>` + _slideStripHTML();
     try {
-      await _generateOneSlide(ctx, i, seed);
+      const slideData = await _generateOneSlide(ctx, i, seed);
+      if (i === 0 && slideData && !_firstSlideModel) {
+        _firstSlideModel = { provider: slideData.provider, model: slideData.model,
+          dims: slideData.dimensions ? `${slideData.dimensions.width}×${slideData.dimensions.height}` : '' };
+        updateForgeMetaPanel(null, _firstSlideModel);
+      }
     } catch (e) {
       console.warn('slide failed', i + 1, e);
     }
@@ -947,6 +1003,8 @@ async function generateCarouselImages(ctx) {
   forgeGeneratedImageUrl = _forgeSlideUrls.find(Boolean) || '';
   document.getElementById('btnRegenImage').style.display = '';
   document.getElementById('btnDownloadImage').style.display = '';
+  const _dlAll = document.getElementById('btnDownloadAll');
+  if (_dlAll) _dlAll.style.display = '';
   _seedForgeVersions('');   // refine is single-image only
   document.getElementById('btnRefineImage').style.display = 'none';
 }
@@ -1070,8 +1128,9 @@ async function refineImage() {
     inp.value = '';
   } catch (e) {
     if (hint) { hint.textContent = '⚠ ' + e.message; hint.style.color = 'var(--red)'; }
+  } finally {
+    btn.textContent = orig; btn.disabled = false;
   }
-  btn.textContent = orig; btn.disabled = false;
 }
 
 // ── Beat → composite video (Phase D, master spec §6/§10) ──
@@ -1095,12 +1154,12 @@ async function makeBeatVideo(btn) {
   }
   if (!forgeGeneratedImageUrl) { errEl.textContent = 'Generate a still first.'; errEl.style.display = 'block'; return; }
 
-  const orig = btn.textContent; btn.textContent = '⏳ Forging video…'; btn.disabled = true;
+  const orig = btn.textContent; btn.textContent = ‘⏳ Forging video…’; btn.disabled = true;
   try {
     const ctx = gatherForgeContext();
     const fd = new FormData();
-    fd.append('data', JSON.stringify({
-      ...ctx, media_type: 'video_composite',
+    fd.append(‘data’, JSON.stringify({
+      ...ctx, media_type: ‘video_composite’,
       base_image_url: forgeGeneratedImageUrl,
       duration_seconds: 10,
       // The Beat segment the user dragged to on the waveform (forge_beat_segment.md).
@@ -1108,24 +1167,25 @@ async function makeBeatVideo(btn) {
       generated_text: forgeGeneratedContent,
       rights: { category, proof_url: proof || null },
     }));
-    fd.append('audio_file', file);
-    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate-media`, { method: 'POST', body: fd });
+    fd.append(‘audio_file’, file);
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate-media`, { method: ‘POST’, body: fd });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.detail || j.error || `API ${r.status}`);
     }
     const j = await r.json();
     forgeGeneratedVideoUrl = j.media_url;
-    const imgArea = document.getElementById('forgeImageArea');
+    const imgArea = document.getElementById(‘forgeImageArea’);
     imgArea.innerHTML = `<video src="${j.media_url}" class="forge-image-preview" controls autoplay loop muted playsinline></video>
-      <div class="forge-image-meta">${j.provider}/${j.model} · ${j.dimensions?.width}×${j.dimensions?.height}${_BEAT_BLOCKED.has(category) ? ' · ⚠️ can’t be scheduled (rights)' : ''}</div>`;
-    document.getElementById('forgeBeatPanel').style.display = 'none';
-    if (typeof beatSegmentReset === 'function') beatSegmentReset();
-    document.getElementById('btnDownloadImage').style.display = '';
+      <div class="forge-image-meta">${j.provider}/${j.model} · ${j.dimensions?.width}×${j.dimensions?.height}${_BEAT_BLOCKED.has(category) ? ‘ · ⚠️ can\’t be scheduled (rights)’ : ‘’}</div>`;
+    document.getElementById(‘forgeBeatPanel’).style.display = ‘none’;
+    if (typeof beatSegmentReset === ‘function’) beatSegmentReset();
+    document.getElementById(‘btnDownloadImage’).style.display = ‘’;
   } catch (e) {
-    errEl.textContent = e.message; errEl.style.display = 'block';
+    errEl.textContent = e.message; errEl.style.display = ‘block’;
+  } finally {
+    btn.textContent = orig; btn.disabled = false;
   }
-  btn.textContent = orig; btn.disabled = false;
 }
 
 function downloadForgeImage() {
@@ -1133,7 +1193,7 @@ function downloadForgeImage() {
   if (!url) return;
   const a = document.createElement('a');
   a.href = url;
-  a.download = `soundcave_${Date.now()}.png`;
+  a.download = `soundcave_forge.png`;
   a.click();
 }
 
@@ -1226,13 +1286,34 @@ async function saveAnimationToStash(btn) {
   }
 }
 
+async function downloadAllSlides() {
+  const urls = _forgeSlideUrls.filter(Boolean);
+  if (!urls.length) return;
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const res = await fetch(urls[i]);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `soundcave_slide_${String(i + 1).padStart(2, '0')}.png`;
+      a.click();
+      await new Promise(resolve => setTimeout(resolve, 350));
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.warn(`slide ${i + 1} download failed`, e);
+    }
+  }
+}
+
 async function saveToStash() {
   if (!forgeGeneratedContent) return;
   const type = document.getElementById('forgeContentType').value;
   const ct = CONTENT_TYPES[type];
   const btn = event.target;
+  if (btn.disabled) return;
   const orig = btn.innerHTML;
-  btn.innerHTML = '⏳ Saving…';
+  btn.textContent = '⏳ Saving…'; btn.disabled = true;
   try {
     // If the compositor is active, flatten the canvas and upload the composited PNG
     // (we reuse /api/brand_assets/upload as a public-storage drop until a dedicated
@@ -1259,7 +1340,7 @@ async function saveToStash() {
         imageUrl: savedImageUrl,
         // Carousel sets ride in context.slideUrls (metadata JSON — no migration).
         context: { ...gatherForgeContext(),
-                   ...(_forgeSlideUrls.filter(Boolean).length > 1 ? { slideUrls: _forgeSlideUrls.filter(Boolean) } : {}) },
+                   ...(_forgeSlideUrls.filter(Boolean).length > 1 ? { slideUrls: _forgeSlideUrls.filter(Boolean), slideTexts: _forgeSlideTexts } : {}) },
         status: 'draft',
       }),
     });
@@ -1267,12 +1348,13 @@ async function saveToStash() {
     const j = await r.json();
     if (j.item) _stashCache.unshift(_stashRowToItem(j.item));
     updateStashCount();
-    btn.innerHTML = '✅ Saved!';
+    btn.textContent = '✅ Saved!';
   } catch (e) {
     console.error('saveToStash failed', e);
-    btn.innerHTML = '❌ Failed';
+    btn.textContent = '❌ Failed';
+  } finally {
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
   }
-  setTimeout(() => btn.innerHTML = orig, 1500);
 }
 
 // Stash VIEW (renderStash, updateStashCount, populateStashTypeFilter, campaign
@@ -1324,11 +1406,21 @@ function editStashItem(id) {
   forgeGeneratedContent = item.content;
   _hideCaptionBox();   // caption box is a generate-flow feature; Stash uses the output area
   forgeGeneratedImageUrl = item.imageUrl || '';
-  // Restore a carousel set's slide strip (Phase B).
+  // Restore a carousel set's slide strip + per-slide text inputs (Phase B).
   const _slides = Array.isArray(ctx.slideUrls) ? ctx.slideUrls : [];
   _forgeSlideUrls = _slides.slice();
   _forgeSlideTexts = _slides.length ? _splitSlides(item.content, _slides.length) : [];
   _forgeActiveSlide = 0;
+  // Re-populate per-slide text inputs if this carousel had them stored.
+  if (_slides.length) {
+    const slideCountEl = document.getElementById('forgeSlideCount');
+    if (slideCountEl) slideCountEl.value = String(Math.min(10, Math.max(2, _slides.length)));
+    syncSlideTextCount();
+    const storedTexts = Array.isArray(ctx.slideTexts) ? ctx.slideTexts : _forgeSlideTexts;
+    document.querySelectorAll('#forgeSlideTextInputs input[data-slide]').forEach((el, i) => {
+      el.value = storedTexts[i] || '';
+    });
+  }
   document.getElementById('forgeOutputArea').innerHTML = `<textarea class="forge-output" id="forgeOutputText" oninput="forgeGeneratedContent=this.value;updateCharCount()">${esc(item.content)}</textarea>`;
   document.getElementById('forgeActions').style.display = 'block';
   // Restore image (or carousel slide strip) if present
@@ -1370,6 +1462,52 @@ async function deleteStashItem(id) {
   try {
     await scAuth.authedFetch(`${forgeApiUrl}/api/stash/${id}`, { method: 'DELETE' });
   } catch (e) { console.warn('stash delete failed', e); }
+}
+
+// ── Output meta panel (forge_carousel_per_slide.md spec) ──
+// Called once when generation starts (ctx known, model not yet); called again
+// after image completes to fill in provider/model/dimensions.
+let _forgeMetaCtx = null;
+
+function updateForgeMetaPanel(ctx, modelInfo) {
+  const panel = document.getElementById('forgeMetaPanel');
+  const grid = document.getElementById('forgeMetaGrid');
+  if (!panel || !grid) return;
+  if (ctx) _forgeMetaCtx = ctx;
+  const c = _forgeMetaCtx;
+  if (!c) return;
+
+  const typeLabel = contentTypeLabel(c.content_type);
+  const sizeLabel = c.size || '';
+  const slidesLabel = c.n_slides ? ` · ${c.n_slides} slides` : '';
+  const formatVal = [typeLabel, sizeLabel].filter(Boolean).join(' · ') + slidesLabel;
+
+  const dirVal = (c.freeform || '').trim() || '—';
+  const truncDir = dirVal.length > 120 ? dirVal.slice(0, 120) + '…' : dirVal;
+
+  const refs = Array.isArray(c.reference_images) ? c.reference_images : [];
+  const refsHtml = refs.length
+    ? `<div class="forge-meta-refs">${refs.map(r => {
+        const src = r.data ? `data:image/jpeg;base64,${r.data}` : (r.url || '');
+        return src ? `<img class="forge-meta-ref-thumb" src="${esc(src)}" alt="ref">` : '';
+      }).join('')}</div>`
+    : '<span class="forge-meta-val-muted">none</span>';
+
+  const modelVal = modelInfo
+    ? `${modelInfo.provider || ''}/${modelInfo.model || ''}`
+      + (modelInfo.dims ? ` · ${modelInfo.dims}` : '')
+    : '<span class="forge-meta-val-muted">—</span>';
+
+  const entry = (key, val) =>
+    `<div class="forge-meta-entry"><div class="forge-meta-key">${esc(key)}</div><div class="forge-meta-val">${val}</div></div>`;
+
+  grid.innerHTML =
+    entry('Format', esc(formatVal)) +
+    entry('Direction', esc(truncDir)) +
+    entry('References', refsHtml) +
+    entry('Model', modelVal);
+
+  panel.style.display = '';
 }
 
 // ── Content-type picker (custom button grid) ──────────
