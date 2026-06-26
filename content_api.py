@@ -27,8 +27,16 @@ from media_gen import (
 )
 import conjure_gen   # Forge "Conjure" format — generative image edit + video (fal orchestration)
 
-# Load .env from workspace root (one level up from project)
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+# Load .env from workspace root — walk up until we find it (handles worktrees at varying depths)
+def _find_dotenv(start):
+    d = os.path.abspath(start)
+    for _ in range(5):
+        candidate = os.path.join(d, '.env')
+        if os.path.isfile(candidate):
+            return candidate
+        d = os.path.dirname(d)
+    return None
+load_dotenv(_find_dotenv(os.path.dirname(__file__)))
 
 # Admin allowlist (env-driven — never hardcode an email, this repo is public).
 # Comma-separated emails in ADMIN_EMAILS bypass in-app credit charges entirely:
