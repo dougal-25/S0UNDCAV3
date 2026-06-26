@@ -1160,7 +1160,7 @@ async function makeBeatVideo(btn) {
         const segDur = typeof beatSegmentDuration === 'function' ? beatSegmentDuration() : 10;
         const loopOn = document.getElementById('forgeBeatLoop')?.checked;
         return {
-          duration_seconds: loopOn ? Math.min(segDur * 3, 90) : segDur,
+          duration_seconds: loopOn ? 90 : segDur,
           loop_audio: loopOn ? true : false,
           clip_duration: segDur,
         };

@@ -121,7 +121,7 @@ function _beatLayout() {
   const hintEl = document.getElementById('beatLoopHint');
   if (hintEl) {
     hintEl.textContent = (loopEl && loopEl.checked && dur > 0)
-      ? `→ ${_beatFmt(Math.min(dur * 3, 90))} total`
+      ? `→ loops to 1:30`
       : '';
   }
   if (time) time.textContent = `${_beatFmt(_beatStart)} – ${_beatFmt(_beatEnd)}  (${_beatFmt(dur)})`;
