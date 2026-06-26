@@ -1,6 +1,6 @@
 # Spec — Per-Friend Single-Use Invite Codes
 
-**Status:** proposed 2026-06-26 (Doug) · **Branch:** `invite-codes`
+**Status:** SHIPPED LIVE 2026-06-26 (verified on prod; merge `603cd12`, `railway up`) · **Branch:** `invite-codes` (merged to main)
 **Supersedes:** the env `INVITE_CODES` shared-pool path in [free_trial_invite_gate.md](free_trial_invite_gate.md) (that gate ships the *frontend Claim flow + 0-credit signup*, which we keep — only the **server-side validation source** changes from an env set to a DB table).
 
 ## Why now
