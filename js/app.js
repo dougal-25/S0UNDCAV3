@@ -445,6 +445,29 @@ function saveNotes() {
 function getTopTracksCache()  { return JSON.parse(localStorage.getItem('sc_top_tracks') || '{}'); }
 function saveTopTracksCache(d){ localStorage.setItem('sc_top_tracks', JSON.stringify(d)); }
 
+// Liked-tracks cache — tracks the Cave SC account has liked for each artist.
+// Stored in localStorage with a 10-min TTL to avoid redundant API hits.
+function getLikedTracksCache() { return JSON.parse(localStorage.getItem('sc_liked_tracks') || '{}'); }
+function saveLikedTracksCache(d) { localStorage.setItem('sc_liked_tracks', JSON.stringify(d)); }
+
+async function fetchLikedTracks(username) {
+  const TTL = 10 * 60 * 1000;
+  const cache = getLikedTracksCache();
+  const hit = cache[username];
+  if (hit && (Date.now() - hit.ts) < TTL) return hit.tracks;
+  try {
+    const r = await fetch(`${scApiBase()}/api/liked-tracks/${encodeURIComponent(username)}`);
+    if (!r.ok) return [];
+    const data = await r.json();
+    const tracks = (data.tracks || []).map(t => ({ ...t, _liked: true }));
+    cache[username] = { ts: Date.now(), tracks };
+    saveLikedTracksCache(cache);
+    return tracks;
+  } catch {
+    return [];
+  }
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // UTILITIES
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1104,17 +1127,36 @@ function renderPanel(username) {
   // Metric chart — backend daily snapshots, switched by the tiles above.
   renderMetricChart(username);
 
-  // Suggested tracks — top 5: scout-discovered first (they carry a score),
-  // then the artist's live top tracks by plays, deduped by URL/title.
+  // Suggested tracks — three sources merged, deduped by URL/title:
+  //   1. Scout-discovered tracks (carry a score)
+  //   2. Artist's live top tracks by play count
+  //   3. Tracks the Cave SC account has liked for this artist (♥)
   const seen = (a.tracks_seen||[]).map(t => ({ ...t, _scout: true }));
   const liveTop = getTopTracksCache()[username] || [];
+  const likedTop = isClan ? (getLikedTracksCache()[username]?.tracks || []) : [];
+
+  // Kick off a background liked-tracks fetch for clan artists; re-render when it lands.
+  if (isClan) {
+    fetchLikedTracks(username).then(fresh => {
+      if (!fresh.length) return;
+      const prior = getLikedTracksCache()[username]?.tracks || [];
+      const changed = fresh.length !== prior.length ||
+        fresh.some((t, i) => t.url !== prior[i]?.url);
+      if (changed && activeArtist === username) renderPanel(username);
+    });
+  }
+
   const merged = [...seen];
-  for (const t of liveTop) {
+  const addIfNew = t => {
     const dupe = merged.find(m =>
       (m.url && t.url && m.url.replace(/\/$/,'') === t.url.replace(/\/$/,'')) ||
       (m.title && t.title && m.title.toLowerCase() === t.title.toLowerCase()));
-    if (!dupe) merged.push(t);
-  }
+    if (dupe) { if (t._liked) dupe._liked = true; }  // flag liked even if already in list
+    else merged.push(t);
+  };
+  liveTop.forEach(t => addIfNew(t));
+  likedTop.forEach(t => addIfNew(t));
+
   // Apply the user's saved preference order (clan only): preferred first in
   // saved order, the rest after. Drag-to-reorder writes back to
   // preferred_tracks. Spec: artist_modal_v4_header_reflow.md.
@@ -1137,7 +1179,7 @@ function renderPanel(username) {
           ${isClan ? `<span class="track-drag" title="Drag to reorder by preference" aria-hidden="true">⠿</span>` : ''}
           <div class="track-row-info">
             <div class="track-row-title">${esc(t.title)}</div>
-            <div class="track-row-meta">${esc(t.date || '')}${t._scout ? ` · Score ${t.score?.toFixed(1)||'—'}` : (t.plays != null ? ` · ${fmt(t.plays)} plays` : '')}</div>
+            <div class="track-row-meta">${t._liked ? '♥ liked' : ''}${t._liked && (t._scout || t.plays != null) ? ' · ' : ''}${esc(t.date || '')}${t._scout ? ` · Score ${t.score?.toFixed(1)||'—'}` : (t.plays != null ? ` · ${fmt(t.plays)} plays` : '')}</div>
           </div>
           ${t.url ? `<a class="track-row-play" href="${esc(t.url)}" target="_blank" rel="noopener" title="Listen on SoundCloud">▶</a>` : ''}
         </div>`).join('')

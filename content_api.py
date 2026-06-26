@@ -2054,6 +2054,72 @@ def artist_stats(username):
                     'location': location, 'cached': False, 'age_seconds': 0})
 
 
+# ── Liked tracks ──────────────────────────────────────────────────────────────
+# Returns tracks that the Cave SC account has liked for a given artist.
+# Requires SOUNDCLOUD_MY_USER_ID in .env (your SoundCloud numeric user ID).
+# Uses the existing client-credentials token — works for public profiles.
+# 10-min in-memory cache per artist to avoid hammering the SC API.
+
+_liked_tracks_cache = {}  # {username: (fetched_at_epoch, [track, ...])}
+
+@app.route('/api/liked-tracks/<username>', methods=['GET'])
+def liked_tracks(username):
+    my_user_id = os.getenv('SOUNDCLOUD_MY_USER_ID', '').strip()
+    if not my_user_id:
+        return jsonify({'tracks': [], 'configured': False})
+
+    now = time.time()
+    cached = _liked_tracks_cache.get(username)
+    if cached and (now - cached[0]) < ARTIST_TTL_SECONDS:
+        return jsonify({'tracks': cached[1], 'cached': True})
+
+    # Resolve the artist username to their SC user_id for filtering
+    artist = sc_resolve_user(username)
+    if not artist:
+        return jsonify({'tracks': []})
+    artist_id = str(artist.get('id', ''))
+
+    token = get_sc_token()
+    if not token:
+        return jsonify({'tracks': [], 'error': 'no SC token'})
+
+    headers = {'Authorization': f'OAuth {token}'}
+    url = f'https://api.soundcloud.com/users/{my_user_id}/likes/tracks'
+    params = {'limit': 200}
+    tracks = []
+
+    for _ in range(5):  # max 1000 liked tracks scanned
+        try:
+            r = http_requests.get(url, params=params, headers=headers, timeout=15)
+        except Exception:
+            break
+        if r.status_code == 401:
+            break
+        if not r.ok:
+            break
+        data = r.json()
+        collection = data.get('collection', data if isinstance(data, list) else [])
+        for t in (collection or []):
+            user = t.get('user', {})
+            if str(user.get('id', '')) == artist_id:
+                tracks.append({
+                    'title': t.get('title') or '',
+                    'url': t.get('permalink_url') or '',
+                    'plays': t.get('playback_count') or 0,
+                    'likes': t.get('likes_count') or t.get('favoritings_count') or 0,
+                    'date': (t.get('created_at') or '')[:10],
+                    'artwork': t.get('artwork_url') or '',
+                })
+        next_href = data.get('next_href') if isinstance(data, dict) else None
+        if not next_href:
+            break
+        url = next_href
+        params = None
+
+    _liked_tracks_cache[username] = (now, tracks)
+    return jsonify({'tracks': tracks, 'cached': False})
+
+
 @app.route('/api/proxy-image', methods=['GET'])
 def proxy_image():
     """Download a SoundCloud CDN image server-side and return it as a data-URL.
