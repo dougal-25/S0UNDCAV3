@@ -1437,6 +1437,12 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
 }
 .forge-dd-opt svg { width: 15px; height: 15px; color: var(--color-accent); flex-shrink: 0; }
 .forge-dd-opt:hover { background: var(--elevated); color: var(--color-accent); }
+.forge-dd-opt:disabled { opacity: 0.38; cursor: not-allowed; }
+.forge-dd-opt:disabled:hover { background: transparent; color: var(--secondary); }
+.forge-soon {
+  margin-left: auto; font-size: 9px; letter-spacing: 0.06em;
+  color: var(--muted); text-transform: uppercase;
+}
 
 /* Cave→Firepit asset suggestions (forge_elements.md Phase 2) — an artist's
    SoundCloud avatar + track art, tap to add as a reference. */
