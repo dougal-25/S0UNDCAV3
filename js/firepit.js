@@ -1103,6 +1103,8 @@ async function makeBeatVideo(btn) {
       ...ctx, media_type: 'video_composite',
       base_image_url: forgeGeneratedImageUrl,
       duration_seconds: 10,
+      // The Beat segment the user dragged to on the waveform (forge_beat_segment.md).
+      audio_start_seconds: (typeof beatSegmentStart === 'function' ? beatSegmentStart() : 0),
       generated_text: forgeGeneratedContent,
       rights: { category, proof_url: proof || null },
     }));
@@ -1118,6 +1120,7 @@ async function makeBeatVideo(btn) {
     imgArea.innerHTML = `<video src="${j.media_url}" class="forge-image-preview" controls autoplay loop muted playsinline></video>
       <div class="forge-image-meta">${j.provider}/${j.model} · ${j.dimensions?.width}×${j.dimensions?.height}${_BEAT_BLOCKED.has(category) ? ' · ⚠️ can’t be scheduled (rights)' : ''}</div>`;
     document.getElementById('forgeBeatPanel').style.display = 'none';
+    if (typeof beatSegmentReset === 'function') beatSegmentReset();
     document.getElementById('btnDownloadImage').style.display = '';
   } catch (e) {
     errEl.textContent = e.message; errEl.style.display = 'block';

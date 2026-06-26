@@ -1,5 +1,28 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-26] Beat — waveform segment picker (branch `forge-beat-from-cave`)
+Pivot of "Elements Phase 3". The spec'd P3 ("pull a SoundCloud track's audio into the Beat") hit a
+wall: ripping the SC stream violates SC's API ToS (risks the access that powers scout/clan discovery)
+**and** produces exactly the fingerprint-struck audio the Beat rights gate marks BLOCKED. Surfaced the
+fork to Doug → he reframed it: *"assume no barriers for audio upload … a very slick feature where we
+upload a track and very easily select the part of track we'd like input for the video or image."* So:
+a **waveform segment picker** — the slick build of the manual clip-picker already in `firepit_beat.md`.
+- **What it is:** in the Beat panel, upload a track → its waveform draws on a canvas → drag a
+  fixed-width window (= the 10s clip, Doug picked *fixed window, drag* over two-handles) onto the bit
+  you want → ▶ auditions just that window → forge bakes *that* segment under the still. One emitted
+  value: `audio_start_seconds`.
+- **Build:** new `js/beat_segment.js` (vanilla, Web Audio decode→canvas, no library; firepit.js was
+  already 1476 lines). Dim-outside = a box-shadow "spotlight" on the window (no canvas redraw).
+  Backend: `audio_start_seconds` → `-ss` before the audio input in `_ffmpeg_composite`.
+- **Verified:** UI via Playwright on the real page (window math, drag, label, spotlight — shot
+  `scratch/beat_segment_drop.png`); **seek proven functionally** — `start=0` vs `start=11` on a
+  drop-heavy track → mean_volume −13.0 dB vs −5.7 dB, both 10.00s. `py_compile` + `node --check` clean.
+- **Rights gate untouched** (Doug's "no barriers" = don't gate *this* slick flow; the gate still fires
+  at schedule-time, the real strike-risk moment). Spec: `wiki/spec/forge_beat_segment.md`.
+- **Status:** on the feature branch, pending Doug screenshot-confirm → merge to main + `railway up`.
+- **Process note:** built in a dedicated `git worktree` (`thesoundcave-beat-wt`) — the lesson from the
+  2026-06-25 concurrent-session tangle. A locked `invite-codes` worktree is live in parallel; no collision.
+
 ## [2026-06-22] Embers (Motion format) — R&D → live integration started (branch `firepit-embers`)
 New Firepit format: **bring a finished static artwork to life** (upload art → simple text instruction → looping animation). Full spec + journey: `wiki/spec/animated_flyer.md`. Long R&D session; arc:
 - **Pivoted off AI video.** i2v (LTX melted; Kling coherent but "no good" — halftone texture crawled like bugs, colour-drifted). Decision: **code-based motion, no generative video** for the animation itself. Frontier i2v shelved (revisit for photographic sources).

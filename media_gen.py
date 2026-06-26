@@ -986,7 +986,8 @@ def probe_audio_duration(audio_path):
     return float(r.stdout.strip())
 
 
-def _ffmpeg_composite(image_bytes, audio_path, width, height, duration_seconds, fps=30):
+def _ffmpeg_composite(image_bytes, audio_path, width, height, duration_seconds, fps=30,
+                      audio_start_seconds=0):
     """Run the FFmpeg pipeline. Returns mp4 bytes.
 
     Pipeline:
@@ -998,6 +999,8 @@ def _ffmpeg_composite(image_bytes, audio_path, width, height, duration_seconds, 
       - waveform_height = 12% of video height, capped 200px (visual balance)
       - zoompan goes 1.00 → 1.15 over the duration (slow Ken Burns)
       - -shortest stops at the shorter of audio/video tracks
+      - audio_start_seconds seeks into the track (the Beat segment picker) so the
+        clip is the bit the user chose, not always 0:00.
     """
     import subprocess
     import tempfile
@@ -1022,10 +1025,17 @@ def _ffmpeg_composite(image_bytes, audio_path, width, height, duration_seconds, 
             f"[bg][wave]overlay=0:H-h:format=auto[v]"
         )
 
+        # Seek the audio input to the chosen segment start (input-side -ss = fast +
+        # accurate enough); showwaves then reads from the same point, so the
+        # waveform you see matches the audio you hear. -t still caps the clip length.
+        audio_in = ['-i', audio_path]
+        if audio_start_seconds and audio_start_seconds > 0:
+            audio_in = ['-ss', f'{float(audio_start_seconds):.3f}', '-i', audio_path]
+
         cmd = [
             'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error',
             '-loop', '1', '-i', img_path,
-            '-i', audio_path,
+            *audio_in,
             '-filter_complex', filter_graph,
             '-map', '[v]', '-map', '1:a',
             '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
@@ -1044,7 +1054,7 @@ def _ffmpeg_composite(image_bytes, audio_path, width, height, duration_seconds, 
 
 
 def generate_video_composite(prompt, audio_path, width, height, duration_seconds=15,
-                             base_image_bytes=None):
+                             base_image_bytes=None, audio_start_seconds=0):
     """Tier 1: FFmpeg composite video. Returns (mp4_bytes, provider, model, duration_seconds).
 
     Muxes the user's audio under a still with Ken Burns motion + a waveform that
@@ -1065,7 +1075,8 @@ def generate_video_composite(prompt, audio_path, width, height, duration_seconds
     else:
         img_bytes, img_provider, img_model = generate_image(prompt, width, height)
         src = f'{img_provider}/{img_model}'
-    mp4_bytes = _ffmpeg_composite(img_bytes, audio_path, width, height, duration_seconds)
+    mp4_bytes = _ffmpeg_composite(img_bytes, audio_path, width, height, duration_seconds,
+                                  audio_start_seconds=audio_start_seconds)
     return mp4_bytes, 'ffmpeg', f'composite+{src}', duration_seconds
 
 

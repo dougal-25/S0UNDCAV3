@@ -1569,6 +1569,44 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.4; }
   border: 1px solid var(--border); border-radius: 6px; background: var(--elevated);
 }
 
+/* Beat segment picker — waveform + drag-to-pick window (wiki/spec/forge_beat_segment.md).
+   The window dims everything outside via a huge box-shadow "spotlight" (no canvas redraw). */
+.beat-segment { margin-top: var(--space-2); }
+.beat-wave-wrap {
+  position: relative; width: 100%; height: 84px;
+  background: var(--color-bg); border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.beat-wave { display: block; width: 100%; height: 100%; }
+.beat-seg-window {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 60px; box-sizing: border-box;
+  border: 2px solid var(--color-accent); border-radius: 5px;
+  background: rgba(255,69,0,0.07);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.58);   /* dim outside the window */
+  cursor: grab; touch-action: none;
+  transition: border-color var(--motion-fast) var(--ease-soft);
+}
+.beat-seg-window:hover { border-color: var(--color-accent-hot); }
+.beat-seg-window:active { cursor: grabbing; }
+.beat-seg-window:focus-visible { outline: none; border-color: var(--color-accent-hot); box-shadow: 0 0 0 9999px rgba(0,0,0,0.58), 0 0 0 2px var(--color-accent-hot) inset; }
+.beat-seg-grip {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 24px; border-radius: 2px; background: var(--color-accent);
+}
+.beat-seg-grip.left { left: 3px; }
+.beat-seg-grip.right { right: 3px; }
+.beat-seg-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: #fff; pointer-events: none; }
+.beat-seg-row { display: flex; align-items: center; gap: 10px; margin-top: var(--space-2); }
+.beat-seg-play {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--color-accent); background: transparent; color: var(--color-accent);
+  cursor: pointer; font-size: 11px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  transition: background var(--motion-fast) var(--ease-soft);
+}
+.beat-seg-play:hover { background: rgba(255,69,0,0.12); }
+.beat-seg-time { font-family: var(--font-mono); font-size: 12px; color: var(--color-text); letter-spacing: var(--tracking-mono); }
+.beat-seg-hint { font-size: 11px; color: var(--muted); margin-left: auto; }
+
 /* Carousel set badge on a Stash tile (Phase B) */
 .stash-slide-badge {
   position: absolute; bottom: 6px; right: 6px;

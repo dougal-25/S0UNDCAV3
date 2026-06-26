@@ -633,7 +633,24 @@
             <!-- Phase D: Beat → composite MP4 (still + motion + waveform to the beat) -->
             <div id="forgeBeatPanel" class="forge-beat-panel" style="display:none">
               <div class="forge-stack-label" style="margin-top:0">Beat <span style="color:var(--muted);font-weight:normal">— the track this post carries</span></div>
-              <input type="file" class="input" id="forgeBeatFile" accept="audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg">
+              <input type="file" class="input" id="forgeBeatFile" accept="audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg" onchange="beatSegmentInit(this.files[0])">
+              <!-- Waveform segment picker (wiki/spec/forge_beat_segment.md): drag the window to the drop -->
+              <div id="beatSegment" class="beat-segment" style="display:none">
+                <div id="beatWaveWrap" class="beat-wave-wrap">
+                  <canvas id="beatWave" class="beat-wave"></canvas>
+                  <div id="beatSegWindow" class="beat-seg-window" role="slider" aria-label="Beat segment — drag to choose the part of the track" tabindex="0">
+                    <span class="beat-seg-grip left"></span>
+                    <span class="beat-seg-grip right"></span>
+                  </div>
+                  <div id="beatSegPlayhead" class="beat-seg-playhead" style="display:none"></div>
+                </div>
+                <div class="beat-seg-row">
+                  <button type="button" class="beat-seg-play" id="beatSegPlay" onclick="beatSegmentPreview()" aria-label="Preview the selected segment">▶</button>
+                  <span class="beat-seg-time" id="beatSegTime">0:00 – 0:10</span>
+                  <span class="beat-seg-hint">drag the window to the bit you want</span>
+                </div>
+              </div>
+              <audio id="beatSegAudio" preload="auto" style="display:none"></audio>
               <label class="forge-label" style="margin-top:10px">Rights <span style="color:var(--muted);font-weight:normal">(required — platforms fingerprint audio and enforce later)</span></label>
               <select class="input" id="forgeBeatRights">
                 <option value="">— Classify this track —</option>
@@ -648,7 +665,7 @@
               <input class="input" id="forgeBeatProof" style="margin-top:10px" placeholder="Proof link (licence receipt / written permission / CC0 link)">
               <div style="display:flex;gap:8px;margin-top:10px">
                 <button class="btn-red" type="button" onclick="makeBeatVideo(this)">FORGE THE VIDEO</button>
-                <button class="btn-outline no-glitch" type="button" onclick="document.getElementById('forgeBeatPanel').style.display='none'">CANCEL</button>
+                <button class="btn-outline no-glitch" type="button" onclick="document.getElementById('forgeBeatPanel').style.display='none';beatSegmentReset()">CANCEL</button>
               </div>
               <div id="forgeBeatError" class="forge-ref-error" style="display:none"></div>
             </div>
@@ -1087,6 +1104,7 @@
 <script src="js/compositor_templates.js"></script>
 <script src="js/compositor.js"></script>
 <script src="js/forge_refs.js"></script>
+<script src="js/beat_segment.js"></script>
 <script src="js/firepit.js"></script>
 <script src="js/stash.js"></script>
 <script src="js/spirits.js"></script>
