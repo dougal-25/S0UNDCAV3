@@ -1148,18 +1148,18 @@ async function makeBeatVideo(btn) {
   const category = document.getElementById('forgeBeatRights').value;
   const proof = (document.getElementById('forgeBeatProof').value || '').trim();
   if (!file) { errEl.textContent = 'Pick an audio file first.'; errEl.style.display = 'block'; return; }
-  if (!category) { errEl.textContent = 'Classify the track’s rights first.'; errEl.style.display = 'block'; return; }
+  if (!category) { errEl.textContent = "Classify the track's rights first."; errEl.style.display = 'block'; return; }
   if (!_BEAT_BLOCKED.has(category) && !proof) {
     errEl.textContent = 'Add a proof link for this track before forging.'; errEl.style.display = 'block'; return;
   }
   if (!forgeGeneratedImageUrl) { errEl.textContent = 'Generate a still first.'; errEl.style.display = 'block'; return; }
 
-  const orig = btn.textContent; btn.textContent = ‘⏳ Forging video…’; btn.disabled = true;
+  const orig = btn.textContent; btn.textContent = '⏳ Forging video…'; btn.disabled = true;
   try {
     const ctx = gatherForgeContext();
     const fd = new FormData();
-    fd.append(‘data’, JSON.stringify({
-      ...ctx, media_type: ‘video_composite’,
+    fd.append('data', JSON.stringify({
+      ...ctx, media_type: 'video_composite',
       base_image_url: forgeGeneratedImageUrl,
       duration_seconds: 10,
       // The Beat segment the user dragged to on the waveform (forge_beat_segment.md).
@@ -1167,22 +1167,22 @@ async function makeBeatVideo(btn) {
       generated_text: forgeGeneratedContent,
       rights: { category, proof_url: proof || null },
     }));
-    fd.append(‘audio_file’, file);
-    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate-media`, { method: ‘POST’, body: fd });
+    fd.append('audio_file', file);
+    const r = await scAuth.authedFetch(`${forgeApiUrl}/api/generate-media`, { method: 'POST', body: fd });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.detail || j.error || `API ${r.status}`);
     }
     const j = await r.json();
     forgeGeneratedVideoUrl = j.media_url;
-    const imgArea = document.getElementById(‘forgeImageArea’);
+    const imgArea = document.getElementById('forgeImageArea');
     imgArea.innerHTML = `<video src="${j.media_url}" class="forge-image-preview" controls autoplay loop muted playsinline></video>
-      <div class="forge-image-meta">${j.provider}/${j.model} · ${j.dimensions?.width}×${j.dimensions?.height}${_BEAT_BLOCKED.has(category) ? ‘ · ⚠️ can\’t be scheduled (rights)’ : ‘’}</div>`;
-    document.getElementById(‘forgeBeatPanel’).style.display = ‘none’;
-    if (typeof beatSegmentReset === ‘function’) beatSegmentReset();
-    document.getElementById(‘btnDownloadImage’).style.display = ‘’;
+      <div class="forge-image-meta">${j.provider}/${j.model} · ${j.dimensions?.width}×${j.dimensions?.height}${_BEAT_BLOCKED.has(category) ? ' · ⚠️ can\'t be scheduled (rights)' : ''}</div>`;
+    document.getElementById('forgeBeatPanel').style.display = 'none';
+    if (typeof beatSegmentReset === 'function') beatSegmentReset();
+    document.getElementById('btnDownloadImage').style.display = '';
   } catch (e) {
-    errEl.textContent = e.message; errEl.style.display = ‘block’;
+    errEl.textContent = e.message; errEl.style.display = 'block';
   } finally {
     btn.textContent = orig; btn.disabled = false;
   }
