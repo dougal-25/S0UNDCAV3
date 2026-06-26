@@ -1,5 +1,15 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-26] Favicon — cave logo on brand dark square (branch n/a, site-wide asset)
+Added a real favicon (was none). Self-contained `favicon.svg` wraps the actual brand logo
+(`brand/logo/soundcave_logo_2026-05-11.svg`) on a `#0a0a0a` rounded square (rx 104) so the light-grey mark
+reads on light *and* dark tab bars (transparent logo alone would vanish on white tabs). Generated via
+`scratch/make_favicon.py` (extracts the logo's inner SVG, fits its `252 256 520 520` viewBox into a 64px-padded
+512 canvas). PNG fallbacks rasterized through Playwright at exact sizes: `favicon-32.png` (legacy) +
+`apple-touch-icon.png` (180, iOS home-screen). Wired into `index.html` head (SVG + 32 PNG + apple-touch +
+`theme-color #0a0a0a`); `bypass.html` got the SVG link too (local-only/gitignored). Verified: all three serve
+200 with correct content-types, render legibly at 16/32/64/180 on light+dark, and resolve in the live DOM.
+
 ## [2026-06-26] Mural scroll — speed-proportional drain (branch `cave-scroll-speed`)
 Follow-up to the same-day cooldown fix: Doug said the one-card-per-gesture clamp was **too slow** — "the
 quicker I scroll through, the faster it can go through." The flat 480ms cooldown killed *proportionality*
