@@ -5,6 +5,7 @@ let firepitMode = 'forge';
 let forgeGeneratedContent = '';
 let forgeGeneratedImageUrl = '';
 let forgeGeneratedVideoUrl = '';   // Phase D: composite MP4 once a Beat is added
+let _forgeAnimSourceUrl = '';      // Stash-picked artwork URL for Animation (alternative to file upload)
 let _brandKits = [];
 let _compositorActive = false;
 let _forgePickedSnapshot = '';     // draft content at load time — detects unsaved edits
@@ -806,6 +807,46 @@ function updateCreditsDisplay(n) {
   if (el) el.textContent = window.scAdmin ? '∞' : n;   // admin stays ∞ (never charged)
 }
 
+// ── Clear All — full reset of inputs + refs + output (used by {CLEAR ALL}) ──
+function newForge() {
+  ['forgeArtist','forgeEvent','forgeRelease','forgeArtistList',
+   'forgeVenue','forgeCity','forgeDate','forgeDoors','forgeCurfew',
+   'forgeTickets','forgeFreeform'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  _forgeRefImages = [];
+  renderRefImageThumbs();
+  _forgeAnimSourceUrl = '';
+  const animBox = document.getElementById('forgeAnimPreview');
+  if (animBox) animBox.replaceChildren();
+  const animFile = document.getElementById('forgeAnimSource');
+  if (animFile) animFile.value = '';
+  resetForgeOutput();
+}
+
+// Open stash picker → add selected item as a role-tagged reference image
+function addStashAsRef() {
+  openStashPicker(item => addForgeRefFromUrl(item.imageUrl, 'style', ''));
+}
+
+// Open stash picker → use selected item as the animation artwork source
+function addStashAsAnimSource() {
+  openStashPicker(item => {
+    _forgeAnimSourceUrl = item.imageUrl;
+    const box = document.getElementById('forgeAnimPreview');
+    if (box) {
+      const img = document.createElement('img');
+      img.src = _forgeAnimSourceUrl;
+      img.alt = 'Artwork';
+      img.style.cssText = 'max-width:180px;max-height:180px;border-radius:6px;margin-top:8px;border:1px solid var(--border)';
+      box.replaceChildren(img);
+    }
+    const fileInput = document.getElementById('forgeAnimSource');
+    if (fileInput) fileInput.value = '';
+  });
+}
+
 // ── Discard (P1.5) — clear the output column back to its resting state ──
 function resetForgeOutput() {
   forgeGeneratedContent = '';
@@ -1224,8 +1265,26 @@ async function generateAnimation() {
       <span style="color:var(--red)">${esc(msg)}</span>
       ${offline ? `<span style="color:var(--muted);font-size:11px">Make sure content_api.py is running: <code>python content_api.py</code></span>` : ''}
     </div>`;
-  if (!f)      { imgArea.style.display = 'block'; imgArea.innerHTML = _err('Upload an artwork first.'); return; }
+  if (!f && !_forgeAnimSourceUrl) { imgArea.style.display = 'block'; imgArea.innerHTML = _err('Upload an artwork first.'); return; }
   if (!motion) { imgArea.style.display = 'block'; imgArea.innerHTML = _err('Describe the motion first.'); return; }
+
+  // Resolve artwork: direct file or stash-picked URL → Blob via proxy
+  let imageBlob = f || null;
+  if (!imageBlob && _forgeAnimSourceUrl) {
+    imgArea.style.display = 'block';
+    imgArea.innerHTML = `<div class="forge-loading" style="border:1px dashed var(--border);border-radius:8px">
+      <span style="color:var(--muted);font-size:11px">Loading artwork from Stash…</span></div>`;
+    try {
+      const pr = await scAuth.authedFetch(`${forgeApiUrl}/api/proxy-image?url=${encodeURIComponent(_forgeAnimSourceUrl)}`);
+      const pj = await pr.json().catch(() => ({}));
+      if (!pr.ok || !pj.data) throw new Error(pj.error || `proxy ${pr.status}`);
+      const res = await fetch(pj.data);
+      imageBlob = await res.blob();
+    } catch (e) {
+      imgArea.innerHTML = _err(`Couldn't load Stash artwork: ${e.message}`);
+      return;
+    }
+  }
 
   outArea.innerHTML = '';
   imgArea.style.display = 'block';
@@ -1235,7 +1294,7 @@ async function generateAnimation() {
   </div>`;
 
   const fd = new FormData();
-  fd.append('image', f);
+  fd.append('image', imageBlob, f ? f.name : 'artwork.jpg');
   fd.append('prompt', motion);
   fd.append('action', 'animate');
   fd.append('duration', document.getElementById('forgeAnimDuration').value);
