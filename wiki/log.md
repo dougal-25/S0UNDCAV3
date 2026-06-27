@@ -6,6 +6,42 @@ Carried the live version into the UI off the back of the Ages system below. The 
 - **App stamp** (`.app-stamp`, new in [css/style.css](../css/style.css)) lives **outside `.app-wrap`** — that ancestor has `transform: scale()`, which re-anchors `position: fixed` (same gotcha as corner-nav / mobile-tabbar). Fixed bottom-left, `pointer-events:none`, z 40 (below modals, hidden behind the splash overlay until entry). **Hidden on mobile** ([css/mobile.css](../css/mobile.css)) so it never collides with the bottom tab bar.
 - Verified headless (Playwright): both stamps render `{S0UNDCAV3 / V1.0.0} {FIRST AGE}` from `/VERSION`; app stamp anchored at viewport bottom-left, clear of the OVERVIEW/INDEX corner-nav.
 
+## [2026-06-27] FROM STASH (cont.) — proxy allow-list now passes own Stash images (branch `firepit-stash-edit-fix`)
+Live-testing the picker fix on `localhost:3000` (against the prod Railway backend) surfaced the *next* error
+when picking a still: **"only SoundCloud CDN images are allowed."** Root cause: `/api/proxy-image`
+(`content_api.py`) — which base64s a URL server-side so it can be used as a Forge reference — whitelisted
+**only** `sndcdn.com` for SSRF safety. Stash images live on our **Supabase Storage** host, so they were
+rejected. Fix: also allow URLs that pass the existing `_is_own_storage_url()` guard (same SSRF-safe check
+the media endpoints already use; `allow_redirects=False` still blocks redirect SSRF). Error copy + docstring
+updated. Verified (Python sim of the new condition): accepts our Stash + SoundCloud, rejects other-project
+Supabase, the cloud-metadata IP, http-downgrade, and arbitrary hosts.
+
+⚠️ **Backend change → needs `railway up`** (decision 0007: Railway deploys manually, not from GitHub). The
+`:3000` test frontend points at the live Railway backend, so this fix is invisible until the backend is
+redeployed. Additive + backward-compatible (only widens the allow-list), so safe to deploy independently of
+the frontend merge.
+
+## [2026-06-27] FROM STASH picker — pick now loads; stills-only (branch `firepit-stash-edit-fix`)
+Two fixes to the shared FROM STASH picker (`js/stash_picker.js`), which feeds all three FROM STASH buttons
+(Forge references, Animation artwork, Gatherings flyer).
+
+**1. Picking an item didn't load it into the Forge (root cause of Doug's report).** The cell-click handler
+called `_close()` — which sets `_currentCallback = null` — and only THEN ran
+`if (_currentCallback) _currentCallback(item)`, so the pick callback never fired: the modal closed but
+nothing loaded. Fix: capture the callback into a local (`const cb = _currentCallback`) before `_close()`,
+then invoke `cb(item)`. Affected every item type (stills and animations alike).
+
+**2. Animations excluded from the picker (Doug's call).** Animation stash items store their VIDEO url in
+`imageUrl` (the very field the picker hands to image-only code), so a picked animation would fail as a
+reference/artwork source. FROM STASH is "use existing artwork" → now **stills-only** via `_isStill()`
+(drops `type === 'animation'` and any `context.kind === 'video'`). Empty-state copy updated. To edit a saved
+animation, open it from the Stash grid — `editStashItem` already reopens it as a playable video (unchanged).
+
+Verified: Node sim of both functions — filter shows only stills (animation/video/text-only dropped); the
+old handler reproduces the never-fired bug, the new handler fires with the picked item. ⚠️ Doug to confirm
+live (login + a saved still/flyer) that picking a still lands it in the Forge. Spec:
+[stash_forge_integration.md](spec/stash_forge_integration.md).
+
 ## [2026-06-27] Version system (Ages) + go-to-market plan (branch `claude/version-tier-roadmap-l3nzhu`)
 Gave the product a formal versioning spine and spec'd the era after this one. **No app code changed** — wiki + a root `VERSION` file + one git tag.
 - **Scheme:** `Age.Milestone.Iteration` (e.g. `1.2.3`), git-tagged `v1.2.3`. Age = strategic era (bumps only at a **graduation gate**), Milestone = roadmap step within the Age, Iteration = each shipped release. "Age" chosen over "Tier" to avoid colliding with subscription tiers (`tier_*`) + video tiers. Rule in [decision 0013](decisions/0013_version_ages.md); live position in [roadmap](roadmap.md).
@@ -1285,6 +1321,14 @@ Pre-flight before sending the live app to industry friends. Ran a 3-agent audit 
 - **Branch hygiene:** the feature branch was stacked on another session's unpushed Forge "Elements" commits; Doug chose to ship Free Trial **only**, so cherry-picked the single commit onto a clean branch off `main` (resolved content_api.py + log conflicts). Elements stays unshipped on its branch.
 - **Verified:** `py_compile`+`node --check` clean; `/api/billing/plans` 3-tier; `/api/redeem-invite` registered + 401 without auth; Doug eyeballed the modal (screenshot — looks right). **NOT fired:** happy-path redeem (needs migration 0020 live) — to verify on prod post-deploy.
 - **Go-live order:** apply db/0020 in Supabase · set `INVITE_CODES` (+ optional `FREE_TRIAL_CREDITS`) in Railway · `railway up` (backend) · push `main` (Vercel) · then real-flow redeem test + send the link.
+
+## [2026-06-25] Wiki: write the image-gen provider decision page (0013) + refresh Forge "Related" links
+
+Closed the longest-standing wiki TODO in the Forge feature page's "Related" list — `wiki/decisions/image_gen_provider.md _(TODO — write when picking primary vs fallback strategy)_`. The strategy was already decided and as-built in code; it just had no decision page.
+
+- **New page** [decisions/0013_image_gen_provider.md](decisions/0013_image_gen_provider.md): **fal primary, Replicate fallback**, documented with evidence. v2 job router is fal-only and raises on failure ([media_gen.py:858-900](../media_gen.py#L858-L900), registry [:774-792](../media_gen.py#L774-L792)); legacy `generate_image()` fal→Replicate→raise chain ([:953-969](../media_gen.py#L953-L969)) survives only as the **ref-free** degrade path; `/api/generate-image` re-raises (never silently degrades) when a **ref-based** gen fails ([content_api.py:1087-1103](../content_api.py#L1087-L1103)). Why fal: model breadth (Nano Banana Pro / FLUX.2 / Seedream `/edit` routes have no Replicate equivalent), reference-native restyle/compose, verified-acceptable COGS ([0010](decisions/0010_media_gen_cogs_verified.md)). Follow-up logged: retire the legacy chain (and the Replicate dep) once Forge is fully proven on v2.
+- **Refreshed** [features/firepit_forge.md](features/firepit_forge.md) "Related": the other two list items were also stale — `firepit_stash.md` and `firepit_trail_map.md` both exist now (Trail Map is built, not "not yet built"). Replaced all three `_(TODO)_` annotations with live relative links.
+- No code changed — documentation only; the provider routing it describes was already shipped.
 
 ## [2026-06-25] Forge "Elements" — Phase 1 UI merge (branch forge-elements)
 
