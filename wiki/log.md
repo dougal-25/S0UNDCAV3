@@ -35,6 +35,13 @@ Verified: Node sim of both functions — filter shows only stills (animation/vid
 old handler reproduces the never-fired bug, the new handler fires with the picked item. ⚠️ Doug to confirm
 live (login + a saved still/flyer) that picking a still lands it in the Forge. Spec:
 [stash_forge_integration.md](spec/stash_forge_integration.md).
+## [2026-06-27] Version system (Ages) + go-to-market plan (branch `claude/version-tier-roadmap-l3nzhu`)
+Gave the product a formal versioning spine and spec'd the era after this one. **No app code changed** — wiki + a root `VERSION` file + one git tag.
+- **Scheme:** `Age.Milestone.Iteration` (e.g. `1.2.3`), git-tagged `v1.2.3`. Age = strategic era (bumps only at a **graduation gate**), Milestone = roadmap step within the Age, Iteration = each shipped release. "Age" chosen over "Tier" to avoid colliding with subscription tiers (`tier_*`) + video tiers. Rule in [decision 0013](decisions/0013_version_ages.md); live position in [roadmap](roadmap.md).
+- **Three Ages:** First = The Studio (now), Second = The Market (first 100→1000), Third = The Platform. Each has an explicit graduation gate so "when does the next era start" is a checklist, not a feeling. First-Age milestones map 1:1 onto [build_plan](build_plan.md) Stages 0–4.
+- **GTM plan** ([gtm.md](gtm.md)) — the Second Age: design partners → first 100 (hand-to-hand, "done-for-you first flyer") → first 1000 (referral loop + Etchings-as-portfolio). North-star = assets *posted*, not generated. Ties into the built invite-gate + Starter/Pro plans.
+- **Anchors:** root `VERSION` = `1.0.0` (machine-readable source of truth); tagged `v1.0.0` on the current beta baseline (`main` @ `ea343bc`). Tag messages point back to this log (log stays the changelog).
+- **Index/glossary updated:** roadmap + gtm + decisions 0011–0013 linked; glossary gains Age/Milestone/Iteration + a "Tier ≠ Age" note.
 
 ## [2026-06-26] Favicon — cave logo on brand dark square (branch n/a, site-wide asset)
 Added a real favicon (was none). Self-contained `favicon.svg` wraps the actual brand logo
@@ -1308,6 +1315,14 @@ Pre-flight before sending the live app to industry friends. Ran a 3-agent audit 
 - **Verified:** `py_compile`+`node --check` clean; `/api/billing/plans` 3-tier; `/api/redeem-invite` registered + 401 without auth; Doug eyeballed the modal (screenshot — looks right). **NOT fired:** happy-path redeem (needs migration 0020 live) — to verify on prod post-deploy.
 - **Go-live order:** apply db/0020 in Supabase · set `INVITE_CODES` (+ optional `FREE_TRIAL_CREDITS`) in Railway · `railway up` (backend) · push `main` (Vercel) · then real-flow redeem test + send the link.
 
+## [2026-06-25] Wiki: write the image-gen provider decision page (0013) + refresh Forge "Related" links
+
+Closed the longest-standing wiki TODO in the Forge feature page's "Related" list — `wiki/decisions/image_gen_provider.md _(TODO — write when picking primary vs fallback strategy)_`. The strategy was already decided and as-built in code; it just had no decision page.
+
+- **New page** [decisions/0013_image_gen_provider.md](decisions/0013_image_gen_provider.md): **fal primary, Replicate fallback**, documented with evidence. v2 job router is fal-only and raises on failure ([media_gen.py:858-900](../media_gen.py#L858-L900), registry [:774-792](../media_gen.py#L774-L792)); legacy `generate_image()` fal→Replicate→raise chain ([:953-969](../media_gen.py#L953-L969)) survives only as the **ref-free** degrade path; `/api/generate-image` re-raises (never silently degrades) when a **ref-based** gen fails ([content_api.py:1087-1103](../content_api.py#L1087-L1103)). Why fal: model breadth (Nano Banana Pro / FLUX.2 / Seedream `/edit` routes have no Replicate equivalent), reference-native restyle/compose, verified-acceptable COGS ([0010](decisions/0010_media_gen_cogs_verified.md)). Follow-up logged: retire the legacy chain (and the Replicate dep) once Forge is fully proven on v2.
+- **Refreshed** [features/firepit_forge.md](features/firepit_forge.md) "Related": the other two list items were also stale — `firepit_stash.md` and `firepit_trail_map.md` both exist now (Trail Map is built, not "not yet built"). Replaced all three `_(TODO)_` annotations with live relative links.
+- No code changed — documentation only; the provider routing it describes was already shipped.
+
 ## [2026-06-25] Forge "Elements" — Phase 1 UI merge (branch forge-elements)
 
 Doug: "roll it out." Wrote the spec ([forge_elements.md](spec/forge_elements.md)) — unify References+Spirit+Artist into one "Elements" panel + a Cave→Firepit artist-asset bridge, built in phases. Design direction approved (unified typed elements; artist auto-populate = suggest-not-force; tracks → cover-art element + audio Beat; create Spirits inline).
@@ -1351,6 +1366,10 @@ Two bugs Doug hit testing the preview on his phone.
 
 - **"Tabs in the cave don't work."** Root cause: the empty-state overlay `.stack-empty` (`position:absolute; inset:0; z-index:10`) anchors to the nearest *positioned* ancestor — but `.container` is unpositioned, so on an **empty cave** the overlay escaped to fill the whole viewport, an invisible layer swallowing every cave sub-nav tap (header + bottom tab bar survived — higher z-index). Doug's cave is empty, so he got it square-on. Fix (mobile.css, ≤720px): `.cave-hero{position:relative}` bounds the overlay to the hero box (below the pills), `.cave-subnav{position:relative;z-index:30}` as belt-and-braces. Verified: `elementFromPoint` over the FORAGING pill now returns the button (was `.stack-empty`); a real `.tap()` fires `switchTab:foraging`.
 - **"Can't hear the Soundcave noise."** Not a regression — ambient sound starts OFF by design (autoplay is gesture-gated) and only ever started if you found the `{SOUND}` toggle (a small chip on mobile). Fix (`cave_entrance.js`): start the drone on the **first `pointerdown` anywhere**, unless explicitly muted (`sc_sound_on === '0'`); fires once; the toggle still mutes and persists. Audio asset is committed + serves 200, so no 404. Also bumped the mobile sound toggle to a 44px target. **Behaviour change (global, not just mobile) — flag for Doug:** the drone now auto-starts on first interaction; revert to toggle-only if unwanted.
+
+## [2026-06-25] Mobile follow-up — ambient drone still silent for Doug (stale-mute suppression)
+
+Doug (logged in, heavy prior testing) still got no sound after the first-gesture autostart. Likely cause: my autostart **respected a stored mute** (`sc_sound_on === '0'`), and a stale 'off' from earlier testing was suppressing the drone for exactly the person reporting it. Fix (`cave_entrance.js`): first-gesture autostart now **ignores the stored mute** — the drone is the brand signature, so it starts on the first gesture regardless; the toggle still mutes for the rest of the session (autostart is one-shot). Also broadened the gesture set to `pointerdown/touchend/click/keydown`. **Still environment-bound on iOS:** the hardware ring/silent switch mutes ALL web audio (WebAudio + `<audio>`) — unfixable from web short of a `<video>` hack — and the drone is deep/ambient ("HEADPHONES RECOMMENDED"), so phone speakers reproduce it poorly. Asked Doug to confirm silent-switch + output.
 
 ## 2026-06-26 — Forge: carousel per-slide text, output meta panel, button fixes
 
