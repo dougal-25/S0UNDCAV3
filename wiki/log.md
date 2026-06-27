@@ -1,5 +1,105 @@
 # Sound Cave Wiki — Log
 
+## [2026-06-26] Favicon — cave logo on brand dark square (branch n/a, site-wide asset)
+Added a real favicon (was none). Self-contained `favicon.svg` wraps the actual brand logo
+(`brand/logo/soundcave_logo_2026-05-11.svg`) on a `#0a0a0a` rounded square (rx 104) so the light-grey mark
+reads on light *and* dark tab bars (transparent logo alone would vanish on white tabs). Generated via
+`scratch/make_favicon.py` (extracts the logo's inner SVG, fits its `252 256 520 520` viewBox into a 64px-padded
+512 canvas). PNG fallbacks rasterized through Playwright at exact sizes: `favicon-32.png` (legacy) +
+`apple-touch-icon.png` (180, iOS home-screen). Wired into `index.html` head (SVG + 32 PNG + apple-touch +
+`theme-color #0a0a0a`); `bypass.html` got the SVG link too (local-only/gitignored). Verified: all three serve
+200 with correct content-types, render legibly at 16/32/64/180 on light+dark, and resolve in the live DOM.
+
+## [2026-06-26] Mural scroll — speed-proportional drain (branch `cave-scroll-speed`)
+Follow-up to the same-day cooldown fix: Doug said the one-card-per-gesture clamp was **too slow** — "the
+quicker I scroll through, the faster it can go through." The flat 480ms cooldown killed *proportionality*
+(every scroll cycled at one fixed rate). Replaced it with a **bank-and-drain** model in `js/cave.js`:
+- `wheel` banks travel into `_caveWheelAccum` (clamped to `CAVE_WHEEL_STEP × CAVE_WHEEL_MAX_BANK`), then
+  `drainCaveWheel()` releases **one card per `CAVE_WHEEL_DRAIN_MS`** via `setTimeout` until less than one
+  card remains (sub-threshold remainder carries into the next scroll). So the faster/more you scroll, the
+  more banks up and the more cards riffle past — **speed-proportional** — but spread over time so each card
+  still glides (not 17 in one frame like the original `while` loop). Gentle nudge banks <1 step → exactly
+  one card; a hard flick is capped (`MAX_BANK`) so it can't rifle the whole clan. Removed the old
+  `_caveWheelLockUntil` / `CAVE_WHEEL_COOLDOWN`.
+- Constants: `STEP=60`, `DRAIN_MS=110` (~9 cards/sec ceiling), `MAX_BANK=8`. Knobs for feel: `DRAIN_MS`
+  (riffle speed), `STEP` (sensitivity), `MAX_BANK` (max burst).
+- Verified with the **real** `drainCaveWheel` + real constants under real timers (extracted from the file):
+  NUDGE→1 card; SOFT FLICK→6 over 556ms; HARD FLICK→10 over 999ms (~110ms apart = each card on its own
+  timer tick → each glides). Monotonic (faster ≥ slower), bounded (~11 ceiling), gentle = one. Arrow keys
+  unchanged (instant single step, bypass the drain).
+
+## [2026-06-26] Mural scroll smoothness + glitch-button restore (branch `cave-scroll-glitch-polish`)
+Two interaction-polish fixes Doug flagged (both Cave/site-wide, not Firepit → one branch).
+
+**1. Diagonal clan stack scrolled too fast / couldn't land one-by-one.** The 06-26 wheel rewrite used a
+delta accumulator that stepped one card per `CAVE_WHEEL_STEP` px **inside a `while` loop** with no
+cooldown. A trackpad flick fires a long momentum tail (~1s, ~850px), so a single flick stepped through
+**~17 cards** and the 600ms (`--motion-mid`) card glides never settled → fast + choppy.
+- Fix (`js/cave.js` wheel handler): step **at most one card per gesture** (`while`→`if`), reset the
+  accumulator after a step, and open a **480ms cooldown** (`_caveWheelLockUntil`, keyed off monotonic
+  `e.timeStamp`) during which momentum deltas are swallowed. Raised `CAVE_WHEEL_STEP` 50→80. `preventDefault`
+  still runs FIRST so the page never scrolls over the window (preserves the 06-26 rails behaviour).
+- Verified (Node sim, faithful copies of old vs new algo on realistic streams): FLICK 851px → OLD 17
+  steps / **NEW 1**; gentle NUDGE → 1/1 (responsiveness kept); DELIBERATE 2s scroll → OLD 12 / NEW 3
+  (paced ~1.5/sec so each glide lands). Arrow keys bypass the lock (unchanged). Tuning knobs: `CAVE_WHEEL_STEP`
+  (sensitivity) + `CAVE_WHEEL_COOLDOWN` (browse speed).
+
+**2. Glitch-scramble action buttons stayed corrupted on a quick skim.** The site-wide hover effect
+(`js/cave_entrance.js`) read the target word **live from `textContent`** (`dataset.glitchText || textContent`)
+on every hover — but `dataset.glitchText` was only ever set for the login button. So skimming across a
+`.btn-red`/`.btn-outline` mid-animation re-read the **half-scrambled text as the new target** and locked
+the garbage in permanently (`CLAN`→`C+}?`). Only resting the mouse long enough to finish the first run
+restored it.
+- Fix: capture the **pristine label once** before any scramble can run — `if (t.dataset.glitchText == null)
+  t.dataset.glitchText = t.textContent.trim()` — and always pass that as the target. caveGlitch always ends
+  on `write(target)`, so every hover now converges back to the original word regardless of duration.
+- Verified (A/B on the real `cave_entrance.js` via Playwright, synthetic mouseover/out): OLD → final
+  `C+}?` (corrupted, restored:false, glitchText never set); NEW → re-skim-mid-scramble, 6× rapid skims, and
+  single quick flick **all converge to `CLAN`** (sampled `CL_]`→`CLA+`→`CLAN`), glitchText captured.
+- Specs touched: [cave_dashboard_redesign.md](spec/cave_dashboard_redesign.md) (scroll), [splash_cave_entrance.md](spec/splash_cave_entrance.md) (glitch).
+
+## [2026-06-26] Stash — square format-agnostic thumbnails (branch `stash-thumbnail-crop`)
+Doug flagged the Stash grid reading ragged: every Forge format outputs a different ratio (Still 1:1,
+Carousel 4:5, Flyer 9:16, Animation 16:9, Poster 2:3) and each card grew to its image's native height —
+a portrait flyer towered over a landscape still. The cover (`.stash-block-cover`) *intended* to crop to
+`16/10 + object-fit:cover`, but it was a **flexbox** with the `<img>` as a flex child at `height:100%`;
+the flex item's `min-height:auto` overrode the container `aspect-ratio`, so the box stretched to the
+image. (The crop was on `main` + deployed, yet visually dead — a CSS bug, not a stale deploy.)
+- **Decision (Doug):** square **1:1**, top-anchored crop (artwork is mostly portrait flyers → a landscape
+  slice loses the headline; square keeps the title zone). Click behaviour **unchanged** — opens the piece
+  in the Forge (the full uncropped render lives in the output panel; no lightbox built).
+- **Fix** (`css/style.css`, one shared rule): `aspect-ratio 16/10 → 1/1`, `overflow:hidden`, dropped flex;
+  media is now `position:absolute; inset:0` (can't stretch the box past 1:1 — root cause killed) with
+  `object-fit:cover; object-position:top center`; `.stash-block-noimg` re-centres itself. Overlay badges
+  (count / slide ×N / countdown / play ▶) already absolute → still paint on top. Fixes both tile builders
+  (`_postTileHTML` + `_campaignTileHTML`) at once. No JS, no grid-column change → responsiveness untouched.
+- **Verified:** standalone repro linking the real `style.css` with mismatched-ratio cards (1:1/4:5/9:16/
+  16:9/2:3 + no-image) → Playwright @1280px: all covers identical squares, title band survives every crop,
+  placeholder centres, console clean. Spec: [stash_thumbnail_crop.md](spec/stash_thumbnail_crop.md).
+
+## [2026-06-26] Beat — waveform segment picker (branch `forge-beat-from-cave`)
+Pivot of "Elements Phase 3". The spec'd P3 ("pull a SoundCloud track's audio into the Beat") hit a
+wall: ripping the SC stream violates SC's API ToS (risks the access that powers scout/clan discovery)
+**and** produces exactly the fingerprint-struck audio the Beat rights gate marks BLOCKED. Surfaced the
+fork to Doug → he reframed it: *"assume no barriers for audio upload … a very slick feature where we
+upload a track and very easily select the part of track we'd like input for the video or image."* So:
+a **waveform segment picker** — the slick build of the manual clip-picker already in `firepit_beat.md`.
+- **What it is:** in the Beat panel, upload a track → its waveform draws on a canvas → drag a
+  fixed-width window (= the 10s clip, Doug picked *fixed window, drag* over two-handles) onto the bit
+  you want → ▶ auditions just that window → forge bakes *that* segment under the still. One emitted
+  value: `audio_start_seconds`.
+- **Build:** new `js/beat_segment.js` (vanilla, Web Audio decode→canvas, no library; firepit.js was
+  already 1476 lines). Dim-outside = a box-shadow "spotlight" on the window (no canvas redraw).
+  Backend: `audio_start_seconds` → `-ss` before the audio input in `_ffmpeg_composite`.
+- **Verified:** UI via Playwright on the real page (window math, drag, label, spotlight — shot
+  `scratch/beat_segment_drop.png`); **seek proven functionally** — `start=0` vs `start=11` on a
+  drop-heavy track → mean_volume −13.0 dB vs −5.7 dB, both 10.00s. `py_compile` + `node --check` clean.
+- **Rights gate untouched** (Doug's "no barriers" = don't gate *this* slick flow; the gate still fires
+  at schedule-time, the real strike-risk moment). Spec: `wiki/spec/forge_beat_segment.md`.
+- **Status:** on the feature branch, pending Doug screenshot-confirm → merge to main + `railway up`.
+- **Process note:** built in a dedicated `git worktree` (`thesoundcave-beat-wt`) — the lesson from the
+  2026-06-25 concurrent-session tangle. A locked `invite-codes` worktree is live in parallel; no collision.
+
 ## [2026-06-22] Embers (Motion format) — R&D → live integration started (branch `firepit-embers`)
 New Firepit format: **bring a finished static artwork to life** (upload art → simple text instruction → looping animation). Full spec + journey: `wiki/spec/animated_flyer.md`. Long R&D session; arc:
 - **Pivoted off AI video.** i2v (LTX melted; Kling coherent but "no good" — halftone texture crawled like bugs, colour-drifted). Decision: **code-based motion, no generative video** for the animation itself. Frontier i2v shelved (revisit for photographic sources).
@@ -1219,3 +1319,38 @@ Two bugs Doug hit testing the preview on his phone.
 ## [2026-06-25] Mobile follow-up — ambient drone still silent for Doug (stale-mute suppression)
 
 Doug (logged in, heavy prior testing) still got no sound after the first-gesture autostart. Likely cause: my autostart **respected a stored mute** (`sc_sound_on === '0'`), and a stale 'off' from earlier testing was suppressing the drone for exactly the person reporting it. Fix (`cave_entrance.js`): first-gesture autostart now **ignores the stored mute** — the drone is the brand signature, so it starts on the first gesture regardless; the toggle still mutes for the rest of the session (autostart is one-shot). Also broadened the gesture set to `pointerdown/touchend/click/keydown`. **Still environment-bound on iOS:** the hardware ring/silent switch mutes ALL web audio (WebAudio + `<audio>`) — unfixable from web short of a `<video>` hack — and the drone is deep/ambient ("HEADPHONES RECOMMENDED"), so phone speakers reproduce it poorly. Asked Doug to confirm silent-switch + output.
+
+## 2026-06-26 — Forge: carousel per-slide text, output meta panel, button fixes
+
+Branch: `forge-carousel-output-panel` (cut from `forge-output-ux`). Commit `f789e95`.
+
+**What landed:**
+- **Per-slide text inputs (Carousel)** — when Carousel format is selected, N labelled text inputs appear below the slide picker (one per slide). User types artist name, date, venue, event info etc. These replace the LLM-split `---` copy as the baked text on each image. Fall back to the old LLM-split behaviour if all inputs are blank. Values persist to Stash (`slideTexts`) and restore on edit.
+- **Output meta panel** — a persistent strip at the bottom of the output card shows: Direction text, Format+size (e.g. "Carousel · 4:5 · 5 slides"), Reference image thumbnails, and Model/quality (provider, model, dims). Populated as soon as FORGE is clicked; model fills in once the first image returns. Cleared on DISCARD.
+- **API indicator removed** — the "API: CONNECTED" green dot in the Firepit header is gone entirely. `checkApiStatus()` call removed from `renderFirepit()`; function kept.
+- **Button stuck-animation fix** — `saveToStash` now disables during async + re-enables in `finally`. `refineImage` and `makeBeatVideo` moved their button restore into `finally` blocks (previously after try/catch, could silently stay disabled on uncaught throws).
+- **DOWNLOAD ALL** — new action button for carousel sets; triggers sequential blob downloads, one file per slide (`soundcave_slide_01.png` … `_05.png` etc.), with 350ms gap between triggers.
+
+**Spec:** `wiki/spec/forge_carousel_per_slide.md`
+
+## [2026-06-26] Per-friend single-use invite codes — SHIPPED LIVE + verified (branch `invite-codes` → main)
+
+Replaced the env `INVITE_CODES` shared-pool gate (from [0012](decisions/0012_invite_gate_launch_safety.md)/[0020](../db/0020_free_trial_invite.sql)) with **per-friend, single-use, DB-backed codes** so Doug can send the live app to industry friends without a leaked code reopening the fal drain. Spec: [invite_codes_per_friend.md](spec/invite_codes_per_friend.md).
+
+- **Why:** a shared code is redeemable once *per account* but *unlimited times across accounts* → one leaked code = every new signup claims credits (drain returns) + no attribution. A code consumed by the **first account to redeem it** makes a leak already-spent, and records who/when.
+- **Migration `db/0021_invite_codes.sql`** (applied to prod): `invite_codes` table (code · label · credits · redeemed_by · redeemed_at), RLS on with no policies (service-role only — codes are secrets, never browser-readable).
+- **Backend** ([content_api.py](../content_api.py) `/api/redeem-invite`): claim the **code** first (atomic single-use, 403 on unknown *or* used → no enumeration; account untouched on a bad code), then claim the **account** (one trial each; roll back the code if already claimed so a fresh code isn't wasted → 409), then `grant_credits(code.credits)`; roll back both on grant failure. Default grant **100→50** (Doug's call). Frontend untouched (existing Claim flow still POSTs `{code}`). Killed dead `hmac` import + the superseded env `INVITE_CODES` constant.
+- **Scripts** (run from project root; never commit a live code — repo is public): [scripts/mint_invite.py](../scripts/mint_invite.py) `"email" --code X` issues a code (prints to terminal only); [scripts/list_invites.py](../scripts/list_invites.py) shows the open/redeemed ledger.
+- **Deployed:** merged `invite-codes` → `main` (merge `603cd12`; auto-merged content_api.py with the concurrent Beat session's `cb8cdfd`, both kept, compiles), pushed (gitleaks clean), `railway up`. Prod `/api/billing/plans` Free Trial now shows 50.
+- **Real-flow verified on prod** (throwaway codes + 2 throwaway accounts via admin generate_link, all cleaned up): valid redeem → **200 + 50 credits granted** (balance landed); same spent code → **403**; **second account, same code → 403 (single-use ✅)**; already-claimed account + fresh code → **409**, fresh code stayed **open** (rollback, no waste); per-IP limiter fired **429** after 8 hits. Every spec acceptance criterion met.
+- **First codes minted (open, 50cr each):** for georgeshipton8@gmail.com and josh@grail-talent.com. Code strings live only in the DB + Doug's records (not git).
+- **Also:** corrected stale local `.env` `FREE_TRIAL_CREDITS` 100→50 (it over-minted the first codes to 100; patched both rows back to 50). Railway has no override → defaults to 50, matching the plan card.
+- **Concurrent-session note:** built in isolated worktree `~/Documents/thesoundcave-invite-wt`; the Beat work landed on main mid-session — the merge combined cleanly. Worktree isolation paid off again.
+
+## [2026-06-26] Mural — wheel-cycle capture + chart date-label thinning (branch `mural`)
+
+Two small Mural fixes Doug asked for (worktree off `main`).
+
+- **Diagonal clan stack "scrolled to the bottom of the page" instead of cycling.** Root cause in `js/cave.js attachStackInteractions`: the old wheel handler had a `Math.abs(delta) < 5` early-return that fired *before* `preventDefault`, so slow trackpad scrolls (tiny per-event deltas) fell straight through to the page; plus a 220ms hard lock that only ever advanced one card per burst. Rewrote it: bind the `wheel` listener on `#caveHero` and gate on `e.target.closest('.cave-stage')` — so the whole diagonal window owns the wheel (even cards that visually overflow the stage box are DOM children of it) while the side rails leak through to normal page scroll. Cycling is now a **delta accumulator** (`_caveWheelAccum` += delta, step one card per `CAVE_WHEEL_STEP = 50`px), so a gentle nudge = one artist and a fast flick = several — proportional, device-agnostic. Removed `_caveWheelLock`. This realises the spec's "scroll cycles… smooth, springy, never abrupt" intent ([spec/cave_dashboard_redesign.md](spec/cave_dashboard_redesign.md)). **Behaviour note for Doug:** while the cursor is over the window the page won't scroll — move onto the side panels/margins to scroll past the dashboard (that was always the documented "rails own page scroll" design).
+- **Chart x-axis dates crowded once multiple days accumulate.** `buildLineChart` (`js/app.js`) now thins the printed date labels to a calendar-friendly stride — `[1, 2, 7, 14, 30, 60, 90, 180, 365]` days — picking the smallest stride so at most `~maxLabels` fit the chart's pixel width (`maxLabels = clamp(floor(cw/70), 4..10)`), anchored to the **last** point so today's date always shows. Daily snapshots → an index stride maps straight to a calendar frequency: daily → every 2 days → weekly → fortnightly → monthly as the series grows. The line keeps every data point (full fidelity, every point still hovers a tip); only the labels thin. Fixes all 4 `buildLineChart` callers (cave strip, stat-modal, artist modal, footprints) in one place.
+- **Verified live** (Playwright, 8-artist seeded clan, 18 snapshot days): wheel over window cycles +1/+3/wraps with `defaultPrevented=true`; wheel over a rail panel leaves the stack and is **not** prevented (page scrolls). Cave strip → 9 labels every 2 days (06-09…06-25); stat-modal (560px) → weekly (06-11/06-18/06-25). 0 console errors. Shots: `scratch/mural_hero.png`, `scratch/mural_chart.png`.
