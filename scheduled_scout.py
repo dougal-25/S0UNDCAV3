@@ -105,25 +105,60 @@ def fetch_real_followers(user_id: int) -> int:
 
 
 # ── Query + filter ─────────────────────────────────────────
-def fetch_tracks_for_search(search: dict) -> list:
-    """Query /tracks with the search's genre and/or keyword."""
-    limit = int(search.get('limit') or 50)
-    fetch_n = min(200, max(limit * 3, 50))   # over-fetch so filtering still yields enough
-    params = {'limit': fetch_n, 'order': 'hotness', 'filter': 'streamable'}
+PAGE_SIZE = 200    # SoundCloud's max page size
+MAX_PAGES = 12     # safety cap on how deep we'll page to fill one search
+
+# Per-run budget for "followers == 0" profile re-fetches. Paginating deep means
+# we now see far more tracks than the old single-shot fetch, so cap the secondary
+# lookups to avoid hammering the API on a search that matches few artists.
+_MAX_FOLLOWER_LOOKUPS = 80
+_follower_lookups_left = 0
+
+
+def search_sort_order(search: dict) -> str:
+    """`hotness` surfaces the most-engaged tracks — but those skew toward bigger
+    artists, which fights a low-follower search (you ask for ≤1k followers and
+    the hottest tracks are mostly from artists well above that). So when the
+    search caps followers, page by `created_at` (newest) and let our own
+    engagement score rank the survivors. No ceiling → keep `hotness`."""
+    return 'created_at' if int(search.get('max_followers') or 0) else 'hotness'
+
+
+def _base_params(search: dict) -> dict:
+    params = {
+        'limit': PAGE_SIZE,
+        'order': search_sort_order(search),
+        'filter': 'streamable',
+        'linked_partitioning': 'true',
+    }
     if search.get('genre'):
         params['genres'] = search['genre']
     if search.get('keyword'):
         params['q'] = search['keyword']
+    return params
+
+
+def fetch_page(next_href: str, params: dict):
+    """Fetch one /tracks page. Pass next_href to follow the cursor (params is
+    ignored then); pass next_href=None for the first page. Returns
+    (tracks, next_href)."""
     try:
-        r = requests.get(BASE_URL, params=params, headers=_HEADERS, timeout=15)
+        if next_href:
+            r = requests.get(next_href, headers=_HEADERS, timeout=15)
+        else:
+            r = requests.get(BASE_URL, params=params, headers=_HEADERS, timeout=15)
         r.raise_for_status()
-        return r.json() or []
+        data = r.json()
     except Exception as e:
         print(f"    Warning: query failed — {e}")
-        return []
+        return [], None
+    if isinstance(data, list):     # non-paginated response (no linked_partitioning echo)
+        return data, None
+    return data.get('collection', []) or [], data.get('next_href')
 
 
 def passes_filters(track: dict, search: dict) -> bool:
+    global _follower_lookups_left
     # Recency
     created_at = track.get('created_at', '')
     if created_at:
@@ -138,8 +173,9 @@ def passes_filters(track: dict, search: dict) -> bool:
     user_id = user.get('id')
     followers = user.get('followers_count') or 0
     # SoundCloud's embedded follower count is often 0/stale — re-fetch when it
-    # looks wrong (bounded: only the suspicious ones).
-    if followers == 0 and user_id:
+    # looks wrong (bounded: only the suspicious ones, within the per-run budget).
+    if followers == 0 and user_id and _follower_lookups_left > 0:
+        _follower_lookups_left -= 1
         followers = fetch_real_followers(user_id)
     user['followers_count'] = followers
 
@@ -190,32 +226,51 @@ def filters_summary(search: dict) -> str:
 
 
 def run_search(search: dict) -> dict:
+    global _follower_lookups_left
     name = search.get('name', search.get('id', '?'))
     print(f"  ▸ {name} ({filters_summary(search)})")
-    limit  = int(search.get('limit') or 50)
-    tracks = fetch_tracks_for_search(search)
+    limit = int(search.get('limit') or 50)
+    _follower_lookups_left = _MAX_FOLLOWER_LOOKUPS
 
-    eligible = []
+    # Page through results, accumulating unique *artists* (not tracks) that pass
+    # the filters, until we have `limit` of them or hit the page cap. The old
+    # single-shot fetch (limit×3 tracks, one request) routinely under-delivered:
+    # track→artist dedup plus a follower ceiling collapse one hot page down to a
+    # handful, and the rest of the matching artists sit on pages we never asked
+    # for — so "give me 20" returned 8. See wiki/log 2026-06-27.
+    params = _base_params(search)
+    by_artist = {}      # username -> their highest-scoring eligible track
     seen_ids = set()
-    for t in tracks:
-        tid = t.get('id')
-        if not tid or tid in seen_ids:
-            continue
-        seen_ids.add(tid)
-        if not passes_filters(t, search):
-            continue
-        t['_score'] = score_track(t)
-        eligible.append(t)
+    fetched = 0
+    pages = 0
+    next_href = None
+    while pages < MAX_PAGES:
+        tracks, next_href = fetch_page(next_href, params)
+        if not tracks:
+            break
+        fetched += len(tracks)
+        for t in tracks:
+            tid = t.get('id')
+            if not tid or tid in seen_ids:
+                continue
+            seen_ids.add(tid)
+            if not passes_filters(t, search):
+                continue
+            t['_score'] = score_track(t)
+            u = (t.get('user') or {}).get('username', '')
+            if not u:
+                continue
+            cur = by_artist.get(u)
+            if cur is None or t['_score'] > cur['_score']:
+                by_artist[u] = t
+        pages += 1
+        if len(by_artist) >= limit or not next_href:
+            break
 
-    # Dedupe by artist — keep their highest-scoring track — then take top N.
-    by_artist = {}
-    for t in sorted(eligible, key=lambda x: x['_score'], reverse=True):
-        u = (t.get('user') or {}).get('username', '')
-        if u and u not in by_artist:
-            by_artist[u] = t
-    top = list(by_artist.values())[:limit]
+    # Rank the unique artists by score and take the top N.
+    top = sorted(by_artist.values(), key=lambda x: x['_score'], reverse=True)[:limit]
     records = [build_record(t, i, search) for i, t in enumerate(top, 1)]
-    print(f"      {len(records)} result(s) from {len(tracks)} fetched")
+    print(f"      {len(records)} result(s) from {fetched} track(s) across {pages} page(s)")
 
     return {
         'search_id':   search.get('id', ''),

@@ -1423,3 +1423,17 @@ Doug flagged that manual + scheduled Foraging searches "often return no artists.
 - **Query fan-out tightened:** with a keyword + no genre, do one `q` search instead of sweeping all 16 SCOUT_GENRES (the genre sweep was pointless once `q` carries the term).
 
 Scope held to bug-fixes that align the manual path with the already-shipped scheduled scout; did **not** yet unify the two implementations into one shared query/filter (the lingering drift risk — noted for a follow-up). `content_api.py` compiles; not yet live-verified against SoundCloud (needs the API running with creds).
+
+## [2026-06-27] Foraging — scheduled search now returns the count you ask for (branch `claude/foraging-search-keywords-okv208`)
+
+Doug: "I schedule 20 results for 0–1,000-follower artists and only get 8–12 — there are clearly more than 20 baseline artists. Are we even searching artists or songs?"
+
+**Answer: we search songs (tracks) and reverse-engineer the artist** from each track's embedded `user` object — which is the intended model and was already in place. The shortfall was a funnel bug in `scheduled_scout.py`, now fixed:
+
+- **Single-page fetch.** `fetch_tracks_for_search` pulled `min(200, limit×3)` tracks in ONE request and stopped. Track→artist dedup (one hot artist owns several of those tracks) + the follower ceiling collapsed that to a handful; the other matching artists sat on result pages we never requested. → Rewrote `run_search` to **page via `linked_partitioning`, accumulating unique *eligible artists* until `limit` is reached** or a 12-page cap (`MAX_PAGES`) hits. New `fetch_page()` follows `next_href`; `_base_params()` builds the query once.
+- **`hotness` fights low-follower searches.** The hottest tracks skew toward bigger artists, so a ≤1k filter throws most away — you're sorting *against* what you asked for. → `search_sort_order()`: when `max_followers` is set, sort by **`created_at`** (newest) and let our engagement score rank survivors; no ceiling → keep `hotness`. Mirrored into `/api/search` (`sc_fetch_tracks` gained an `order` arg; the endpoint passes `created_at` when a ceiling is set).
+- **Bounded the secondary lookups.** Paging deeper = far more tracks seen, so the "followers == 0" profile re-fetch is now capped per run (`_MAX_FOLLOWER_LOOKUPS = 80`) so a thin-matching search can't hammer the API.
+
+Both files compile; **not yet live-verified** (needs SoundCloud creds + the runner). Manual `/api/search` got the sort fix but not full pagination yet (it already sweeps 16 genres, so it rarely shortfalls) — full pagination + unifying the two backends is captured in the new spec.
+
+Wrote `wiki/spec/foraging_search_redesign.md` (PROPOSAL, awaiting Doug) for the bigger ask: **one search input** (Search-now vs Save-as-scheduled) feeding **one review board** with Manual / Scheduled / Watching columns where every card carries a **source chip** (Manual or the scheduled-search name) you can expand to see which search produced it. Did NOT build the UI — spec-first per CLAUDE.md.

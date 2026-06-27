@@ -8,6 +8,8 @@ Three sub-tabs for finding artists outside the weekly scout cycle:
 2. **Scheduled Search** — saved named searches (genre/keyword + follower range) persisted to `data/scheduled_searches.json` via `content_api` `/api/scheduled-searches` (localStorage fallback offline). **Real as of 2026-06-09** — see `wiki/spec/scheduled_searches.md`.
 3. **Running** — the latest results of each scheduled search, **grouped per search** (name + filters + last-run), triaged with Clan/Watch/Cut. Searches run weekly via the `scheduled_searches.yml` GitHub Action (`scheduled_scout.py` writes `data/searches/<id>.json`).
 
+**Search is track-first:** we query SoundCloud's `/tracks`, then reverse-engineer the artist from each track's `user` object (followers/avatar/profile). As of 2026-06-27 `scheduled_scout.py` **pages until it has the requested number of unique artists** (was a single-page fetch that under-delivered — "asked for 20, got 8") and **sorts by newest, not `hotness`, when a follower ceiling is set** (hotness buries small artists). A larger redesign — one search input + a source-tagged review board — is proposed in [`spec/foraging_search_redesign.md`](../spec/foraging_search_redesign.md) (awaiting Doug).
+
 ## Genre filter (Manual + Scheduled)
 Typeable combobox (`<input list="genreSuggestions">`), not a `<select>`. SoundCloud's `/tracks` genre param accepts any free-text string, so locking the user to a static dropdown was artificially restrictive. Seeded with ~75 cross-industry suggestions (electronic, hip-hop, R&B, global, rock, jazz…) plus any genres seen in past scout reports, case-deduped so "Tech House" / "tech house" collapse to one. Empty input = all genres.
 

@@ -1822,7 +1822,7 @@ def get_sc_token():
     return None
 
 
-def sc_fetch_tracks(genre='', limit=50, keyword='', genre_as_query=False):
+def sc_fetch_tracks(genre='', limit=50, keyword='', genre_as_query=False, order='hotness'):
     """Fetch tracks from SoundCloud's /tracks endpoint.
 
     - keyword        → sent as a real full-text `q` search (the thing the user
@@ -1834,12 +1834,15 @@ def sc_fetch_tracks(genre='', limit=50, keyword='', genre_as_query=False):
                        Loose fallback for when the exact tag matches nothing
                        ("Tech House" vs "tech-house" vs "House" are all distinct
                        tags on SoundCloud, so exact matching often whiffs).
+    - order          → SoundCloud sort. `hotness` skews toward bigger artists, so
+                       a follower-capped search passes `created_at` to stop the
+                       sort from hiding the small artists it's looking for.
     """
     token = get_sc_token()
     if not token:
         return []
     headers = {'Authorization': f'OAuth {token}'}
-    params = {'limit': limit, 'order': 'hotness', 'filter': 'streamable'}
+    params = {'limit': limit, 'order': order, 'filter': 'streamable'}
     q_parts = []
     if keyword:
         q_parts.append(keyword)
@@ -2495,12 +2498,16 @@ def search():
     all_tracks = []
     seen_ids = set()
 
+    # `hotness` favours bigger artists; when a follower ceiling is set, sort by
+    # newest so the small artists the user asked for aren't buried.
+    order = 'created_at' if max_followers else 'hotness'
+
     for g in genres_to_search:
-        tracks = sc_fetch_tracks(g, limit=50, keyword=keyword)
+        tracks = sc_fetch_tracks(g, limit=50, keyword=keyword, order=order)
         # Loose-genre fallback: an exact `genres` tag that matches nothing gets
         # retried as a free-text query so "tech house" etc. still find artists.
         if g and not tracks:
-            tracks = sc_fetch_tracks(g, limit=50, keyword=keyword, genre_as_query=True)
+            tracks = sc_fetch_tracks(g, limit=50, keyword=keyword, genre_as_query=True, order=order)
         for track in tracks:
             track_id = track.get('id')
             if not track_id or track_id in seen_ids:
