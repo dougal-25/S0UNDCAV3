@@ -69,6 +69,6 @@ Stripped from 15 types to 7 to remove clutter and focus on the active channels.
 - `social_short` produces a still image, not a video clip. The Opus-Clips-style video clipper (upload long video → AI picks clip moments → ffmpeg cuts N short clips with captions) is a separate, larger plan — not yet started.
 
 ## Related
-- `wiki/decisions/image_gen_provider.md` _(TODO — write when picking primary vs fallback strategy)_
-- `wiki/features/firepit_stash.md` _(TODO)_
-- `wiki/features/firepit_trail_map.md` _(TODO — not yet built)_
+- [`wiki/decisions/0013_image_gen_provider.md`](../decisions/0013_image_gen_provider.md) — fal primary, Replicate fallback, and why
+- [`wiki/features/firepit_stash.md`](firepit_stash.md) — the Stash content library
+- [`wiki/features/firepit_trail_map.md`](firepit_trail_map.md) — the Trail Map content calendar

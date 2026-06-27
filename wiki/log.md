@@ -1272,6 +1272,14 @@ Pre-flight before sending the live app to industry friends. Ran a 3-agent audit 
 - **Verified:** `py_compile`+`node --check` clean; `/api/billing/plans` 3-tier; `/api/redeem-invite` registered + 401 without auth; Doug eyeballed the modal (screenshot — looks right). **NOT fired:** happy-path redeem (needs migration 0020 live) — to verify on prod post-deploy.
 - **Go-live order:** apply db/0020 in Supabase · set `INVITE_CODES` (+ optional `FREE_TRIAL_CREDITS`) in Railway · `railway up` (backend) · push `main` (Vercel) · then real-flow redeem test + send the link.
 
+## [2026-06-25] Wiki: write the image-gen provider decision page (0013) + refresh Forge "Related" links
+
+Closed the longest-standing wiki TODO in the Forge feature page's "Related" list — `wiki/decisions/image_gen_provider.md _(TODO — write when picking primary vs fallback strategy)_`. The strategy was already decided and as-built in code; it just had no decision page.
+
+- **New page** [decisions/0013_image_gen_provider.md](decisions/0013_image_gen_provider.md): **fal primary, Replicate fallback**, documented with evidence. v2 job router is fal-only and raises on failure ([media_gen.py:858-900](../media_gen.py#L858-L900), registry [:774-792](../media_gen.py#L774-L792)); legacy `generate_image()` fal→Replicate→raise chain ([:953-969](../media_gen.py#L953-L969)) survives only as the **ref-free** degrade path; `/api/generate-image` re-raises (never silently degrades) when a **ref-based** gen fails ([content_api.py:1087-1103](../content_api.py#L1087-L1103)). Why fal: model breadth (Nano Banana Pro / FLUX.2 / Seedream `/edit` routes have no Replicate equivalent), reference-native restyle/compose, verified-acceptable COGS ([0010](decisions/0010_media_gen_cogs_verified.md)). Follow-up logged: retire the legacy chain (and the Replicate dep) once Forge is fully proven on v2.
+- **Refreshed** [features/firepit_forge.md](features/firepit_forge.md) "Related": the other two list items were also stale — `firepit_stash.md` and `firepit_trail_map.md` both exist now (Trail Map is built, not "not yet built"). Replaced all three `_(TODO)_` annotations with live relative links.
+- No code changed — documentation only; the provider routing it describes was already shipped.
+
 ## [2026-06-25] Forge "Elements" — Phase 1 UI merge (branch forge-elements)
 
 Doug: "roll it out." Wrote the spec ([forge_elements.md](spec/forge_elements.md)) — unify References+Spirit+Artist into one "Elements" panel + a Cave→Firepit artist-asset bridge, built in phases. Design direction approved (unified typed elements; artist auto-populate = suggest-not-force; tracks → cover-art element + audio Beat; create Spirits inline).
