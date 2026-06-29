@@ -69,10 +69,11 @@ Lockups (logo + `S0UNDCAV3` wordmark, no glow) on cave-black, sized for social p
 
 > **Reddit mobile crops the banner inward to ~the centre third**, so a wide horizontal
 > logo-left/wordmark-right lockup loses its ends on a phone. The Reddit banner therefore
-> uses a **stacked** lockup sized to sit inside the central ~640px safe zone (here the art
-> spans only x 800–1120 of 1920) — it stays whole on every viewport. Recommended size is
-> 1920×384; keep key art inside the central 1300×200 px (centre third on mobile). Keep the
-> PNG under ~400 KB or Reddit re-compresses it.
+> uses a **stacked** lockup sized to sit inside the full safe zone — the art spans only
+> x 832–1088 and y 108–274 of the 1920×384 canvas, i.e. inside both the centre-third
+> width *and* the central ~200px height, so it stays whole on every viewport (Reddit crops
+> inward on mobile both horizontally and vertically). Recommended size is 1920×384; keep
+> key art inside the central 1300×200 px. Keep the PNG under ~400 KB or Reddit re-compresses it.
 >
 > Built from the master logo SVG + DM Mono wordmark via headless Chromium. For a wider
 > header (e.g. X/Twitter 1500×500, which crops less aggressively) a horizontal lockup is

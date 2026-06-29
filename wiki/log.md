@@ -1445,3 +1445,7 @@ Live test on Doug's Reddit mobile profile showed the horizontal logo-left/wordma
 - **Switched `brand/banners/soundcave_banner_reddit_1920x384_2026-06-29.png` to a stacked, centred lockup** — logo above the `S0UNDCAV3` wordmark, no glow, cave-black. Art spans only x 800–1120 of 1920 (≈320px, dead centre) → survives the mobile centre-third crop whole. Same canvas/filename.
 - **`brand/README.md`** Banners section rewritten with the safe-zone rule (centre third / 1300×200), the <400 KB compression note, and that horizontal is fine only for wider headers (e.g. X 1500×500).
 - Sources: Reddit Help "Banner"; 2025/2026 Reddit image-size guides (maletphoto, socialez).
+
+## [2026-06-29] Brand banner — shrink stacked lockup to fit vertical safe zone too
+
+Stacked banner's wordmark (below the logo) was being clipped on Reddit mobile — Reddit crops inward vertically as well as horizontally, and the lockup (215px tall) overran the central ~200px height band. Shrank it (logo 172→128px, wordmark 50→40px): art now spans x 832–1088 and y 108–274, inside both the centre-third width and the central 200px height (≈108px margins all round). Same canvas/filename. README updated with the spans.
