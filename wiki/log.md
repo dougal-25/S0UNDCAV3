@@ -1429,3 +1429,12 @@ Doug asked to gather the S0UNDCAV3 logos & brand assets somewhere easy to find. 
 - **Deployed icon copies stay at the repo root** (`index.html` links them root-relative because GitHub Pages serves icons from site root) — the README flags the root copies as the live ones and the `brand/icons/` copies as findable masters, with a don't-drift note.
 - **Rewrote `brand/README.md`** into a complete index: a "just need the logo" quick-grab table, a folder tree, a full asset list (logos + dormant alt + icons + fonts), plus the existing locked palette & type. No mark/colour was changed — purely organisation + documentation.
 - **Wiki:** added a **Brand** section to [index.md](index.md) pointing at `brand/README.md` (distinct from the brand-kit *spec* pages in `wiki/spec/brand_*.md`).
+
+## [2026-07-03] Favicon set completed — multi-res `favicon.ico` + 192px PNG (branch `claude/arc-favicon-search-bar-ggpli0`)
+
+Doug noticed Arc's URL-bar suggestion for `s0undcav3.com` shows a generic globe instead of the cave icon. The tab favicon works (SVG + 32px PNG were already wired), but Chromium-based browsers' omnibox/suggestion UI fetches **`/favicon.ico` directly** — and the repo had no `.ico` at all — and prefers a larger PNG for high-DPI suggestion rows. (The globe is also partly just Arc's cache lag on a new domain; the missing files made it permanent rather than temporary.)
+
+- **Added `favicon.ico`** (multi-res 16/32/48) and **`favicon-192.png`** at the repo root, both rendered from the `favicon.svg` 512px master (headless-Chromium render → Lanczos downscale). **Refreshed `favicon-32.png`** from the same master — the old one was a noisy square-cornered downscale; the new one is clean, rounded, transparent-cornered, and matches the rest of the set.
+- **`index.html` head** now links the full ladder: SVG → 192px PNG → 32px PNG → ICO → apple-touch-icon, with a comment explaining why the root `.ico` must exist.
+- **`brand/icons/` reference masters updated** (new ico + 192 + refreshed 32) and `brand/README.md` tables extended, per the don't-drift rule from the 2026-06-29 brand-assets entry.
+- No visual/mark change — same artwork, just complete coverage. Once deployed, Arc should pick up the icon in the search bar after its favicon cache refreshes (typically hours; force it by visiting the site directly a couple of times).

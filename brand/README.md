@@ -24,7 +24,9 @@ brand/
 │       └── soundcave_logo_alt_2026-05-11.svg
 ├── icons/                   app-icon / favicon set (reference copies — see note below)
 │   ├── favicon.svg          512×512, logo on the dark rounded square
+│   ├── favicon.ico          16/32/48 multi-res ICO (Chromium omnibox + legacy fallback)
 │   ├── favicon-32.png       32×32 PNG fallback
+│   ├── favicon-192.png      192×192 PNG (Chromium high-DPI surfaces)
 │   └── apple-touch-icon.png 180×180 home-screen icon
 └── fonts/                   brand typefaces (TTF)
     ├── DMSans-Regular.ttf
@@ -47,12 +49,18 @@ These are the logo rendered as an app icon (mark on the brand dark rounded squar
 | File | Size | Used as |
 |---|---|---|
 | `icons/favicon.svg` | 512×512 | Modern-browser favicon (`<link rel="icon" type="image/svg+xml">`) |
+| `icons/favicon.ico` | 16 + 32 + 48 | Multi-res ICO served from the site root — Chromium's omnibox/URL-suggestion UI requests `/favicon.ico` directly; also the legacy fallback |
 | `icons/favicon-32.png` | 32×32 | PNG favicon fallback |
+| `icons/favicon-192.png` | 192×192 | Larger PNG for Chromium high-DPI surfaces (new-tab tiles, suggestion rows) |
 | `icons/apple-touch-icon.png` | 180×180 | iOS/Android home-screen icon |
 
+> All raster sizes are rendered from the `favicon.svg` master (headless-Chromium render →
+> Lanczos downscale) so the set stays pixel-consistent. Re-render from the SVG if the mark changes.
+
 > **⚠ Deployed copies live at the repo root**, not here. `index.html` references
-> `favicon.svg`, `favicon-32.png`, and `apple-touch-icon.png` with root-relative paths
-> because GitHub Pages serves icons from the site root. The copies in `icons/` are the
+> `favicon.svg`, `favicon.ico`, `favicon-32.png`, `favicon-192.png`, and
+> `apple-touch-icon.png` with root-relative paths because GitHub Pages serves icons from
+> the site root (and browsers hit `/favicon.ico` unprompted). The copies in `icons/` are the
 > findable **reference masters** — if you change an icon, update **both** the root copy
 > and the copy here so they don't drift.
 
