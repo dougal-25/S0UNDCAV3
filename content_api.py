@@ -81,6 +81,8 @@ app = Flask(__name__)
 # Browser origins allowed to call this API: prod frontend + local dev only.
 # Vercel preview deploys are NOT allowed — test against prod or localhost.
 ALLOWED_ORIGINS = [
+    'https://s0undcav3.com',
+    'https://www.s0undcav3.com',
     'https://thesoundcave.vercel.app',
     'http://localhost:3000',
     'http://127.0.0.1:3000',

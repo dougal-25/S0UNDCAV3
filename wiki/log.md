@@ -1438,3 +1438,15 @@ Doug noticed Arc's URL-bar suggestion for `s0undcav3.com` shows a generic globe 
 - **`index.html` head** now links the full ladder: SVG → 192px PNG → 32px PNG → ICO → apple-touch-icon, with a comment explaining why the root `.ico` must exist.
 - **`brand/icons/` reference masters updated** (new ico + 192 + refreshed 32) and `brand/README.md` tables extended, per the don't-drift rule from the 2026-06-29 brand-assets entry.
 - No visual/mark change — same artwork, just complete coverage. Once deployed, Arc should pick up the icon in the search bar after its favicon cache refreshes (typically hours; force it by visiting the site directly a couple of times).
+
+## [2026-07-03] "Account lost all data" after the s0undcav3.com domain move — CORS, not data loss (branch `claude/account-data-loss-domain-merge-bthd3m`)
+
+Doug reported his personal account (douglaswoolfenden@gmail.com) "lost all data" on the new domain, while the same account still shows everything on `thesoundcave.vercel.app`. **Nothing was deleted** — the Supabase data (roster/Clan, Stash, brand kits, credits, events) is intact.
+
+- **Root cause:** the Railway backend's CORS allowlist (`ALLOWED_ORIGINS` in `content_api.py`, hardened 2026-06-11) only permitted `https://thesoundcave.vercel.app` + localhost. From `s0undcav3.com`, **every** browser call to the API (`/api/roster`, `/api/me`, stash, brand kits, credits…) fails CORS preflight → the app renders signed-in-but-empty. Sign-in itself still works because Supabase auth goes direct to `supabase.co` (not through the Railway API), which is exactly why it *looked* like the account had been wiped rather than the backend being unreachable.
+- **Fix:** added `https://s0undcav3.com` + `https://www.s0undcav3.com` to `ALLOWED_ORIGINS`.
+- **Not live until redeployed:** requires `railway up` on the backend — the Vercel frontend needs no change (`js/config.js` already points every non-localhost origin at the Railway API).
+- **Follow-ups for Doug (dashboard config, not code):**
+  1. **Supabase Auth → URL Configuration:** add `https://s0undcav3.com/**` (+ www) to Redirect URLs, or magic-link / password-reset emails requested from the new domain will bounce back to the old Vercel origin.
+  2. **Railway env `APP_BASE_URL`** still points at `https://thesoundcave.vercel.app` (Stripe checkout returns + reset redirects) — flip it to `https://s0undcav3.com` when the new domain becomes canonical.
+  3. Anything stored per-origin in the browser (localStorage: `sc_api_url` override, sound toggle, splash flag, any un-migrated pre-account Stash/favourites) starts fresh on a new domain by nature — account-backed data does not.
