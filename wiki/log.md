@@ -1438,3 +1438,22 @@ Doug noticed Arc's URL-bar suggestion for `s0undcav3.com` shows a generic globe 
 - **`index.html` head** now links the full ladder: SVG → 192px PNG → 32px PNG → ICO → apple-touch-icon, with a comment explaining why the root `.ico` must exist.
 - **`brand/icons/` reference masters updated** (new ico + 192 + refreshed 32) and `brand/README.md` tables extended, per the don't-drift rule from the 2026-06-29 brand-assets entry.
 - No visual/mark change — same artwork, just complete coverage. Once deployed, Arc should pick up the icon in the search bar after its favicon cache refreshes (typically hours; force it by visiting the site directly a couple of times).
+
+## [2026-07-03] Pre-launch security hardening — credit/RLS/SSRF fixes (branch `claude/code-review-d2k2oh`)
+
+Full security + soundness review of the codebase ahead of opening free public signups (marketing-driven). Six domain reviewers (endpoint auth, RLS, billing/credits, cost-abuse, injection/SSRF, soundness) + verification; top findings confirmed by direct code read. Fixed the four launch blockers and the high-severity set:
+
+**Blockers**
+- **RLS: `users` was self-writable.** `0002`'s `users self update` policy had no `WITH CHECK` / column scope, so any signup could `supabase.from('users').update({credits_balance, tier, trial_claimed})` via the anon key — unlimited credits, Stripe bypassed. Migration **`db/0023_security_hardening.sql`** drops that policy and `revoke update on public.users from anon, authenticated` (every users column is server-managed; frontend never writes it). `credits_ledger` moved from `FOR ALL` to SELECT-only for clients (writes only via the `SECURITY DEFINER` credit fns).
+- **Un-metered paid generation.** `avatars` generate-v2 + forge-character, `events` generate-flyer, and `campaigns` generate-campaign called Fal/Claude with **no credit debit** — 0-credit accounts could generate for free. Added a shared `charge()`/`refund()` helper to `sb_helpers.py` (mirrors `content_api._debit`, stamps `g.is_admin` in `resolve_user_id`) and wired debit-before-call + refund-on-failure into all four routes (per-image in the campaign loop). Also clamped caller-supplied width/height in generate-v2.
+- **Stripe webhook not idempotent.** Retried/duplicate events re-ran `grant_credits`, stacking credits. Added `stripe_events` dedup table (in `0023`) + claim-then-release-on-failure guard in `billing_webhook` so retries after a mid-processing failure still reprocess.
+
+**High-severity**
+- **SSRF.** `image_composer._fetch_image/_fetch_image_rgba` fetched user-writable URL fields (`logo_url`, `hero_image_url`, `flyer_image_url`) with no guard. Added `_safe_get()`: http(s)-only, blocks hosts resolving to private/loopback/link-local/reserved/metadata ranges, re-validates across redirects, 15MB cap.
+- **IDOR.** `artist_profiles` PATCH let any authed user edit any *unclaimed* shared profile. Now restricted to the claimer or an admin (matches the code's stated intent).
+- **Auth.** `POST /api/scheduled-searches` (overwrites a server config run by the weekly Action) was unauthenticated — now admin-only; the GET now requires auth.
+- **Rate limiting.** Added a coarse per-IP `before_request` throttle on `POST /api/*` (webhook exempt, GETs untouched), reusing the existing in-memory limiter — no new dependency.
+
+**Deliberately NOT changed (needs a decision):** `brand_assets` / `generated_*` storage buckets are public-read and the app consumes them via public URLs (composer `requests.get`, frontend display). Locking reads to the owner folder would break composition/display app-wide — it needs a signed-URL migration, flagged rather than shipped.
+
+All edited modules compile and import cleanly; SSRF range checks and the POST throttle verified via unit + Flask-test-client checks. **Action required before launch: apply `db/0023` in the Supabase SQL editor** (code and DB must ship together — the debit routes assume the ledger lockdown, and the webhook assumes the `stripe_events` table).

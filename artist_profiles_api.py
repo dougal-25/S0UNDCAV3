@@ -4,7 +4,7 @@ Phase 2 endpoints for the artist_profiles table.
 
 Spec: projects/thesoundcave/wiki/spec/phase_2_3_pivot.md
 """
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from sb_helpers import maybe_one, require_user, supabase
 import soundcloud_helpers as sc
@@ -208,8 +208,13 @@ def patch_profile(profile_id):
     )
     if not row:
         return jsonify({'error': 'not found'}), 404
-    if row.get('claimed_by_user_id') and row['claimed_by_user_id'] != uid:
-        return jsonify({'error': 'profile claimed by another user'}), 403
+    # Only the claimer (or an admin) may edit. This also blocks writes to
+    # UNCLAIMED profiles by regular users — until the claim flow lands, the only
+    # writers are the scrape endpoint (service-role) and admin tools. Without
+    # this, any signed-up user could overwrite every unclaimed profile in the
+    # shared catalog (and plant SSRF URLs in hero_image_url).
+    if row.get('claimed_by_user_id') != uid and not g.get('is_admin'):
+        return jsonify({'error': 'profile not claimed by you'}), 403
 
     res = (
         supabase()

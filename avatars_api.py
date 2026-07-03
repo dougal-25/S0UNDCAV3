@@ -15,7 +15,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from sb_helpers import maybe_one, require_user, supabase
+from sb_helpers import CREDIT_COST_IMAGE, charge, maybe_one, refund, require_user, supabase
 from media_gen import generate_for_job
 
 avatars_bp = Blueprint('avatars_v2', __name__, url_prefix='/api/avatars')
@@ -203,10 +203,14 @@ def forge_character(avatar_id):
            "Art style: gritty underground-flyer cartoon, heavy outlines, "
            "limited palette, halftone shading.")
     )
+    _bal, cerr = charge(uid, CREDIT_COST_IMAGE, f'forge_character:{avatar_id}')
+    if cerr:
+        return cerr
     try:
         img_bytes, provider, model = generate_for_job(
             'compose_person', prompt, image_refs=refs[:6], width=1024, height=1024)
     except Exception as e:
+        refund(uid, CREDIT_COST_IMAGE, f'forge_character_failed:{avatar_id}')
         return jsonify({'error': f'character forge failed: {e}'}), 502
 
     # Save into the avatar_refs bucket alongside the spirit, set as canonical.
@@ -319,10 +323,15 @@ def generate():
     if isinstance(extra_refs, list):
         image_refs.extend([str(u) for u in extra_refs if u])
 
-    width = int(body.get('width') or 1080)
-    height = int(body.get('height') or 1350)
+    # Clamp caller-supplied dimensions so a request can't multiply provider
+    # megapixel cost per call (256px floor, 2048px ceiling).
+    width = max(256, min(int(body.get('width') or 1080), 2048))
+    height = max(256, min(int(body.get('height') or 1350), 2048))
     seed = body.get('seed')
 
+    _bal, cerr = charge(uid, CREDIT_COST_IMAGE, f'generate:{job_type}')
+    if cerr:
+        return cerr
     try:
         png_bytes, provider, model = generate_for_job(
             job_type, prompt,
@@ -331,10 +340,13 @@ def generate():
             seed=seed,
         )
     except ValueError as e:  # unknown job_type
+        refund(uid, CREDIT_COST_IMAGE, f'generate_failed:{job_type}')
         return jsonify({'error': str(e)}), 400
     except RuntimeError as e:  # missing FAL_KEY
+        refund(uid, CREDIT_COST_IMAGE, f'generate_failed:{job_type}')
         return jsonify({'error': str(e)}), 503
     except Exception as e:
+        refund(uid, CREDIT_COST_IMAGE, f'generate_failed:{job_type}')
         return jsonify({'error': f'generation failed: {e}'}), 502
 
     # Store in generated_assets bucket
@@ -347,6 +359,7 @@ def generate():
         )
         image_url = sb.storage.from_(GEN_BUCKET).get_public_url(path)
     except Exception as e:
+        refund(uid, CREDIT_COST_IMAGE, f'generate_store_failed:{job_type}')
         return jsonify({'error': f'storage failed: {e}'}), 500
 
     return jsonify({
