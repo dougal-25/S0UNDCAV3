@@ -1449,3 +1449,23 @@ Live test on Doug's Reddit mobile profile showed the horizontal logo-left/wordma
 ## [2026-06-29] Brand banner — shrink stacked lockup to fit vertical safe zone too
 
 Stacked banner's wordmark (below the logo) was being clipped on Reddit mobile — Reddit crops inward vertically as well as horizontally, and the lockup (215px tall) overran the central ~200px height band. Shrank it (logo 172→128px, wordmark 50→40px): art now spans x 832–1088 and y 108–274, inside both the centre-third width and the central 200px height (≈108px margins all round). Same canvas/filename. README updated with the spans.
+## [2026-07-03] Favicon set completed — multi-res `favicon.ico` + 192px PNG (branch `claude/arc-favicon-search-bar-ggpli0`)
+
+Doug noticed Arc's URL-bar suggestion for `s0undcav3.com` shows a generic globe instead of the cave icon. The tab favicon works (SVG + 32px PNG were already wired), but Chromium-based browsers' omnibox/suggestion UI fetches **`/favicon.ico` directly** — and the repo had no `.ico` at all — and prefers a larger PNG for high-DPI suggestion rows. (The globe is also partly just Arc's cache lag on a new domain; the missing files made it permanent rather than temporary.)
+
+- **Added `favicon.ico`** (multi-res 16/32/48) and **`favicon-192.png`** at the repo root, both rendered from the `favicon.svg` 512px master (headless-Chromium render → Lanczos downscale). **Refreshed `favicon-32.png`** from the same master — the old one was a noisy square-cornered downscale; the new one is clean, rounded, transparent-cornered, and matches the rest of the set.
+- **`index.html` head** now links the full ladder: SVG → 192px PNG → 32px PNG → ICO → apple-touch-icon, with a comment explaining why the root `.ico` must exist.
+- **`brand/icons/` reference masters updated** (new ico + 192 + refreshed 32) and `brand/README.md` tables extended, per the don't-drift rule from the 2026-06-29 brand-assets entry.
+- No visual/mark change — same artwork, just complete coverage. Once deployed, Arc should pick up the icon in the search bar after its favicon cache refreshes (typically hours; force it by visiting the site directly a couple of times).
+
+## [2026-07-03] "Account lost all data" after the s0undcav3.com domain move — CORS, not data loss (branch `claude/account-data-loss-domain-merge-bthd3m`)
+
+Doug reported his personal account (douglaswoolfenden@gmail.com) "lost all data" on the new domain, while the same account still shows everything on `thesoundcave.vercel.app`. **Nothing was deleted** — the Supabase data (roster/Clan, Stash, brand kits, credits, events) is intact.
+
+- **Root cause:** the Railway backend's CORS allowlist (`ALLOWED_ORIGINS` in `content_api.py`, hardened 2026-06-11) only permitted `https://thesoundcave.vercel.app` + localhost. From `s0undcav3.com`, **every** browser call to the API (`/api/roster`, `/api/me`, stash, brand kits, credits…) fails CORS preflight → the app renders signed-in-but-empty. Sign-in itself still works because Supabase auth goes direct to `supabase.co` (not through the Railway API), which is exactly why it *looked* like the account had been wiped rather than the backend being unreachable.
+- **Fix:** added `https://s0undcav3.com` + `https://www.s0undcav3.com` to `ALLOWED_ORIGINS`.
+- **Not live until redeployed:** requires `railway up` on the backend — the Vercel frontend needs no change (`js/config.js` already points every non-localhost origin at the Railway API).
+- **Follow-ups for Doug (dashboard config, not code):**
+  1. **Supabase Auth → URL Configuration:** add `https://s0undcav3.com/**` (+ www) to Redirect URLs, or magic-link / password-reset emails requested from the new domain will bounce back to the old Vercel origin.
+  2. **Railway env `APP_BASE_URL`** still points at `https://thesoundcave.vercel.app` (Stripe checkout returns + reset redirects) — flip it to `https://s0undcav3.com` when the new domain becomes canonical.
+  3. Anything stored per-origin in the browser (localStorage: `sc_api_url` override, sound toggle, splash flag, any un-migrated pre-account Stash/favourites) starts fresh on a new domain by nature — account-backed data does not.

@@ -12,7 +12,7 @@
 | Railway project | `soundcave-api` (project `1d496daa-…`, env `production`) |
 | Service | `soundcave-api`, single worker (gunicorn) |
 | Public API URL | `https://soundcave-api-production.up.railway.app` |
-| Frontend (prod) | `https://thesoundcave.vercel.app` |
+| Frontend (prod) | `https://thesoundcave.vercel.app` · `https://s0undcav3.com` (custom domain, added to CORS 2026-07-03) |
 
 ## How it runs
 - **Entrypoint:** `Procfile` → `gunicorn wsgi:app --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT`.
