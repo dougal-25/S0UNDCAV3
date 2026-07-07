@@ -1430,6 +1430,25 @@ Doug asked to gather the S0UNDCAV3 logos & brand assets somewhere easy to find. 
 - **Rewrote `brand/README.md`** into a complete index: a "just need the logo" quick-grab table, a folder tree, a full asset list (logos + dormant alt + icons + fonts), plus the existing locked palette & type. No mark/colour was changed — purely organisation + documentation.
 - **Wiki:** added a **Brand** section to [index.md](index.md) pointing at `brand/README.md` (distinct from the brand-kit *spec* pages in `wiki/spec/brand_*.md`).
 
+## [2026-06-29] Brand — horizontal banner for social profiles (Reddit)
+
+Doug wanted a logo-left / wordmark-right lockup sized for his Reddit profile banner, as a raster file.
+
+- **Added `brand/banners/soundcave_banner_reddit_1920x384_2026-06-29.png`** — the master logo SVG (`brand/logo/soundcave_logo_2026-05-11.svg`) on the left + `S0UNDCAV3` wordmark on the right, on cave-black `#0a0a0a`. Wordmark is DM Mono, weight 500, uppercase, `0.18em` tracking, `#e8e8e8` — exactly the splash lockup tokens. Subtle `{HEADPHONES RECOMMENDED}` tag beneath in muted `#888`. 1920×384 (5:1), the standard Reddit profile-banner size; lockup centred so mobile centre-crop never clips it.
+- **How it was made:** composed an HTML lockup (`@font-face` → `brand/fonts/DMMono-Regular.ttf`, inline logo SVG) and rasterised with the pre-installed Playwright Chromium (`--headless --screenshot`, `--window-size=1920,384`). No new mark/colour — pure composition of existing brand assets.
+- **`brand/README.md`** now has a *Banners / social* section + quick-grab row, with a note on re-rendering other sizes (e.g. X header 1500×500) keeping the group centred.
+
+## [2026-06-29] Brand banner — switched Reddit lockup to stacked (mobile crop fix)
+
+Live test on Doug's Reddit mobile profile showed the horizontal logo-left/wordmark-right banner badly cropped — logo pushed off the left edge, wordmark cut to "S0UNDCA". Reddit's docs confirm: recommended 1920×384 (5:1), but **mobile crops inward to ~the centre third**, so key art must sit in the central ~640px (looser cross-device safe zone is the central 1300×200). A wide horizontal lockup can't fit that.
+
+- **Switched `brand/banners/soundcave_banner_reddit_1920x384_2026-06-29.png` to a stacked, centred lockup** — logo above the `S0UNDCAV3` wordmark, no glow, cave-black. Art spans only x 800–1120 of 1920 (≈320px, dead centre) → survives the mobile centre-third crop whole. Same canvas/filename.
+- **`brand/README.md`** Banners section rewritten with the safe-zone rule (centre third / 1300×200), the <400 KB compression note, and that horizontal is fine only for wider headers (e.g. X 1500×500).
+- Sources: Reddit Help "Banner"; 2025/2026 Reddit image-size guides (maletphoto, socialez).
+
+## [2026-06-29] Brand banner — shrink stacked lockup to fit vertical safe zone too
+
+Stacked banner's wordmark (below the logo) was being clipped on Reddit mobile — Reddit crops inward vertically as well as horizontally, and the lockup (215px tall) overran the central ~200px height band. Shrank it (logo 172→128px, wordmark 50→40px): art now spans x 832–1088 and y 108–274, inside both the centre-third width and the central 200px height (≈108px margins all round). Same canvas/filename. README updated with the spans.
 ## [2026-07-03] Favicon set completed — multi-res `favicon.ico` + 192px PNG (branch `claude/arc-favicon-search-bar-ggpli0`)
 
 Doug noticed Arc's URL-bar suggestion for `s0undcav3.com` shows a generic globe instead of the cave icon. The tab favicon works (SVG + 32px PNG were already wired), but Chromium-based browsers' omnibox/suggestion UI fetches **`/favicon.ico` directly** — and the repo had no `.ico` at all — and prefers a larger PNG for high-DPI suggestion rows. (The globe is also partly just Arc's cache lag on a new domain; the missing files made it permanent rather than temporary.)
