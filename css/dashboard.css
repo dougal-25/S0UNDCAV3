@@ -121,16 +121,25 @@
       calc(var(--offset) * -56px),
       0
     )
-    scale(calc(1 - var(--abs) * 0.07));
+    scale(calc(1.05 - var(--abs) * 0.07));
   opacity: calc(1 - var(--abs) * 0.13);
   z-index: calc(100 - var(--abs));
   transition:
     transform var(--motion-mid) var(--ease-cinematic),
-    opacity var(--motion-mid) var(--ease-cinematic),
+    opacity var(--motion-fast) var(--ease-soft),
     box-shadow var(--motion-fast) var(--ease-soft),
     border-color var(--motion-fast) var(--ease-soft);
   cursor: pointer;
   will-change: transform, opacity;
+}
+
+/* While the flywheel is spinning, requestAnimationFrame writes the transform
+   every frame — a CSS transition would only lag behind it. Drop the transform
+   ease during the riffle; it's restored for hover / settle when the stack idles. */
+#caveStack[data-riffling] .stack-card {
+  transition:
+    box-shadow var(--motion-fast) var(--ease-soft),
+    border-color var(--motion-fast) var(--ease-soft);
 }
 
 .stack-card img {
@@ -167,12 +176,11 @@
   transition: opacity var(--motion-mid) var(--ease-cinematic);
 }
 
-/* The focused (front) card */
+/* The focused (front) card. No transform override — the base rule already
+   peaks the scale at the centre (--abs → 0), so the front card lifts smoothly
+   out of the riffle with no jump. Focus only adds the colour/border bloom. */
 .stack-card[data-focus="true"] {
   z-index: 200;
-  transform:
-    translate3d(0, -8px, 0)
-    scale(1.06);
   box-shadow:
     0 50px 90px rgba(0,0,0,0.65),
     0 12px 30px rgba(255,69,0,0.08);
@@ -193,7 +201,7 @@
       calc(var(--offset) * -56px - 14px),
       0
     )
-    scale(calc(1 - var(--abs) * 0.07 + 0.04));
+    scale(calc(1.05 - var(--abs) * 0.07 + 0.04));
   border-color: rgba(255,69,0,0.2);
   z-index: calc(180 - var(--abs));
 }
