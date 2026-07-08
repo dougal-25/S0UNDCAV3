@@ -20,15 +20,28 @@ PROFILE_COLS = (
 )
 
 
-def _scrape_and_upsert(handle):
-    """Resolve a SoundCloud handle, upsert artist_profiles by handle. Returns row or None."""
+def _scrape_and_upsert(handle, caller_uid=None, is_admin=False):
+    """Resolve a SoundCloud handle, upsert artist_profiles by handle. Returns row or None.
+
+    A scrape must not overwrite a profile another user has CLAIMED (the PATCH route
+    enforces claimer-only; the upsert here would otherwise bypass that). If the
+    existing row is claimed by someone other than the caller and the caller isn't
+    an admin, return it unchanged instead of overwriting.
+    """
     user = sc.resolve_user(handle)
     if not user or not user.get('id'):
         return None
     payload = sc.user_to_profile_payload(user)
     if not payload.get('soundcloud_handle'):
         return None
-    payload['last_scraped_at'] = 'now()'  # supabase-py serialises strings; use ISO instead
+
+    existing = maybe_one(
+        supabase().table('artist_profiles')
+        .select('*').eq('soundcloud_handle', payload['soundcloud_handle'])
+    )
+    if existing and existing.get('claimed_by_user_id') \
+            and existing['claimed_by_user_id'] != caller_uid and not is_admin:
+        return existing
 
     # Use ISO timestamp for last_scraped_at — supabase-py won't interpret 'now()'.
     from datetime import datetime, timezone
@@ -175,7 +188,7 @@ def scrape_profile():
     if not handle:
         return jsonify({'error': 'handle or url is required'}), 400
 
-    row = _scrape_and_upsert(handle)
+    row = _scrape_and_upsert(handle, caller_uid=uid, is_admin=g.get('is_admin'))
     if not row:
         return jsonify({'error': f'could not resolve handle: {handle}'}), 404
     return jsonify({'profile': row})

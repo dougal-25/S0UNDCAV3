@@ -481,7 +481,20 @@ function fmt(n) {
 }
 function esc(s) {
   if (!s) return '';
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Escapes single quote + backtick too, so values are safe inside single-quoted
+  // attributes and inline handlers (e.g. onclick="f('${esc(x)}')"), not just
+  // double-quoted contexts.
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
+}
+// Allow only http(s) or same-origin (relative) URLs into href/src. Blocks
+// javascript:, data:, vbscript: etc. Returns '' for anything unsafe.
+function safeUrl(u) {
+  if (!u) return '';
+  const s = String(u).trim();
+  if (/^https?:\/\//i.test(s) || s.startsWith('//') || s.startsWith('/')) return s;
+  return '';
 }
 function daysBetween(d1, d2) {
   return Math.round((new Date(d2) - new Date(d1)) / (1000*60*60*24));
@@ -1015,8 +1028,8 @@ function renderPanel(username) {
   const addSec = document.getElementById('panelAddClanSection');
   if (addSec) addSec.style.display = isClan ? 'none' : '';
 
-  const avatarHTML = a.avatar_url
-    ? `<img src="${a.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='·'">`
+  const avatarHTML = a.avatar_url && safeUrl(a.avatar_url)
+    ? `<img src="${esc(safeUrl(a.avatar_url))}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='·'">`
     : '·';
   document.getElementById('panelAvatar').innerHTML = avatarHTML;
   document.getElementById('panelName').textContent = a.display_name;
@@ -1098,7 +1111,7 @@ function renderPanel(username) {
   // members only; click a dim mark to add a URL inline, a bright one to open it,
   // hover a linked one for a ✎ to edit. Spec: clan_grid_polish.md. Handlers wired
   // via JS (no inline onclick with user data).
-  const scChip = `<a class="plat-chip linked soundcloud" href="${esc(a.artist_url || '#')}" target="_blank" rel="noopener" title="SoundCloud">
+  const scChip = `<a class="plat-chip linked soundcloud" href="${esc(safeUrl(a.artist_url) || '#')}" target="_blank" rel="noopener" title="SoundCloud">
       <span class="plat-chip-ico">${typeof scIcon === 'function' ? scIcon('soundcloud') : 'SC'}</span>
     </a>`;
   const platformChips = isClan ? PLATFORMS.map(p => {
@@ -1181,7 +1194,7 @@ function renderPanel(username) {
             <div class="track-row-title">${esc(t.title)}</div>
             <div class="track-row-meta">${t._liked ? '♥ liked' : ''}${t._liked && (t._scout || t.plays != null) ? ' · ' : ''}${esc(t.date || '')}${t._scout ? ` · Score ${t.score?.toFixed(1)||'—'}` : (t.plays != null ? ` · ${fmt(t.plays)} plays` : '')}</div>
           </div>
-          ${t.url ? `<a class="track-row-play" href="${esc(t.url)}" target="_blank" rel="noopener" title="Listen on SoundCloud">▶</a>` : ''}
+          ${t.url && safeUrl(t.url) ? `<a class="track-row-play" href="${esc(safeUrl(t.url))}" target="_blank" rel="noopener" title="Listen on SoundCloud">▶</a>` : ''}
         </div>`).join('')
     : '<div style="color:var(--muted);font-size:13px">No tracks recorded yet.</div>';
   if (typeof scHydrateIcons === 'function') scHydrateIcons(tracksEl);

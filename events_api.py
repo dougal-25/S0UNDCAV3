@@ -335,6 +335,12 @@ def extract_flyer():
     except Exception as e:
         return jsonify({'error': f'storage upload failed: {e}'}), 500
 
+    # Meter the paid Sonnet vision call (refunded on any failure below) so a
+    # 0-credit account can't run unlimited free inference.
+    _bal, cerr = charge(uid, CREDIT_COST_IMAGE, f'extract_flyer:{object_path}')
+    if cerr:
+        return cerr
+
     # Vision call
     b64 = base64.standard_b64encode(data).decode('ascii')
     media_type = 'image/jpeg' if mime in ('image/jpg', 'image/jpeg') else mime
@@ -352,6 +358,7 @@ def extract_flyer():
         )
         raw = msg.content[0].text if msg.content else ''
     except anthropic.APIError as e:
+        refund(uid, CREDIT_COST_IMAGE, 'extract_flyer_failed')
         return jsonify({'error': f'extraction failed: {e}', 'flyer_image_url': flyer_image_url}), 502
 
     # Parse the JSON the model returned. Strip code fences if any.
@@ -363,6 +370,7 @@ def extract_flyer():
     try:
         extracted = json.loads(s)
     except Exception:
+        refund(uid, CREDIT_COST_IMAGE, 'extract_flyer_failed')
         return jsonify({
             'error': 'model returned non-JSON',
             'flyer_image_url': flyer_image_url,

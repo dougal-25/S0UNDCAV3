@@ -2730,8 +2730,14 @@ def _ayr_rehost(media_url):
     """Download a media URL and re-upload to Ayrshare's CDN.
     Required for Instagram — Meta's fetchers can't reliably pull from
     Cloudflare-fronted Supabase Storage (error 440)."""
-    img = http_requests.get(media_url, timeout=20)
-    img.raise_for_status()
+    # SSRF guard: media_url originates from user-controlled stash input, so
+    # restrict to our own Supabase Storage host and disable redirects (a 3xx
+    # can't bounce the fetch to an internal/metadata target) — same as the
+    # refine-loop and proxy-image fetch sites.
+    _assert_safe_storage_url(media_url)
+    img = http_requests.get(media_url, timeout=20, allow_redirects=False)
+    if img.status_code != 200:
+        raise ValueError(f'media fetch returned {img.status_code}')
     fn = media_url.rsplit('/', 1)[-1] or 'media.jpg'
     mime = img.headers.get('content-type', 'image/jpeg').split(';')[0]
     r = http_requests.post(

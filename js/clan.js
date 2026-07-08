@@ -71,8 +71,8 @@ function renderClan() {
     const followers = latest.followers||0;
     const starred = isStarred(a.username);
 
-    const avatarHTML = a.avatar_url
-      ? `<img src="${a.avatar_url}" alt="" onerror="this.parentElement.textContent='·'">`
+    const avatarHTML = a.avatar_url && safeUrl(a.avatar_url)
+      ? `<img src="${esc(safeUrl(a.avatar_url))}" alt="" onerror="this.parentElement.textContent='·'">`
       : '·';
 
     // SoundCloud leads, always orange (the source); then ALL platforms,
@@ -81,7 +81,7 @@ function renderClan() {
         <div class="plat-icon linked soundcloud" title="SoundCloud">${typeof scIcon === 'function' ? scIcon('soundcloud') : ''}</div>
         ${PLATFORMS.map(p => {
           const linked = (a.platforms||{})[p];
-          return `<div class="plat-icon ${linked?'linked':''}" title="${PLAT_LABELS[p]}${linked ? ': '+linked : ''}">${PLAT_ICONS[p]}</div>`;
+          return `<div class="plat-icon ${linked?'linked':''}" title="${esc(PLAT_LABELS[p])}${linked ? ': '+esc(linked) : ''}">${PLAT_ICONS[p]}</div>`;
         }).join('')}
       </div>`;
 
