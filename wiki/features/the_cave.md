@@ -6,6 +6,8 @@
 ## What it does
 The **Mural** is the **dashboard / first-scene** of the Cave. It presents the user's Clan as a diagonal stack of cards flowing bottom-left → top-right. The front-most card is the currently focused artist. Scrolling, arrow keys, or trackpad cycle the focus; hovering lifts a card; clicking opens that artist's profile.
 
+**Scroll feel (2026-07-08):** the stack riffles on a **momentum "flywheel"** — a wheel event injects velocity proportional to how hard you scroll, friction bleeds it off frame-by-frame (`requestAnimationFrame`), and it eases-snaps to the nearest card when it slows. So riffle speed tracks scroll speed (gentle nudge = one card; fast flick = a fast, decaying riffle) and the cards glide continuously instead of stepping on a fixed timer. Keyboard arrows use the same physics; `prefers-reduced-motion` falls back to an instant one-card step. See `wiki/log.md` 2026-07-08 for the model + tunables (`js/cave.js`).
+
 Around the stack, four floating glass panels surface at-a-glance stats:
 - **Top-left:** Followers gained (week-over-week diff across Clan)
 - **Top-right:** Likes gained (week-over-week diff)

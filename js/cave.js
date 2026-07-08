@@ -6,16 +6,25 @@
 // All HTML interpolation passes through the project's `esc()` helper.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-let _caveFocusIndex = 0;
-let _caveWheelAccum = 0;            // banked wheel travel (px) waiting to be drained into card steps
-let _caveWheelDrainTimer = null;    // setTimeout handle while banked travel drains one card at a time
+let _caveFocusIndex = 0;            // settled card index (integer, wrapped) — drives the meta panel
+let _cavePos = 0;                   // continuous focus position (float); rAF glides this toward a card
+let _caveVel = 0;                   // momentum, in cards per frame
+let _caveRAF = null;                // requestAnimationFrame handle while the stack is in motion
 let _caveClanCache = [];
 const STACK_VISIBLE_RADIUS = 4;
-const CAVE_WHEEL_STEP = 60;         // wheel px per ONE card — lower = more sensitive
-const CAVE_WHEEL_DRAIN_MS = 110;    // ms between drained cards during a fast scroll — caps the riffle
-                                    // rate (~9 cards/sec) so each still glides. Lower = faster riffle.
-const CAVE_WHEEL_MAX_BANK = 8;      // max cards a single burst can queue — stops one violent flick
-                                    // from rifling the whole clan (the old `while` loop did ~17 at once).
+
+// ── Riffle physics ──────────────────────────────────────────────
+// The stack scrolls like a physical flywheel, not on a fixed timer. A wheel
+// event injects VELOCITY (proportional to how hard you scroll); friction bleeds
+// it off each frame; once it's slow the position eases to the nearest card and
+// locks. So riffle speed tracks scroll speed, and slow/fast both feel natural.
+const CAVE_WHEEL_SENSITIVITY = 0.0011; // scroll px → velocity. Higher = twitchier.
+const CAVE_FRICTION          = 0.92;   // per-frame velocity decay. Higher = longer glide.
+const CAVE_MAX_VEL           = 0.65;   // cap cards/frame (~39/s) so one violent flick can't blur.
+const CAVE_KEY_IMPULSE       = 0.09;   // velocity a single arrow-key press adds (~one card).
+const CAVE_SETTLE_VEL        = 0.045;  // below this, momentum hands off to the snap-to-card ease.
+const CAVE_SNAP_STIFF        = 0.22;   // how hard the settle ease pulls to the nearest card.
+const CAVE_REDUCED_MOTION    = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 const setHTML = (el, html) => { if (el) { el['inner' + 'HTML'] = html; } };
 
@@ -38,6 +47,10 @@ function renderCave() {
   const clan = Object.values(favs).filter(a => a.status !== 'cut');
   _caveClanCache = clan;
   if (_caveFocusIndex >= clan.length) _caveFocusIndex = 0;
+  // A data re-render cancels any in-flight riffle and re-syncs the flywheel.
+  if (_caveRAF) { cancelAnimationFrame(_caveRAF); _caveRAF = null; }
+  _cavePos = _caveFocusIndex;
+  _caveVel = 0;
 
   renderCaveWelcome();
   renderCaveStack(clan);
@@ -244,40 +257,87 @@ function applyStackOffsets() {
   const cards = document.querySelectorAll('#caveStack .stack-card');
   const n = cards.length;
   if (!n) return;
+  const settled = !_caveRAF;               // rAF idle → the stack is at rest
   cards.forEach(card => {
     const i = parseInt(card.dataset.idx, 10);
-    let raw = i - _caveFocusIndex;
+    let raw = i - _cavePos;                 // fractional during a riffle
     if (raw > n / 2) raw -= n;
     if (raw < -n / 2) raw += n;
     const abs = Math.abs(raw);
-    card.style.setProperty('--offset', raw);
-    card.style.setProperty('--abs', abs);
-    if (abs > STACK_VISIBLE_RADIUS) card.dataset.hidden = 'true';
+    card.style.setProperty('--offset', raw.toFixed(3));
+    card.style.setProperty('--abs', abs.toFixed(3));
+    if (abs > STACK_VISIBLE_RADIUS + 0.5) card.dataset.hidden = 'true';
     else delete card.dataset.hidden;
-    if (raw === 0) card.dataset.focus = 'true';
+    // Only the fully-settled front card blooms into colour — during the riffle
+    // every card stays in its greyscale coast so nothing strobes past.
+    if (settled && abs < 0.5) card.dataset.focus = 'true';
     else delete card.dataset.focus;
   });
 }
 
+// Instant, un-animated jump by whole cards (reduced-motion + programmatic use).
 function cycleStack(delta) {
   const n = _caveClanCache.length;
   if (!n) return;
   _caveFocusIndex = (_caveFocusIndex + delta + n) % n;
+  _cavePos = _caveFocusIndex;
+  _caveVel = 0;
   applyStackOffsets();
   updateStackMeta();
 }
 
-// Drain banked wheel travel into card steps, one per CAVE_WHEEL_DRAIN_MS, so a
-// fast scroll riffles smoothly (each card glides) instead of jumping. Stops when
-// less than one card's worth remains, carrying that remainder into the next scroll.
-function drainCaveWheel() {
-  if (Math.abs(_caveWheelAccum) >= CAVE_WHEEL_STEP) {
-    const dir = _caveWheelAccum > 0 ? 1 : -1;
-    _caveWheelAccum -= dir * CAVE_WHEEL_STEP;
-    cycleStack(dir);
-    _caveWheelDrainTimer = setTimeout(drainCaveWheel, CAVE_WHEEL_DRAIN_MS);
+// Give the flywheel a shove (one arrow-key press ≈ one card). Honours reduced motion.
+function nudgeCave(dir) {
+  if (CAVE_REDUCED_MOTION) { cycleStack(dir); return; }
+  _caveVel += dir * CAVE_KEY_IMPULSE;
+  _caveVel = Math.max(-CAVE_MAX_VEL, Math.min(CAVE_MAX_VEL, _caveVel));
+  startCaveRiffle();
+}
+
+// Kick off (or keep alive) the rAF loop; flag the stack so CSS drops the
+// transform transition and lets rAF own the motion frame-by-frame.
+function startCaveRiffle() {
+  const stack = document.getElementById('caveStack');
+  if (stack) stack.dataset.riffling = 'true';
+  if (!_caveRAF) _caveRAF = requestAnimationFrame(caveTick);
+}
+
+// One physics frame: coast on momentum, then ease-snap to the nearest card.
+function caveTick() {
+  if (Math.abs(_caveVel) > CAVE_SETTLE_VEL) {
+    _cavePos += _caveVel;
+    _caveVel *= CAVE_FRICTION;
   } else {
-    _caveWheelDrainTimer = null;            // idle; keep the sub-threshold remainder
+    // Momentum spent → glide to the nearest card and lock.
+    const nearest = Math.round(_cavePos);
+    const dist = nearest - _cavePos;
+    if (Math.abs(dist) < 0.001) {
+      _cavePos = nearest;
+      _caveVel = 0;
+      _caveRAF = null;                       // mark settled BEFORE the final paint
+      const stack = document.getElementById('caveStack');
+      if (stack) delete stack.dataset.riffling;
+      applyStackOffsets();                   // final frame → front card blooms in
+      commitCaveFocus();
+      return;
+    }
+    _cavePos += dist * CAVE_SNAP_STIFF;
+    _caveVel = 0;
+  }
+  applyStackOffsets();
+  commitCaveFocus();
+  _caveRAF = requestAnimationFrame(caveTick);
+}
+
+// Sync the settled integer index (drives the meta panel) as the front card
+// changes, and keep _cavePos from growing unbounded as you keep riffling.
+function commitCaveFocus() {
+  const n = _caveClanCache.length;
+  if (!n) return;
+  const idx = ((Math.round(_cavePos) % n) + n) % n;
+  if (idx !== _caveFocusIndex) {
+    _caveFocusIndex = idx;
+    updateStackMeta();
   }
 }
 
@@ -315,24 +375,24 @@ function attachStackInteractions() {
     const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
     if (!delta) return;
     e.preventDefault();                       // ALWAYS first → page never moves over the window
-    // BANK the scroll travel, then DRAIN it one card at a time on a timer so
-    // each card gets its own glide. The faster/more you scroll, the more banks
-    // up and the more cards riffle past — speed-proportional — but spread over
-    // time (CAVE_WHEEL_DRAIN_MS apart) instead of 17 cards jumping in a single
-    // frame like the old `while` loop. A gentle nudge banks <1 step → exactly
-    // one card; a hard flick is capped at CAVE_WHEEL_MAX_BANK so it can't rifle
-    // the whole clan. Sub-threshold travel carries into the next scroll.
-    _caveWheelAccum += delta;
-    const cap = CAVE_WHEEL_STEP * CAVE_WHEEL_MAX_BANK;
-    _caveWheelAccum = Math.max(-cap, Math.min(cap, _caveWheelAccum));
-    if (!_caveWheelDrainTimer && Math.abs(_caveWheelAccum) >= CAVE_WHEEL_STEP) drainCaveWheel();
+    if (CAVE_REDUCED_MOTION) {                // no momentum — one card per gesture
+      cycleStack(delta > 0 ? 1 : -1);
+      return;
+    }
+    // Inject velocity proportional to how hard you scrolled, then let friction
+    // carry it. A gentle nudge → about one card; a fast flick → a fast riffle
+    // that decays and snaps. No fixed step rate to fight anymore: the riffle's
+    // pace simply tracks the scroll's pace. Capped so one violent flick can't blur.
+    _caveVel += delta * CAVE_WHEEL_SENSITIVITY;
+    _caveVel = Math.max(-CAVE_MAX_VEL, Math.min(CAVE_MAX_VEL, _caveVel));
+    startCaveRiffle();
   }, { passive: false });
 
   document.addEventListener('keydown', (e) => {
     const cave = document.getElementById('tab-cave');
     if (!cave || cave.style.display === 'none') return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   { cycleStack(1);  e.preventDefault(); }
-    if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') { cycleStack(-1); e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   { nudgeCave(1);  e.preventDefault(); }
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') { nudgeCave(-1); e.preventDefault(); }
   });
 }
 
