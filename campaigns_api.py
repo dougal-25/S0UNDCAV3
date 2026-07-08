@@ -23,7 +23,7 @@ from flask import Blueprint, jsonify, request
 from campaign_template import build_campaign
 from config.voice_presets import VOICE_PRESETS, system_prompt_for
 from image_composer import compose_post_image, store_post_image
-from sb_helpers import maybe_one, require_user, supabase
+from sb_helpers import CREDIT_COST_IMAGE, charge, maybe_one, refund, require_user, supabase
 
 campaigns_bp = Blueprint('campaigns', __name__)
 
@@ -390,17 +390,25 @@ def generate_campaign(event_id):
         # Image composition — brand-aware if references exist, else Pillow fallback.
         # Feed the post's selected copy into the image prompt so the canvas reflects it.
         copy_text = variants[0].get('text', '') if variants else ''
-        try:
-            png = compose_post_image(event, profile, plan_post['post_type'], brand_kit=brand_kit, campaign_id=camp['id'], generated_text=copy_text)
-            image_url = store_post_image(uid, post_row['id'], png)
-            supabase().table('posts').update({
-                'image_asset_urls': [image_url],
-                'selected_image_url': image_url,
-            }).eq('id', post_row['id']).execute()
-            post_row['image_asset_urls'] = [image_url]
-            post_row['selected_image_url'] = image_url
-        except Exception as e:
-            errors.append({'post_type': plan_post['post_type'], 'error': f'image: {e}'})
+        # Meter each composed image like every other paid image path. When the
+        # user runs out mid-campaign, remaining posts keep their copy but skip
+        # the image rather than generating for free.
+        _bal, cerr = charge(uid, CREDIT_COST_IMAGE, f'campaign_post:{post_row["id"]}')
+        if cerr:
+            errors.append({'post_type': plan_post['post_type'], 'error': 'insufficient_credits'})
+        else:
+            try:
+                png = compose_post_image(event, profile, plan_post['post_type'], brand_kit=brand_kit, campaign_id=camp['id'], generated_text=copy_text)
+                image_url = store_post_image(uid, post_row['id'], png)
+                supabase().table('posts').update({
+                    'image_asset_urls': [image_url],
+                    'selected_image_url': image_url,
+                }).eq('id', post_row['id']).execute()
+                post_row['image_asset_urls'] = [image_url]
+                post_row['selected_image_url'] = image_url
+            except Exception as e:
+                refund(uid, CREDIT_COST_IMAGE, f'campaign_post_failed:{post_row["id"]}')
+                errors.append({'post_type': plan_post['post_type'], 'error': f'image: {e}'})
 
         # Bridge to Stash so Trail Map can schedule the post
         try:

@@ -43,7 +43,7 @@ function getScheduledSearches() {
 async function loadScheduledSearches() {
   const apiUrl = scApiBase();
   try {
-    const r = await fetch(`${apiUrl}/api/scheduled-searches`);
+    const r = await scAuth.authedFetch(`${apiUrl}/api/scheduled-searches`);
     if (r.ok) {
       const d = await r.json();
       if (Array.isArray(d)) { _scheduledCache = d; localStorage.setItem('sc_scheduled_searches', JSON.stringify(d)); return d; }
@@ -57,9 +57,9 @@ function saveScheduledSearches(d) {
   _scheduledCache = d;
   localStorage.setItem('sc_scheduled_searches', JSON.stringify(d));   // always keep a local copy
   const apiUrl = scApiBase();
-  fetch(`${apiUrl}/api/scheduled-searches`, {
+  scAuth.authedFetch(`${apiUrl}/api/scheduled-searches`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d),
-  }).catch(() => { /* offline — the local copy holds until next sync */ });
+  }).catch(() => { /* offline or not admin — the local copy holds */ });
 }
 
 // Human-readable filter summary for a saved search (mirrors the Python side).
@@ -200,7 +200,7 @@ async function runLiveSearch() {
   params.set('limit', searchLimit);
 
   try {
-    const r = await fetch(`${apiUrl}/api/search?${params}`);
+    const r = await scAuth.authedFetch(`${apiUrl}/api/search?${params}`);
     if (!r.ok) throw new Error(`API error: ${r.status}`);
     const data = await r.json();
     liveSearchResults = data.tracks || data || [];

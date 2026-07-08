@@ -1443,7 +1443,7 @@ function editStashItem(id) {
       _animResult = { url: vurl, kind: 'video', prompt: item.content || '' };
       forgeGeneratedVideoUrl = vurl;
       imgArea.style.display = 'block';
-      imgArea.innerHTML = `<video src="${vurl}" class="forge-image-preview" controls autoplay loop muted playsinline></video>
+      imgArea.innerHTML = `<video src="${esc(safeUrl(vurl))}" class="forge-image-preview" controls autoplay loop muted playsinline></video>
         <div class="forge-actions" style="margin-top:12px">
           <button class="btn-red" type="button" onclick="saveAnimationToStash(this)">SAVE TO STASH</button>
           <button class="btn-outline" type="button" onclick="resetForgeOutput()">DISCARD</button>
@@ -1493,7 +1493,7 @@ function editStashItem(id) {
     document.getElementById('btnRefineImage').style.display = 'none';
   } else if (forgeGeneratedImageUrl) {
     imgArea.style.display = 'block';
-    imgArea.innerHTML = `<img src="${forgeGeneratedImageUrl}" class="forge-image-preview" alt="Generated image" title="Click to zoom" onclick="openForgeLightbox(this.src)">`;
+    imgArea.innerHTML = `<img src="${esc(safeUrl(forgeGeneratedImageUrl))}" class="forge-image-preview" alt="Generated image" title="Click to zoom" onclick="openForgeLightbox(this.src)">`;
     document.getElementById('btnDownloadImage').style.display = '';
     _seedForgeVersions(forgeGeneratedImageUrl);   // refine a saved flyer too
     document.getElementById('btnRefineImage').style.display = '';

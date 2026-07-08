@@ -13,6 +13,8 @@ SQL migrations for Sound Cave's Supabase project.
 - `0007_audio_tracks.sql` — audio_tracks table + clipping-ready columns on stash_items (Stream 2)
 - `0008`–`0018` — see file headers (this index went stale; each migration's first comment block describes it)
 - `0019_artist_tracking.sql` — Clan Data Tracking v2: `tracked_artists` registry + `artist_snapshots` time-series + `snapshot_runs` log (spec: wiki/spec/clan_data_tracking_v2.md)
+- `0020`–`0022` — see file headers (free-trial/invite, invite codes, per-user SoundCloud OAuth)
+- `0023_security_hardening.sql` — **pre-launch hardening.** Removes client UPDATE on `public.users` (credits/tier/trial were self-writable via the anon key), makes `credits_ledger` client read-only, and adds the `stripe_events` webhook-idempotency table. Apply before opening public signups.
 
 All idempotent — safe to re-run.
 

@@ -4,7 +4,7 @@ Phase 2 endpoints for the artist_profiles table.
 
 Spec: projects/thesoundcave/wiki/spec/phase_2_3_pivot.md
 """
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from sb_helpers import maybe_one, require_user, supabase
 import soundcloud_helpers as sc
@@ -15,20 +15,33 @@ PROFILE_COLS = (
     'id, display_name, soundcloud_handle, soundcloud_url, spotify_url, '
     'instagram_handle, other_socials, bio_short, bio_long, genre_tags, location, '
     'hero_image_url, gallery_image_urls, pinned_track_urls, '
-    'follower_count_soundcloud, claimed, claimed_by_user_id, '
+    'follower_count_soundcloud, claimed, '
     'last_scraped_at, created_at, updated_at'
 )
 
 
-def _scrape_and_upsert(handle):
-    """Resolve a SoundCloud handle, upsert artist_profiles by handle. Returns row or None."""
+def _scrape_and_upsert(handle, caller_uid=None, is_admin=False):
+    """Resolve a SoundCloud handle, upsert artist_profiles by handle. Returns row or None.
+
+    A scrape must not overwrite a profile another user has CLAIMED (the PATCH route
+    enforces claimer-only; the upsert here would otherwise bypass that). If the
+    existing row is claimed by someone other than the caller and the caller isn't
+    an admin, return it unchanged instead of overwriting.
+    """
     user = sc.resolve_user(handle)
     if not user or not user.get('id'):
         return None
     payload = sc.user_to_profile_payload(user)
     if not payload.get('soundcloud_handle'):
         return None
-    payload['last_scraped_at'] = 'now()'  # supabase-py serialises strings; use ISO instead
+
+    existing = maybe_one(
+        supabase().table('artist_profiles')
+        .select('*').eq('soundcloud_handle', payload['soundcloud_handle'])
+    )
+    if existing and existing.get('claimed_by_user_id') \
+            and existing['claimed_by_user_id'] != caller_uid and not is_admin:
+        return existing
 
     # Use ISO timestamp for last_scraped_at — supabase-py won't interpret 'now()'.
     from datetime import datetime, timezone
@@ -175,7 +188,7 @@ def scrape_profile():
     if not handle:
         return jsonify({'error': 'handle or url is required'}), 400
 
-    row = _scrape_and_upsert(handle)
+    row = _scrape_and_upsert(handle, caller_uid=uid, is_admin=g.get('is_admin'))
     if not row:
         return jsonify({'error': f'could not resolve handle: {handle}'}), 404
     return jsonify({'profile': row})
@@ -208,8 +221,13 @@ def patch_profile(profile_id):
     )
     if not row:
         return jsonify({'error': 'not found'}), 404
-    if row.get('claimed_by_user_id') and row['claimed_by_user_id'] != uid:
-        return jsonify({'error': 'profile claimed by another user'}), 403
+    # Only the claimer (or an admin) may edit. This also blocks writes to
+    # UNCLAIMED profiles by regular users — until the claim flow lands, the only
+    # writers are the scrape endpoint (service-role) and admin tools. Without
+    # this, any signed-up user could overwrite every unclaimed profile in the
+    # shared catalog (and plant SSRF URLs in hero_image_url).
+    if row.get('claimed_by_user_id') != uid and not g.get('is_admin'):
+        return jsonify({'error': 'profile not claimed by you'}), 403
 
     res = (
         supabase()

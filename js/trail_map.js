@@ -218,7 +218,7 @@ function trailPillHTML(post, stash) {
     : '(missing stash item)';
   const dots = post.platforms.map(() => `<span class="dot"></span>`).join('');
   return `<div class="trail-pill ${post.status}" data-id="${post.id}">
-    <span class="ico">${ico}</span>
+    <span class="ico">${esc(ico)}</span>
     <span class="title">${esc(title)}</span>
     <span class="dots">${dots}</span>
   </div>`;
@@ -435,6 +435,10 @@ async function saveTrailModal() {
   const patch = {};
   if (dtVal) patch.scheduled_for = new Date(dtVal).toISOString();
   patch.platforms = platforms;
+  // Persist the chosen status pill — the picker set .selected but it was never
+  // read into the patch, so the status change was silently dropped.
+  const selStatus = document.querySelector('#trailModalStatus .trail-status-pill.selected');
+  if (selStatus) patch.status = selStatus.dataset.status;
 
   try {
     await patchScheduledPost(id, patch);

@@ -13,7 +13,7 @@ import time
 import anthropic
 from flask import Blueprint, jsonify, request
 
-from sb_helpers import maybe_one, require_user, supabase
+from sb_helpers import CREDIT_COST_IMAGE, charge, maybe_one, refund, require_user, supabase
 
 events_bp = Blueprint('events', __name__, url_prefix='/api/events')
 
@@ -201,10 +201,14 @@ def generate_flyer(event_id):
     parts.append("portrait orientation, no text (text will be added in post-processing)")
     prompt = ', '.join(parts) + '.'
 
+    _bal, cerr = charge(uid, CREDIT_COST_IMAGE, f'flyer:{event_id}')
+    if cerr:
+        return cerr
     from media_gen import generate_fal_with_reference
     try:
         png_bytes, provider, model = generate_fal_with_reference(prompt, style_ref, 1080, 1350)
     except Exception as e:
+        refund(uid, CREDIT_COST_IMAGE, f'flyer_failed:{event_id}')
         return jsonify({'error': f'flyer generation failed: {e}'}), 502
 
     # Upload to event_flyers bucket
@@ -218,6 +222,7 @@ def generate_flyer(event_id):
         )
         flyer_image_url = supabase().storage.from_(FLYER_BUCKET).get_public_url(object_path)
     except Exception as e:
+        refund(uid, CREDIT_COST_IMAGE, f'flyer_store_failed:{event_id}')
         return jsonify({'error': f'storage upload failed: {e}'}), 500
 
     # Persist on the event
@@ -330,6 +335,12 @@ def extract_flyer():
     except Exception as e:
         return jsonify({'error': f'storage upload failed: {e}'}), 500
 
+    # Meter the paid Sonnet vision call (refunded on any failure below) so a
+    # 0-credit account can't run unlimited free inference.
+    _bal, cerr = charge(uid, CREDIT_COST_IMAGE, f'extract_flyer:{object_path}')
+    if cerr:
+        return cerr
+
     # Vision call
     b64 = base64.standard_b64encode(data).decode('ascii')
     media_type = 'image/jpeg' if mime in ('image/jpg', 'image/jpeg') else mime
@@ -347,6 +358,7 @@ def extract_flyer():
         )
         raw = msg.content[0].text if msg.content else ''
     except anthropic.APIError as e:
+        refund(uid, CREDIT_COST_IMAGE, 'extract_flyer_failed')
         return jsonify({'error': f'extraction failed: {e}', 'flyer_image_url': flyer_image_url}), 502
 
     # Parse the JSON the model returned. Strip code fences if any.
@@ -358,6 +370,7 @@ def extract_flyer():
     try:
         extracted = json.loads(s)
     except Exception:
+        refund(uid, CREDIT_COST_IMAGE, 'extract_flyer_failed')
         return jsonify({
             'error': 'model returned non-JSON',
             'flyer_image_url': flyer_image_url,

@@ -51,14 +51,29 @@ def register_artist():
         return jsonify({'error': 'username required'}), 400
 
     sb = supabase()
-    sb.table('tracked_artists').upsert({
+    # tracked_artists is a SHARED registry (per-user association lives elsewhere).
+    # A second caller must not overwrite identity fields or repoint the resolved
+    # SoundCloud account of an existing row, so only the first registrant creates
+    # and resolves it; later calls just return the current shared state.
+    existing = (
+        sb.table('tracked_artists').select('*').eq('artist_key', key).execute()
+    ).data
+    if existing:
+        cur = existing[0]
+        return jsonify({
+            'artist_key': key,
+            'resolve_status': cur.get('resolve_status'),
+            'soundcloud_user_id': cur.get('soundcloud_user_id'),
+        }), 200
+
+    sb.table('tracked_artists').insert({
         'artist_key': key,
         'display_name': body.get('display_name') or key,
         'genre': body.get('genre'),
         'avatar_url': body.get('avatar_url'),
         'permalink_url': body.get('artist_url'),
         'active': True,
-    }, on_conflict='artist_key').execute()
+    }).execute()
 
     row = (
         sb.table('tracked_artists').select('*').eq('artist_key', key).execute()

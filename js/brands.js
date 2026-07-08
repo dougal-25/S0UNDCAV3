@@ -134,11 +134,16 @@
   }
 
   function injectFontFace(family, url) {
+    // Validate the user-controlled font URL and reject CSS-breaking chars so it
+    // can't escape the url("...") context → CSS injection.
+    const safe = (typeof safeUrl === 'function' ? safeUrl(url) : url) || '';
+    if (!safe || /["'()\\\s]/.test(safe)) return;
+    const fam = String(family).replace(/["\\]/g, '');
     // Idempotent — skip if already injected for this family.
-    if (document.querySelector(`style[data-font-family="${family}"]`)) return;
+    if (document.querySelector(`style[data-font-family="${fam}"]`)) return;
     const style = document.createElement('style');
-    style.setAttribute('data-font-family', family);
-    style.textContent = `@font-face { font-family: "${family}"; src: url("${url}"); font-display: swap; }`;
+    style.setAttribute('data-font-family', fam);
+    style.textContent = `@font-face { font-family: "${fam}"; src: url("${safe}"); font-display: swap; }`;
     document.head.appendChild(style);
   }
 
@@ -252,10 +257,12 @@
   }
 
   function injectPreviewFont(url) {
+    const safe = (typeof safeUrl === 'function' ? safeUrl(url) : url) || '';
+    if (!safe || /["'()\\\s]/.test(safe)) return;
     if (_previewFontTag) _previewFontTag.remove();
     _previewFontTag = document.createElement('style');
     _previewFontTag.textContent =
-      `@font-face { font-family: "BrandPreviewFont"; src: url("${url}"); font-display: swap; }`;
+      `@font-face { font-family: "BrandPreviewFont"; src: url("${safe}"); font-display: swap; }`;
     document.head.appendChild(_previewFontTag);
   }
 

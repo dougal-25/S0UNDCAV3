@@ -89,6 +89,26 @@ ALLOWED_ORIGINS = [
 ]
 CORS(app, origins=ALLOWED_ORIGINS)
 
+
+# Coarse per-IP backstop on state-changing / generation calls. Credits are the
+# primary meter, but this brakes burst abuse and the free text/vision routes
+# (which cost no credits) and caps provider concurrency. GETs (dashboard loads)
+# are untouched; the Stripe webhook is exempt (it's signature-verified and
+# arrives from Stripe's IPs). Single Railway worker → in-memory is sufficient.
+_post_hits = _defaultdict(list)
+_POST_RATE_MAX = int(os.getenv('POST_RATE_PER_MIN', '120'))
+
+
+@app.before_request
+def _throttle_posts():
+    if request.method != 'POST' or not request.path.startswith('/api/'):
+        return None
+    if request.path == '/api/billing/webhook':
+        return None
+    if _rate_limited(_post_hits, _client_ip(), _POST_RATE_MAX, 60):
+        return jsonify({'error': 'rate_limited', 'retry_after_s': 60}), 429
+    return None
+
 # Phase 2/3 module split (2026-05-13). Routes register here as they land.
 from events_api import events_bp
 from artist_profiles_api import artist_profiles_bp
@@ -798,7 +818,11 @@ def generate_media_endpoint():
             'attested_by': uid,
         }
 
-    cost_kind = media_type if media_type != 'image' else 'image'
+    # Price premium video by duration — a >5s render costs the 10s tier, matching
+    # conjure_endpoint. Without this a 10s Kling render is billed as 5s.
+    cost_kind = media_type
+    if media_type == 'video_premium' and duration_seconds > 5:
+        cost_kind = 'video_premium_10s'
     balance, err = _debit(uid, cost_kind, f'{media_type}:{content_type}')
     if err: return err
 
@@ -949,6 +973,8 @@ def conjure_endpoint():
     if action not in ('edit', 'animate'):
         return jsonify({'error': "action must be 'edit' or 'animate'"}), 400
     image_bytes = f.read()
+    if len(image_bytes) > REF_IMAGES_MAX_BYTES:
+        return jsonify({'error': f'image exceeds {REF_IMAGES_MAX_BYTES // (1024*1024)}MB'}), 413
     duration = str(request.form.get('duration', '5'))
     # The UI exposes a 5–10s slider, but Kling i2v only renders 5s or 10s — snap any
     # in-between value to the nearest supported length so a 7s request never fails.
@@ -1706,90 +1732,117 @@ def billing_webhook():
 
     sb = _stash_client()
     etype = event['type']
+
+    # Idempotency: Stripe delivers at-least-once and retries on any non-2xx, so
+    # dedup on event id before doing anything that grants credits. Insert wins the
+    # race; a unique-violation means we already processed this event → ack and skip.
+    event_id = event['id']
+    try:
+        sb.table('stripe_events').insert({'event_id': event_id, 'type': etype}).execute()
+    except Exception as e:
+        if 'duplicate' in str(e).lower() or '23505' in str(e):
+            print(f'[billing webhook] duplicate {etype} {event_id} — already processed, skipping')
+            return jsonify({'received': True, 'duplicate': True})
+        # A real insert error (not a dup) — fail so Stripe retries rather than
+        # silently dropping a paid event.
+        print('[billing webhook] dedup insert failed:', e)
+        return jsonify({'error': 'dedup store unavailable'}), 500
+
     # Stripe SDK 15.x StripeObject.get() raises AttributeError; parse raw JSON instead.
     obj = json.loads(payload)['data']['object']
     print(f'[billing webhook] {etype}')
 
-    if etype == 'checkout.session.completed':
-        if obj.get('mode') == 'payment':
-            uid = (obj.get('metadata') or {}).get('sound_cave_user_id')
-            lookup_key = (obj.get('metadata') or {}).get('lookup_key')
-            if uid and lookup_key == 'credit_pack_200':
-                sb.rpc('grant_credits', {
-                    'p_user_id': uid, 'p_amount': 200,
-                    'p_reason': f"pack:{obj.get('id')}",
-                }).execute()
-                print(f'  granted 200 credits to {uid}')
-        # Subscription checkouts also fire here; provisioning happens in subscription.created.
-
-    elif etype in ('customer.subscription.created', 'customer.subscription.updated'):
-        uid = (obj.get('metadata') or {}).get('sound_cave_user_id')
-        if not uid:
-            cust = obj.get('customer')
-            row = sb.table('users').select('id').eq('stripe_customer_id', cust).execute()
-            uid = (row.data or [{}])[0].get('id')
-
-        items = (obj.get('items') or {}).get('data') or []
-        if not items:
-            return jsonify({'received': True})
-        first_item = items[0]
-        price_id = (first_item.get('price') or {}).get('id')
-        price = stripe.Price.retrieve(price_id)
-        price_meta = dict(price.metadata or {})
-        tier = price_meta.get('tier') or 'solo'
-
-        # Stripe API 2024-12+ moved current_period_end onto each item.
-        period_end = obj.get('current_period_end') or first_item.get('current_period_end')
-        sb.table('subscriptions').upsert({
-            'user_id': uid,
-            'stripe_subscription_id': obj.get('id'),
-            'stripe_price_id': price_id,
-            'tier': tier,
-            'status': obj.get('status'),
-            'current_period_end': datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat() if period_end else None,
-            'cancel_at_period_end': obj.get('cancel_at_period_end', False),
-            'updated_at': datetime.now(timezone.utc).isoformat(),
-        }, on_conflict='stripe_subscription_id').execute()
-
-        if obj.get('status') in ('active', 'trialing'):
-            sb.table('users').update({'tier': tier}).eq('id', uid).execute()
-            if etype == 'customer.subscription.created':
-                credits = int(price_meta.get('credits', '0'))
-                if credits > 0 and uid:
+    # Processing runs after the dedup claim above. If anything raises, we release
+    # the claim so Stripe's retry reprocesses instead of being skipped as a dup
+    # (a successful "nothing to do" early-return keeps the claim — correct).
+    try:
+        if etype == 'checkout.session.completed':
+            if obj.get('mode') == 'payment':
+                uid = (obj.get('metadata') or {}).get('sound_cave_user_id')
+                lookup_key = (obj.get('metadata') or {}).get('lookup_key')
+                if uid and lookup_key == 'credit_pack_200':
                     sb.rpc('grant_credits', {
-                        'p_user_id': uid, 'p_amount': credits,
-                        'p_reason': f"sub_initial:{obj.get('id')}",
+                        'p_user_id': uid, 'p_amount': 200,
+                        'p_reason': f"pack:{obj.get('id')}",
                     }).execute()
-                    print(f'  granted {credits} initial credits to {uid}')
+                    print(f'  granted 200 credits to {uid}')
+            # Subscription checkouts also fire here; provisioning happens in subscription.created.
 
-    elif etype == 'customer.subscription.deleted':
-        sb.table('subscriptions').update({
-            'status': 'canceled',
-            'updated_at': datetime.now(timezone.utc).isoformat(),
-        }).eq('stripe_subscription_id', obj.get('id')).execute()
+        elif etype in ('customer.subscription.created', 'customer.subscription.updated'):
+            uid = (obj.get('metadata') or {}).get('sound_cave_user_id')
+            if not uid:
+                cust = obj.get('customer')
+                row = sb.table('users').select('id').eq('stripe_customer_id', cust).execute()
+                uid = (row.data or [{}])[0].get('id')
 
-    elif etype == 'invoice.payment_succeeded':
-        sub_id = obj.get('subscription')
-        if not sub_id or obj.get('billing_reason') != 'subscription_cycle':
-            return jsonify({'received': True})
-        sub = stripe.Subscription.retrieve(sub_id)
-        sub_dict = sub.to_dict() if hasattr(sub, 'to_dict') else dict(sub)
-        uid = (sub_dict.get('metadata') or {}).get('sound_cave_user_id')
-        if not uid:
-            cust = obj.get('customer')
-            row = sb.table('users').select('id').eq('stripe_customer_id', cust).execute()
-            uid = (row.data or [{}])[0].get('id')
-        if uid:
-            price_id = sub_dict['items']['data'][0]['price']['id']
+            items = (obj.get('items') or {}).get('data') or []
+            if not items:
+                return jsonify({'received': True})
+            first_item = items[0]
+            price_id = (first_item.get('price') or {}).get('id')
             price = stripe.Price.retrieve(price_id)
             price_meta = dict(price.metadata or {})
-            credits = int(price_meta.get('credits', '0'))
-            if credits > 0:
-                sb.rpc('grant_credits', {
-                    'p_user_id': uid, 'p_amount': credits,
-                    'p_reason': f"renewal:{sub_id}",
-                }).execute()
-                print(f'  renewed {credits} credits for {uid}')
+            tier = price_meta.get('tier') or 'solo'
+
+            # Stripe API 2024-12+ moved current_period_end onto each item.
+            period_end = obj.get('current_period_end') or first_item.get('current_period_end')
+            sb.table('subscriptions').upsert({
+                'user_id': uid,
+                'stripe_subscription_id': obj.get('id'),
+                'stripe_price_id': price_id,
+                'tier': tier,
+                'status': obj.get('status'),
+                'current_period_end': datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat() if period_end else None,
+                'cancel_at_period_end': obj.get('cancel_at_period_end', False),
+                'updated_at': datetime.now(timezone.utc).isoformat(),
+            }, on_conflict='stripe_subscription_id').execute()
+
+            if obj.get('status') in ('active', 'trialing'):
+                sb.table('users').update({'tier': tier}).eq('id', uid).execute()
+                if etype == 'customer.subscription.created':
+                    credits = int(price_meta.get('credits', '0'))
+                    if credits > 0 and uid:
+                        sb.rpc('grant_credits', {
+                            'p_user_id': uid, 'p_amount': credits,
+                            'p_reason': f"sub_initial:{obj.get('id')}",
+                        }).execute()
+                        print(f'  granted {credits} initial credits to {uid}')
+
+        elif etype == 'customer.subscription.deleted':
+            sb.table('subscriptions').update({
+                'status': 'canceled',
+                'updated_at': datetime.now(timezone.utc).isoformat(),
+            }).eq('stripe_subscription_id', obj.get('id')).execute()
+
+        elif etype == 'invoice.payment_succeeded':
+            sub_id = obj.get('subscription')
+            if not sub_id or obj.get('billing_reason') != 'subscription_cycle':
+                return jsonify({'received': True})
+            sub = stripe.Subscription.retrieve(sub_id)
+            sub_dict = sub.to_dict() if hasattr(sub, 'to_dict') else dict(sub)
+            uid = (sub_dict.get('metadata') or {}).get('sound_cave_user_id')
+            if not uid:
+                cust = obj.get('customer')
+                row = sb.table('users').select('id').eq('stripe_customer_id', cust).execute()
+                uid = (row.data or [{}])[0].get('id')
+            if uid:
+                price_id = sub_dict['items']['data'][0]['price']['id']
+                price = stripe.Price.retrieve(price_id)
+                price_meta = dict(price.metadata or {})
+                credits = int(price_meta.get('credits', '0'))
+                if credits > 0:
+                    sb.rpc('grant_credits', {
+                        'p_user_id': uid, 'p_amount': credits,
+                        'p_reason': f"renewal:{sub_id}",
+                    }).execute()
+                    print(f'  renewed {credits} credits for {uid}')
+    except Exception as e:
+        print('[billing webhook] processing failed, releasing dedup claim:', e)
+        try:
+            sb.table('stripe_events').delete().eq('event_id', event_id).execute()
+        except Exception as de:
+            print('[billing webhook] dedup claim release failed:', de)
+        return jsonify({'error': 'processing failed'}), 500
 
     return jsonify({'received': True})
 
@@ -1991,6 +2044,11 @@ def artist_stats(username):
     Cache hit (< TTL): no SoundCloud call.
     Cache miss: 2 SC calls (resolve + recent tracks), upserts row, returns fresh.
     """
+    # Auth-gate: a cache-miss (or ?force=1) drives SoundCloud calls on the
+    # server's own credentials, so don't let anonymous callers exhaust quota.
+    _uid, err = _require_user()
+    if err:
+        return err
     username = (username or '').strip()
     if not username:
         return jsonify({'error': 'username required'}), 400
@@ -2426,6 +2484,11 @@ def _read_scheduled_searches():
 
 @app.route('/api/scheduled-searches', methods=['GET'])
 def get_scheduled_searches():
+    # Global scout config (shared, run by a server-side Action) — require auth so
+    # it isn't world-readable.
+    _uid, err = _require_user()
+    if err:
+        return err
     return jsonify(_read_scheduled_searches())
 
 
@@ -2434,6 +2497,14 @@ def save_scheduled_searches():
     """Overwrite the committed list with the posted full list (the frontend
     sends the whole array on every create/edit/delete/toggle). Every item is
     sanitised; any invalid item rejects the whole request with 400."""
+    # This overwrites a server-side config file executed by the weekly scout
+    # Action on the server's own SoundCloud credentials — admin-only, never a
+    # per-user or anonymous write.
+    _uid, err = _require_user()
+    if err:
+        return err
+    if not g.get('is_admin'):
+        return jsonify({'error': 'forbidden'}), 403
     body = request.get_json(silent=True)
     if not isinstance(body, list):
         return jsonify({'error': 'expected a JSON array of searches'}), 400
@@ -2451,6 +2522,11 @@ def save_scheduled_searches():
 
 @app.route('/api/search', methods=['GET'])
 def search():
+    # Auth-gate: fans out up to 16 genre queries + follower calls on the server's
+    # SoundCloud credentials, and GETs bypass the POST throttle.
+    _uid, err = _require_user()
+    if err:
+        return err
     genre = request.args.get('genre', '')
     min_followers = int(request.args.get('min_followers', 0))
     max_followers = int(request.args.get('max_followers', 5000))
@@ -2672,8 +2748,14 @@ def _ayr_rehost(media_url):
     """Download a media URL and re-upload to Ayrshare's CDN.
     Required for Instagram — Meta's fetchers can't reliably pull from
     Cloudflare-fronted Supabase Storage (error 440)."""
-    img = http_requests.get(media_url, timeout=20)
-    img.raise_for_status()
+    # SSRF guard: media_url originates from user-controlled stash input, so
+    # restrict to our own Supabase Storage host and disable redirects (a 3xx
+    # can't bounce the fetch to an internal/metadata target) — same as the
+    # refine-loop and proxy-image fetch sites.
+    _assert_safe_storage_url(media_url)
+    img = http_requests.get(media_url, timeout=20, allow_redirects=False)
+    if img.status_code != 200:
+        raise ValueError(f'media fetch returned {img.status_code}')
     fn = media_url.rsplit('/', 1)[-1] or 'media.jpg'
     mime = img.headers.get('content-type', 'image/jpeg').split(';')[0]
     r = http_requests.post(

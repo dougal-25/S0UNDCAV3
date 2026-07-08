@@ -14,10 +14,13 @@ Returns the public Supabase Storage URL of the composed image.
 """
 import hashlib
 import io
+import ipaddress
 import os
 import re
+import socket
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 import requests
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -60,16 +63,77 @@ def _font(path, size):
         return ImageFont.load_default()
 
 
+# ── SSRF-guarded image fetch ───────────────────────────────────
+# These URLs come from user-writable DB fields (brand_kit.logo_url,
+# artist_profiles.hero_image_url, events.flyer_image_url), so a raw
+# requests.get() would let a user point us at internal services or the cloud
+# metadata endpoint (169.254.169.254). Reject non-http(s) schemes and any host
+# that resolves into a private/loopback/link-local/reserved range, and
+# re-validate across redirects. (Residual: DNS-rebinding between check and
+# connect is not covered — acceptable for image composition.)
+MAX_FETCH_BYTES = 15 * 1024 * 1024  # 15MB ceiling on a fetched image
+
+
+def _ip_blocked(ip_str):
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return True
+    return (ip.is_private or ip.is_loopback or ip.is_link_local
+            or ip.is_reserved or ip.is_multicast or ip.is_unspecified)
+
+
+def _host_safe(host):
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        return False
+    return bool(infos) and all(not _ip_blocked(info[4][0]) for info in infos)
+
+
+def _safe_get(url, max_redirects=3):
+    """SSRF-guarded streaming GET for user-supplied URLs. Returns a Response or
+    None. Follows redirects manually so each hop is re-validated."""
+    for _ in range(max_redirects + 1):
+        parsed = urlparse(url or '')
+        if parsed.scheme not in ('http', 'https') or not _host_safe(parsed.hostname):
+            return None
+        r = requests.get(url, timeout=10, stream=True, allow_redirects=False)
+        if r.status_code in (301, 302, 303, 307, 308):
+            loc = r.headers.get('Location')
+            r.close()
+            if not loc:
+                return None
+            url = urljoin(url, loc)
+            continue
+        return r
+    return None
+
+
+def _read_capped(r):
+    """Read a streamed response body up to MAX_FETCH_BYTES; None if it exceeds."""
+    data = b''
+    for chunk in r.iter_content(65536):
+        data += chunk
+        if len(data) > MAX_FETCH_BYTES:
+            return None
+    return data
+
+
 def _fetch_image(url):
-    """Best-effort fetch + open as PIL Image. Returns None on any failure."""
+    """Best-effort SSRF-guarded fetch + open as PIL Image. None on any failure."""
     if not url:
         return None
     try:
-        r = requests.get(url, timeout=10, stream=True)
-        if r.status_code != 200:
+        r = _safe_get(url)
+        if not r or r.status_code != 200:
             return None
-        img = Image.open(io.BytesIO(r.content)).convert('RGB')
-        return img
+        data = _read_capped(r)
+        if not data:
+            return None
+        return Image.open(io.BytesIO(data)).convert('RGB')
     except Exception:
         return None
 
@@ -259,10 +323,13 @@ def _fetch_image_rgba(url):
     if not url:
         return None
     try:
-        r = requests.get(url, timeout=10, stream=True)
-        if r.status_code != 200:
+        r = _safe_get(url)
+        if not r or r.status_code != 200:
             return None
-        return Image.open(io.BytesIO(r.content)).convert('RGBA')
+        data = _read_capped(r)
+        if not data:
+            return None
+        return Image.open(io.BytesIO(data)).convert('RGBA')
     except Exception:
         return None
 
