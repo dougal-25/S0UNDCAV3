@@ -134,10 +134,10 @@
   }
 
   function injectFontFace(family, url) {
-    // Validate the user-controlled font URL and reject CSS-breaking chars so it
-    // can't escape the url("...") context → CSS injection.
-    const safe = (typeof safeUrl === 'function' ? safeUrl(url) : url) || '';
-    if (!safe || /["'()\\\s]/.test(safe)) return;
+    // safeFontUrl (app.js) validates the user-controlled URL and rejects
+    // CSS-breaking chars so it can't escape the url("...") context.
+    const safe = safeFontUrl(url);
+    if (!safe) return;
     const fam = String(family).replace(/["\\]/g, '');
     // Idempotent — skip if already injected for this family.
     if (document.querySelector(`style[data-font-family="${fam}"]`)) return;
@@ -257,8 +257,8 @@
   }
 
   function injectPreviewFont(url) {
-    const safe = (typeof safeUrl === 'function' ? safeUrl(url) : url) || '';
-    if (!safe || /["'()\\\s]/.test(safe)) return;
+    const safe = safeFontUrl(url);
+    if (!safe) return;
     if (_previewFontTag) _previewFontTag.remove();
     _previewFontTag = document.createElement('style');
     _previewFontTag.textContent =

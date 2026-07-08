@@ -18,6 +18,14 @@ PROFILE_COLS = (
     'follower_count_soundcloud, claimed, '
     'last_scraped_at, created_at, updated_at'
 )
+_PUBLIC_KEYS = {c.strip() for c in PROFILE_COLS.split(',')}
+
+
+def _public(row):
+    """Project a full artist_profiles row down to PROFILE_COLS. The write routes
+    get full rows back from insert/upsert/update, which would otherwise leak
+    claimed_by_user_id past the column filter the read routes apply."""
+    return {k: v for k, v in row.items() if k in _PUBLIC_KEYS} if row else row
 
 
 def _scrape_and_upsert(handle, caller_uid=None, is_admin=False):
@@ -78,7 +86,7 @@ def create_manual_stub():
     res = supabase().table('artist_profiles').insert(payload).execute()
     if not res.data:
         return jsonify({'error': 'insert failed'}), 500
-    return jsonify({'profile': res.data[0]}), 201
+    return jsonify({'profile': _public(res.data[0])}), 201
 
 
 @artist_profiles_bp.route('', methods=['GET'])
@@ -191,7 +199,7 @@ def scrape_profile():
     row = _scrape_and_upsert(handle, caller_uid=uid, is_admin=g.get('is_admin'))
     if not row:
         return jsonify({'error': f'could not resolve handle: {handle}'}), 404
-    return jsonify({'profile': row})
+    return jsonify({'profile': _public(row)})
 
 
 @artist_profiles_bp.route('/<profile_id>', methods=['PATCH'])
@@ -210,9 +218,12 @@ def patch_profile(profile_id):
     if not update:
         return jsonify({'error': 'no editable fields in body'}), 400
 
-    # Phase 2: only the claimer can edit. Service role bypasses RLS so we
-    # enforce in code. Until claim flow lands (Phase 4), the only writers
-    # should be the scrape endpoint (service-role) and admin tools.
+    # Only the claimer (or an admin) may edit — enforced in code because the
+    # service role bypasses RLS. This also blocks writes to UNCLAIMED profiles:
+    # until the claim flow lands (Phase 4), the only writers are the scrape
+    # endpoint and admin tools. Without this, any signed-up user could overwrite
+    # every unclaimed profile in the shared catalog (and plant SSRF URLs in
+    # hero_image_url).
     row = maybe_one(
         supabase()
         .table('artist_profiles')
@@ -221,11 +232,6 @@ def patch_profile(profile_id):
     )
     if not row:
         return jsonify({'error': 'not found'}), 404
-    # Only the claimer (or an admin) may edit. This also blocks writes to
-    # UNCLAIMED profiles by regular users — until the claim flow lands, the only
-    # writers are the scrape endpoint (service-role) and admin tools. Without
-    # this, any signed-up user could overwrite every unclaimed profile in the
-    # shared catalog (and plant SSRF URLs in hero_image_url).
     if row.get('claimed_by_user_id') != uid and not g.get('is_admin'):
         return jsonify({'error': 'profile not claimed by you'}), 403
 
@@ -236,4 +242,4 @@ def patch_profile(profile_id):
         .eq('id', profile_id)
         .execute()
     )
-    return jsonify({'profile': (res.data or [None])[0]})
+    return jsonify({'profile': _public((res.data or [None])[0])})

@@ -496,6 +496,13 @@ function safeUrl(u) {
   if (/^https?:\/\//i.test(s) || s.startsWith('//') || s.startsWith('/')) return s;
   return '';
 }
+// Stricter safeUrl for URLs embedded in CSS url("...") contexts (@font-face):
+// also rejects quotes, parens, backslashes and whitespace so the value can't
+// break out of the string → CSS injection.
+function safeFontUrl(u) {
+  const s = safeUrl(u);
+  return s && !/["'()\\\s]/.test(s) ? s : '';
+}
 function daysBetween(d1, d2) {
   return Math.round((new Date(d2) - new Date(d1)) / (1000*60*60*24));
 }
