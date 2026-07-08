@@ -286,11 +286,11 @@ function cycleStack(delta) {
   updateStackMeta();
 }
 
-// Give the flywheel a shove (one arrow-key press ≈ one card). Honours reduced motion.
-function nudgeCave(dir) {
-  if (CAVE_REDUCED_MOTION) { cycleStack(dir); return; }
-  _caveVel += dir * CAVE_KEY_IMPULSE;
-  _caveVel = Math.max(-CAVE_MAX_VEL, Math.min(CAVE_MAX_VEL, _caveVel));
+// Give the flywheel a shove: velocity impulse in cards/frame (arrow key ≈ one
+// card, wheel scales with delta). Reduced motion → instant one-card step instead.
+function nudgeCave(impulse) {
+  if (CAVE_REDUCED_MOTION) { cycleStack(impulse > 0 ? 1 : -1); return; }
+  _caveVel = Math.max(-CAVE_MAX_VEL, Math.min(CAVE_MAX_VEL, _caveVel + impulse));
   startCaveRiffle();
 }
 
@@ -330,11 +330,14 @@ function caveTick() {
 }
 
 // Sync the settled integer index (drives the meta panel) as the front card
-// changes, and keep _cavePos from growing unbounded as you keep riffling.
+// changes, and wrap _cavePos back into [0, n) — applyStackOffsets' single-step
+// wrap only tolerates one lap, so an unbounded position hides the whole stack
+// after riffling the clan a couple of times in one direction.
 function commitCaveFocus() {
   const n = _caveClanCache.length;
   if (!n) return;
-  const idx = ((Math.round(_cavePos) % n) + n) % n;
+  _cavePos = ((_cavePos % n) + n) % n;
+  const idx = Math.round(_cavePos) % n;
   if (idx !== _caveFocusIndex) {
     _caveFocusIndex = idx;
     updateStackMeta();
@@ -375,24 +378,16 @@ function attachStackInteractions() {
     const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
     if (!delta) return;
     e.preventDefault();                       // ALWAYS first → page never moves over the window
-    if (CAVE_REDUCED_MOTION) {                // no momentum — one card per gesture
-      cycleStack(delta > 0 ? 1 : -1);
-      return;
-    }
-    // Inject velocity proportional to how hard you scrolled, then let friction
-    // carry it. A gentle nudge → about one card; a fast flick → a fast riffle
-    // that decays and snaps. No fixed step rate to fight anymore: the riffle's
-    // pace simply tracks the scroll's pace. Capped so one violent flick can't blur.
-    _caveVel += delta * CAVE_WHEEL_SENSITIVITY;
-    _caveVel = Math.max(-CAVE_MAX_VEL, Math.min(CAVE_MAX_VEL, _caveVel));
-    startCaveRiffle();
+    // Velocity proportional to how hard you scrolled; friction carries it. A
+    // gentle nudge → about one card; a fast flick → a fast riffle that decays.
+    nudgeCave(delta * CAVE_WHEEL_SENSITIVITY);
   }, { passive: false });
 
   document.addEventListener('keydown', (e) => {
     const cave = document.getElementById('tab-cave');
     if (!cave || cave.style.display === 'none') return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   { nudgeCave(1);  e.preventDefault(); }
-    if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') { nudgeCave(-1); e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   { nudgeCave(CAVE_KEY_IMPULSE);  e.preventDefault(); }
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') { nudgeCave(-CAVE_KEY_IMPULSE); e.preventDefault(); }
   });
 }
 

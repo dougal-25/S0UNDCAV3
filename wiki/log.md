@@ -1481,3 +1481,12 @@ Doug wanted the Mural's diagonal card-stack scroll to feel "more natural, smooth
 - **Keyboard** arrows now route through the same physics (`nudgeCave` → one-card impulse). **Reduced-motion** (`prefers-reduced-motion`) bypasses momentum entirely → instant one-card step per gesture/key.
 - **Tunables** (top of `js/cave.js`): `CAVE_WHEEL_SENSITIVITY`, `CAVE_FRICTION`, `CAVE_MAX_VEL`, `CAVE_KEY_IMPULSE`, `CAVE_SETTLE_VEL`, `CAVE_SNAP_STIFF`.
 - **Verified** in-browser (Playwright, 12-card seed clan): gentle notch → lands 1 card; hard 3× flick → coasts ~8 cards then snaps exactly onto an integer card and blooms focus; velocity decays 0.65→0 as designed; zero console errors.
+
+## [2026-07-08] Post-merge review of PR #15 (flywheel scroll) → cleanup PR (branch `cleanup-pr-15`)
+
+Automated post-merge review of **PR #15** ("Mural stack scroll: momentum flywheel"). Two changes, both in `js/cave.js`:
+
+- **Bug fix — stack vanished after riffling the clan ~2+ laps in one direction.** `_cavePos` grew unbounded (the `commitCaveFocus` comment claimed it was kept bounded, but only the derived `idx` was wrapped), and `applyStackOffsets`' single-step wrap only tolerates one lap of drift — beyond that every card computed `abs > radius` and went `data-hidden`, focus bloom included. Reproduced in-browser (Playwright, 12-card clan, 5 hard flicks): pre-fix 4/12 cards visible, zero focus bloom; the meta panel and the rendered stack disagreed. Fix: `commitCaveFocus` now actually wraps `_cavePos` back into `[0, n)` each frame. Post-fix: 9/12 visible (correct for radius 4), exactly one bloomed front card, meta in sync.
+- **Dedupe — one entry point for flywheel impulses.** The wheel handler duplicated `nudgeCave` line-for-line (reduced-motion check, velocity injection, clamp, `startCaveRiffle`). `nudgeCave` now takes a velocity impulse; wheel passes `delta * CAVE_WHEEL_SENSITIVITY`, arrows pass `±CAVE_KEY_IMPULSE`. Behaviour identical (verified: wheel riffle + arrow steps both pass in-browser); file 645 → 640 lines.
+
+Flagged, not changed: `js/cave.js` still over the 500-line limit (split already spun off as its own task in PR #15); reduced-motion wheel does one instant card-jump *per wheel event*, so a trackpad flick strobes many jumps for exactly the users who opted out of motion — needs a Doug call on debouncing. No secrets in the diff; comments are dense but informative — left alone.
