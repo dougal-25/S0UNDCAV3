@@ -1457,3 +1457,15 @@ Full security + soundness review of the codebase ahead of opening free public si
 **Deliberately NOT changed (needs a decision):** `brand_assets` / `generated_*` storage buckets are public-read and the app consumes them via public URLs (composer `requests.get`, frontend display). Locking reads to the owner folder would break composition/display app-wide — it needs a signed-URL migration, flagged rather than shipped.
 
 All edited modules compile and import cleanly; SSRF range checks and the POST throttle verified via unit + Flask-test-client checks. **Action required before launch: apply `db/0023` in the Supabase SQL editor** (code and DB must ship together — the debit routes assume the ledger lockdown, and the webhook assumes the `stripe_events` table).
+
+## [2026-07-03] Full-codebase pre-launch review — fixes applied (branch `claude/code-review-d2k2oh`, PR #14)
+
+Ran the `prelaunch-review` workflow (40 agents, 102 findings verified — see `wiki/reviews/2026-07-03_prelaunch_full_review_findings.md`). Applied fixes in three commits:
+
+- **Batch 1 (launch blockers):** SSRF guard on `_ayr_rehost` (scheduled-post media rehost); `register_artist` no longer overwrites/repoints an existing shared `tracked_artists` row; `/scrape` can't overwrite another user's claimed profile; `/extract-flyer` meters its Sonnet vision call; `esc()` now escapes `'` and backtick + new `safeUrl()` scheme guard applied to the avatar `<img>` and href XSS sinks.
+- **Batch 2:** `video_premium` priced by duration; `/api/conjure` upload size cap; `/api/search` + `/api/artist/<u>` auth-gated (+ frontend switched to `authedFetch`); `forge_character` refund on storage failure; `artist_profiles` stops leaking `claimed_by_user_id`; OAuth-failure logs no longer dump the token body; the JS XSS cluster (stash URLs, trail-map icon, hrefs, brand-font CSS injection, CSV formula injection); and two HIGH functional bugs — scheduled-search sync now sends the JWT, Trail Map now persists the status pill.
+- **Batch 3:** safe dead-code removals (`media_gen.job_registry`, duplicate import).
+
+**Deliberately deferred to post-launch** (no launch/security value, real regression risk to do unattended now): the structural de-duplication refactors (merging content_api's parallel auth/credit stack into `sb_helpers`, consolidating the Supabase/Anthropic client factories, `HAIKU_MODEL` constant, storage-helper and `get_oauth_token` consolidation, `update_manifest` dedupe), the `trail_map.js` IIFE-wrap (leaks ~30 globals — needs cross-file check), and the deeper correctness cluster (4:5 portrait rendered square, legacy fake-zero snapshots, headliner mis-assignment, literal `{{artist}}`). All captured in the findings doc.
+
+Decisions worth noting: copy/caption generation and `/classify-ref` were left un-metered on purpose — consistent with the existing `text = 0` pricing decision (2026-06-23) and covered by the per-IP POST throttle; metering them would punish normal use with no cheap cost tier.

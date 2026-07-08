@@ -15,7 +15,6 @@ import os
 import time
 import hashlib
 import io
-import base64
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -898,11 +897,6 @@ def generate_for_job(job_type, prompt, *, image_refs=None, width=1080, height=13
     # doubled 'fal-ai/fal-ai/…' label in the Forge caption + video-composite path.
     bare_model = model_slug[len('fal-ai/'):] if model_slug.startswith('fal-ai/') else model_slug
     return img_r.content, 'fal-ai', bare_model
-
-
-def job_registry():
-    """Read-only view of the job_type → model registry (for diagnostics / UI)."""
-    return {k: v[0] for k, v in _JOB_REGISTRY.items()}
 
 
 # Forge content_type → v2 job_type. Source: wiki/spec/forge_output_recipes.md.
