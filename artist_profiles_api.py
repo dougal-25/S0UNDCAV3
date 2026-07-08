@@ -15,7 +15,7 @@ PROFILE_COLS = (
     'id, display_name, soundcloud_handle, soundcloud_url, spotify_url, '
     'instagram_handle, other_socials, bio_short, bio_long, genre_tags, location, '
     'hero_image_url, gallery_image_urls, pinned_track_urls, '
-    'follower_count_soundcloud, claimed, claimed_by_user_id, '
+    'follower_count_soundcloud, claimed, '
     'last_scraped_at, created_at, updated_at'
 )
 

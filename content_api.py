@@ -816,7 +816,11 @@ def generate_media_endpoint():
             'attested_by': uid,
         }
 
-    cost_kind = media_type if media_type != 'image' else 'image'
+    # Price premium video by duration — a >5s render costs the 10s tier, matching
+    # conjure_endpoint. Without this a 10s Kling render is billed as 5s.
+    cost_kind = media_type
+    if media_type == 'video_premium' and duration_seconds > 5:
+        cost_kind = 'video_premium_10s'
     balance, err = _debit(uid, cost_kind, f'{media_type}:{content_type}')
     if err: return err
 
@@ -967,6 +971,8 @@ def conjure_endpoint():
     if action not in ('edit', 'animate'):
         return jsonify({'error': "action must be 'edit' or 'animate'"}), 400
     image_bytes = f.read()
+    if len(image_bytes) > REF_IMAGES_MAX_BYTES:
+        return jsonify({'error': f'image exceeds {REF_IMAGES_MAX_BYTES // (1024*1024)}MB'}), 413
     duration = str(request.form.get('duration', '5'))
     # The UI exposes a 5–10s slider, but Kling i2v only renders 5s or 10s — snap any
     # in-between value to the nearest supported length so a 7s request never fails.
@@ -2036,6 +2042,11 @@ def artist_stats(username):
     Cache hit (< TTL): no SoundCloud call.
     Cache miss: 2 SC calls (resolve + recent tracks), upserts row, returns fresh.
     """
+    # Auth-gate: a cache-miss (or ?force=1) drives SoundCloud calls on the
+    # server's own credentials, so don't let anonymous callers exhaust quota.
+    _uid, err = _require_user()
+    if err:
+        return err
     username = (username or '').strip()
     if not username:
         return jsonify({'error': 'username required'}), 400
@@ -2509,6 +2520,11 @@ def save_scheduled_searches():
 
 @app.route('/api/search', methods=['GET'])
 def search():
+    # Auth-gate: fans out up to 16 genre queries + follower calls on the server's
+    # SoundCloud credentials, and GETs bypass the POST throttle.
+    _uid, err = _require_user()
+    if err:
+        return err
     genre = request.args.get('genre', '')
     min_followers = int(request.args.get('min_followers', 0))
     max_followers = int(request.args.get('max_followers', 5000))

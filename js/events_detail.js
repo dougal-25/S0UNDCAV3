@@ -47,7 +47,7 @@
       e.venue_name ? h('div', { style: { fontSize: '12px', color: 'var(--secondary)' } },
         e.venue_name + (e.venue_city ? ' · ' + e.venue_city : '')) : null,
       e.ticketing_url ? h('div', { style: { fontSize: '11px', marginTop: '6px' } }, [
-        h('a', { href: e.ticketing_url, target: '_blank', style: { color: 'var(--red)' } }, 'Tickets ↗'),
+        h('a', { href: safeUrl(e.ticketing_url) || '#', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--red)' } }, 'Tickets ↗'),
       ]) : null,
     ]);
 

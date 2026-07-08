@@ -161,7 +161,14 @@ function exportSingleArtist(username) {
 }
 
 function downloadCSV(rows, filename) {
-  const csv = rows.map(r => r.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  // Neutralise spreadsheet formula injection: a cell starting with = + - @ (or a
+  // control char) is treated as a formula by Excel/Sheets, so prefix it with '.
+  const cell = (v) => {
+    let s = String(v ?? '');
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+  const csv = rows.map(r => r.map(cell).join(',')).join('\n');
   const blob = new Blob([csv], { type:'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

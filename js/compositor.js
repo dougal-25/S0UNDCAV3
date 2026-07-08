@@ -292,10 +292,15 @@
   }
 
   function injectFontFace(family, url) {
-    if (document.querySelector(`style[data-cmp-font="${family}"]`)) return;
+    // Validate the brand-kit font URL (user-controlled) and reject any char that
+    // could break out of the url("...") CSS context → CSS injection.
+    const safe = (typeof safeUrl === 'function' ? safeUrl(url) : url) || '';
+    if (!safe || /["'()\\\s]/.test(safe)) return;
+    const fam = String(family).replace(/["\\]/g, '');
+    if (document.querySelector(`style[data-cmp-font="${fam}"]`)) return;
     const style = document.createElement('style');
-    style.setAttribute('data-cmp-font', family);
-    style.textContent = `@font-face { font-family: "${family}"; src: url("${url}"); font-display: swap; }`;
+    style.setAttribute('data-cmp-font', fam);
+    style.textContent = `@font-face { font-family: "${fam}"; src: url("${safe}"); font-display: swap; }`;
     document.head.appendChild(style);
   }
 

@@ -222,6 +222,7 @@ def forge_character(avatar_id):
             file_options={'content-type': 'image/png', 'upsert': 'true'})
         char_url = sb.storage.from_(REF_BUCKET).get_public_url(path)
     except Exception as e:
+        refund(uid, CREDIT_COST_IMAGE, f'forge_character_store_failed:{avatar_id}')
         return jsonify({'error': f'storage error: {e}'}), 502
 
     # Canonical character leads the reference list so the Forge composes from it.

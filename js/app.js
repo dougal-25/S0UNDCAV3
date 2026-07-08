@@ -966,7 +966,7 @@ function addArtistToClan(username) {
 async function refreshArtistLive(username) {
   const apiBase = scApiBase();
   try {
-    const r = await fetch(`${apiBase}/api/artist/${encodeURIComponent(username)}`);
+    const r = await scAuth.authedFetch(`${apiBase}/api/artist/${encodeURIComponent(username)}`);
     if (!r.ok) return;
     const live = await r.json();
     const liveObj = {

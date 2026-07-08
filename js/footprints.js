@@ -163,8 +163,8 @@ function renderFootprints() {
     const snaps = fpDailySnaps(artist);
     labels = snaps.map(s => s.date.slice(5));
     data = snaps.map(s => s[fpActiveMetric] || 0);
-    const nameHTML = artist.artist_url
-      ? `<a class="fp-artist-link" href="${esc(artist.artist_url)}" target="_blank" rel="noopener">${esc(artist.display_name || artist.username)}</a>`
+    const nameHTML = artist.artist_url && safeUrl(artist.artist_url)
+      ? `<a class="fp-artist-link" href="${esc(safeUrl(artist.artist_url))}" target="_blank" rel="noopener">${esc(artist.display_name || artist.username)}</a>`
       : esc(artist.display_name || artist.username);
     header = `
       <div>

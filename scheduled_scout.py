@@ -54,7 +54,7 @@ def get_oauth_token() -> str:
     if r.status_code == 200:
         print("  OAuth token obtained ✅")
         return r.json().get('access_token', '')
-    print(f"  OAuth failed: {r.status_code} — {r.text}")
+    print(f"  OAuth failed: {r.status_code}")
     return ''
 
 
