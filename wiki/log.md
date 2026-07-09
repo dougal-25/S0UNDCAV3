@@ -1458,6 +1458,18 @@ Doug noticed Arc's URL-bar suggestion for `s0undcav3.com` shows a generic globe 
 - **`brand/icons/` reference masters updated** (new ico + 192 + refreshed 32) and `brand/README.md` tables extended, per the don't-drift rule from the 2026-06-29 brand-assets entry.
 - No visual/mark change — same artwork, just complete coverage. Once deployed, Arc should pick up the icon in the search bar after its favicon cache refreshes (typically hours; force it by visiting the site directly a couple of times).
 
+## [2026-07-03] "Account lost all data" after the s0undcav3.com domain move — CORS, not data loss (branch `claude/account-data-loss-domain-merge-bthd3m`)
+
+Doug reported his personal account (douglaswoolfenden@gmail.com) "lost all data" on the new domain, while the same account still shows everything on `thesoundcave.vercel.app`. **Nothing was deleted** — the Supabase data (roster/Clan, Stash, brand kits, credits, events) is intact.
+
+- **Root cause:** the Railway backend's CORS allowlist (`ALLOWED_ORIGINS` in `content_api.py`, hardened 2026-06-11) only permitted `https://thesoundcave.vercel.app` + localhost. From `s0undcav3.com`, **every** browser call to the API (`/api/roster`, `/api/me`, stash, brand kits, credits…) fails CORS preflight → the app renders signed-in-but-empty. Sign-in itself still works because Supabase auth goes direct to `supabase.co` (not through the Railway API), which is exactly why it *looked* like the account had been wiped rather than the backend being unreachable.
+- **Fix:** added `https://s0undcav3.com` + `https://www.s0undcav3.com` to `ALLOWED_ORIGINS`.
+- **Not live until redeployed:** requires `railway up` on the backend — the Vercel frontend needs no change (`js/config.js` already points every non-localhost origin at the Railway API).
+- **Follow-ups for Doug (dashboard config, not code):**
+  1. **Supabase Auth → URL Configuration:** add `https://s0undcav3.com/**` (+ www) to Redirect URLs, or magic-link / password-reset emails requested from the new domain will bounce back to the old Vercel origin.
+  2. **Railway env `APP_BASE_URL`** still points at `https://thesoundcave.vercel.app` (Stripe checkout returns + reset redirects) — flip it to `https://s0undcav3.com` when the new domain becomes canonical.
+  3. Anything stored per-origin in the browser (localStorage: `sc_api_url` override, sound toggle, splash flag, any un-migrated pre-account Stash/favourites) starts fresh on a new domain by nature — account-backed data does not.
+
 ## [2026-07-03] Pre-launch security hardening — credit/RLS/SSRF fixes (branch `claude/code-review-d2k2oh`)
 
 Full security + soundness review of the codebase ahead of opening free public signups (marketing-driven). Six domain reviewers (endpoint auth, RLS, billing/credits, cost-abuse, injection/SSRF, soundness) + verification; top findings confirmed by direct code read. Fixed the four launch blockers and the high-severity set:
@@ -1488,3 +1500,35 @@ Ran the `prelaunch-review` workflow (40 agents, 102 findings verified — see `w
 **Deliberately deferred to post-launch** (no launch/security value, real regression risk to do unattended now): the structural de-duplication refactors (merging content_api's parallel auth/credit stack into `sb_helpers`, consolidating the Supabase/Anthropic client factories, `HAIKU_MODEL` constant, storage-helper and `get_oauth_token` consolidation, `update_manifest` dedupe), the `trail_map.js` IIFE-wrap (leaks ~30 globals — needs cross-file check), and the deeper correctness cluster (4:5 portrait rendered square, legacy fake-zero snapshots, headliner mis-assignment, literal `{{artist}}`). All captured in the findings doc.
 
 Decisions worth noting: copy/caption generation and `/classify-ref` were left un-metered on purpose — consistent with the existing `text = 0` pricing decision (2026-06-23) and covered by the per-IP POST throttle; metering them would punish normal use with no cheap cost tier.
+
+## [2026-07-08] Mural stack scroll → momentum flywheel (branch `cave-artist-scroll-smooth-bc5a5d`)
+
+Doug wanted the Mural's diagonal card-stack scroll to feel "more natural, smooth" and — the key ask — for the riffle **speed to track the speed of the actual scroll** (fast flick = fast riffle, gentle nudge = one card).
+
+- **Root cause of the old feel:** the stack stepped one card per fixed `CAVE_WHEEL_DRAIN_MS` (110ms) timer regardless of scroll velocity, and each step rode a `--motion-mid` (600ms) CSS transform transition. So (a) hard and soft flicks riffled at the *same* pace, and (b) at speed, new steps fired faster than the 600ms transition could finish → smear. The old model *structurally* couldn't be velocity-proportional.
+- **New model — momentum "flywheel" (`js/cave.js`):** a wheel event now injects **velocity** (`_caveVel`, cards/frame) proportional to `deltaY`; a `requestAnimationFrame` loop (`caveTick`) coasts a **continuous float position** (`_cavePos`), bleeds velocity off with friction, then eases-snaps to the nearest card and locks. Riffle speed = scroll speed, by construction. Replaces the banked-accum + drain-timer machinery (removed `_caveWheelAccum`, `_caveWheelDrainTimer`, `drainCaveWheel`, and the `CAVE_WHEEL_STEP/DRAIN_MS/MAX_BANK` constants).
+- **Continuous render:** `applyStackOffsets()` now writes **fractional** `--offset`/`--abs` every frame. CSS drives the transform off those vars; while `#caveStack[data-riffling]` is set the transform transition is dropped so rAF owns the motion (no 600ms lag fighting it). Restored for hover/settle when idle.
+- **Focus bloom on settle only:** the front card's colour/border bloom (`[data-focus]`) is applied only when the flywheel is at rest, so cards don't strobe as they riffle past. The old `[data-focus]` transform pop (`scale(1.06)` + `-8px`) was removed and folded into the base scale (peaks 1.05 at centre) so the front card lifts out of the riffle smoothly, no jump.
+- **Keyboard** arrows now route through the same physics (`nudgeCave` → one-card impulse). **Reduced-motion** (`prefers-reduced-motion`) bypasses momentum entirely → instant one-card step per gesture/key.
+- **Tunables** (top of `js/cave.js`): `CAVE_WHEEL_SENSITIVITY`, `CAVE_FRICTION`, `CAVE_MAX_VEL`, `CAVE_KEY_IMPULSE`, `CAVE_SETTLE_VEL`, `CAVE_SNAP_STIFF`.
+- **Verified** in-browser (Playwright, 12-card seed clan): gentle notch → lands 1 card; hard 3× flick → coasts ~8 cards then snaps exactly onto an integer card and blooms focus; velocity decays 0.65→0 as designed; zero console errors.
+
+## [2026-07-08] Post-merge review of PR #15 (flywheel scroll) → cleanup PR (branch `cleanup-pr-15`)
+
+Automated post-merge review of **PR #15** ("Mural stack scroll: momentum flywheel"). Two changes, both in `js/cave.js`:
+
+- **Bug fix — stack vanished after riffling the clan ~2+ laps in one direction.** `_cavePos` grew unbounded (the `commitCaveFocus` comment claimed it was kept bounded, but only the derived `idx` was wrapped), and `applyStackOffsets`' single-step wrap only tolerates one lap of drift — beyond that every card computed `abs > radius` and went `data-hidden`, focus bloom included. Reproduced in-browser (Playwright, 12-card clan, 5 hard flicks): pre-fix 4/12 cards visible, zero focus bloom; the meta panel and the rendered stack disagreed. Fix: `commitCaveFocus` now actually wraps `_cavePos` back into `[0, n)` each frame. Post-fix: 9/12 visible (correct for radius 4), exactly one bloomed front card, meta in sync.
+- **Dedupe — one entry point for flywheel impulses.** The wheel handler duplicated `nudgeCave` line-for-line (reduced-motion check, velocity injection, clamp, `startCaveRiffle`). `nudgeCave` now takes a velocity impulse; wheel passes `delta * CAVE_WHEEL_SENSITIVITY`, arrows pass `±CAVE_KEY_IMPULSE`. Behaviour identical (verified: wheel riffle + arrow steps both pass in-browser); file 645 → 640 lines.
+
+Flagged, not changed: `js/cave.js` still over the 500-line limit (split already spun off as its own task in PR #15); reduced-motion wheel does one instant card-jump *per wheel event*, so a trackpad flick strobes many jumps for exactly the users who opted out of motion — needs a Doug call on debouncing. No secrets in the diff; comments are dense but informative — left alone.
+
+## [2026-07-08] Post-merge review of PR #14 (security hardening) → cleanup PR (branch `cleanup-pr-14`)
+
+Automated post-merge review of **PR #14** ("Pre-launch security hardening: RLS, credits, SSRF, auth, throttle"). The security work itself is solid — SSRF guard, webhook idempotency, RLS migration and credit metering all read plainly and were left alone. Changes:
+
+- **Restored three `wiki/log.md` entries the #14 merge dropped.** The `Merge branch 'main'` conflict resolution on PR #14's branch took the branch's version of the log wholesale, deleting the PR #13 CORS entry (2026-07-03), the PR #15 flywheel entry, and the PR #16 post-merge-review entry (both 2026-07-08). Re-inserted in date order; #14's own entries kept.
+- **`artist_profiles_api.py` — completed the `claimed_by_user_id` leak fix.** #14 trimmed the column out of `PROFILE_COLS`, but the three write routes (`POST` stub, `/scrape`, `PATCH`) return raw insert/upsert/update rows, which still carried it. Added a `_public()` projection to PROFILE_COLS at those three `jsonify` sites. Also merged `patch_profile`'s two overlapping claimer-check comment blocks into one.
+- **`js/app.js` + `js/brands.js` + `js/compositor.js` — deduped the font-URL CSS-injection guard.** The same validate-then-reject-CSS-breaking-chars block was pasted at 3 sites (`injectFontFace` ×2, `injectPreviewFont`); the regex now lives once as `safeFontUrl()` in app.js beside `safeUrl()` (drift here = a missed injection guard in one copy). The `typeof safeUrl === 'function'` fallbacks went with it — index.html is the only consumer and loads app.js first.
+- **`sb_helpers.py` — dropped the `try/except: pass` around the `g.is_admin` stamp** in `resolve_user_id`; the expression can't raise in a request context and content_api's twin does it bare.
+
+Flagged, not changed: `ADMIN_EMAILS` + `CREDIT_COST_IMAGE` are now defined in both `content_api` and `sb_helpers` with keep-in-sync comments — the full auth/credit-stack merge was explicitly deferred to post-launch (2026-07-03 entry), so the mirror stands until that refactor; `extract_flyer` charges *after* the storage upload, so a 402 both orphans the uploaded flyer object and (unlike its other error paths) omits `flyer_image_url` from the response — billing-flow decision, not cleanup. No secrets in the diff.

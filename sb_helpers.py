@@ -49,10 +49,7 @@ def resolve_user_id():
     try:
         res = supabase().auth.get_user(token)
         if res and res.user:
-            try:
-                g.is_admin = (res.user.email or '').strip().lower() in ADMIN_EMAILS
-            except Exception:
-                pass
+            g.is_admin = (res.user.email or '').strip().lower() in ADMIN_EMAILS
             return res.user.id
     except Exception as e:
         print('JWT validation failed:', e)

@@ -292,10 +292,10 @@
   }
 
   function injectFontFace(family, url) {
-    // Validate the brand-kit font URL (user-controlled) and reject any char that
-    // could break out of the url("...") CSS context → CSS injection.
-    const safe = (typeof safeUrl === 'function' ? safeUrl(url) : url) || '';
-    if (!safe || /["'()\\\s]/.test(safe)) return;
+    // safeFontUrl (app.js) validates the user-controlled brand-kit URL and
+    // rejects CSS-breaking chars so it can't escape the url("...") context.
+    const safe = safeFontUrl(url);
+    if (!safe) return;
     const fam = String(family).replace(/["\\]/g, '');
     if (document.querySelector(`style[data-cmp-font="${fam}"]`)) return;
     const style = document.createElement('style');
