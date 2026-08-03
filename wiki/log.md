@@ -1488,3 +1488,26 @@ Ran the `prelaunch-review` workflow (40 agents, 102 findings verified — see `w
 **Deliberately deferred to post-launch** (no launch/security value, real regression risk to do unattended now): the structural de-duplication refactors (merging content_api's parallel auth/credit stack into `sb_helpers`, consolidating the Supabase/Anthropic client factories, `HAIKU_MODEL` constant, storage-helper and `get_oauth_token` consolidation, `update_manifest` dedupe), the `trail_map.js` IIFE-wrap (leaks ~30 globals — needs cross-file check), and the deeper correctness cluster (4:5 portrait rendered square, legacy fake-zero snapshots, headliner mis-assignment, literal `{{artist}}`). All captured in the findings doc.
 
 Decisions worth noting: copy/caption generation and `/classify-ref` were left un-metered on purpose — consistent with the existing `text = 0` pricing decision (2026-06-23) and covered by the per-IP POST throttle; metering them would punish normal use with no cheap cost tier.
+
+## [2026-08-03] Signup/login troubleshooting — root cause: paused Supabase project; auth errors made legible (branch `claude/soundcave-signup-login-errors-qeq7zr`)
+
+Doug reported errors signing up / logging in at the live site. Diagnosed, then hardened the code path that made it undiagnosable.
+
+**Root cause (infrastructure, not code): the Supabase project `agmmdrqmjywggtsycsri` is PAUSED.** Confirmed four ways — the projects API reports `"status": "INACTIVE"`; a `select` against the DB times out on connect; the auth log stream is empty; the advisor lints come back empty. A paused project stops serving `*.supabase.co` entirely, so *every* auth call (`signInWithOtp` for magic-link signup, `signInWithPassword`, password reset) fails at the network layer. Supabase free-tier projects auto-pause after ~7 days with no activity. **Fix is a dashboard/API restore — no code change unpauses it.** Note the Railway backend depends on the same project, so Forge generation is down for the same reason.
+
+**Why it looked like a mystery** — three code problems turned "project is paused" into an unreadable failure:
+- Every auth helper in `js/lib/supabase.js` returned `{ error: error.message }` raw, so a paused project surfaced in the cave-mouth login box as **"Failed to fetch"** (Chrome) / **"Load failed"** (Safari) — indistinguishable from being offline, a blocked CDN, or a genuine bad password.
+- Those helpers opened with a bare `await ready`, which **throws** if the SDK import failed. That rejection escaped into the `form.submit` handler, so the code after it never ran: the button stayed disabled on `{SENDING…}` with **no message at all**.
+- `start()`'s fail-open message blamed the wrong service — *"Auth service unreachable — is content_api running?"*. Auth talks to Supabase directly; `content_api` hasn't been in that path since the config was hardcoded in `js/lib/supabase.js`.
+
+**Fixed** (`js/lib/supabase.js`, `js/app.js`):
+- New `run()` wrapper — all four auth helpers (`signInWithEmail`, `signInWithPassword`, `sendPasswordReset`, `setPassword`) funnel through it. It always resolves to `{error?: string}` and **never rejects**, so the login button can't hang mid-glitch again.
+- New `explain()` — maps failures to actionable copy, matching on both `error.message` and supabase-js v2's stable `error.code` (underscores flattened so one pattern covers `over_email_send_rate_limit` and "Email rate limit exceeded"). Covers: unreachable/paused service, blocked CDN import, email rate limit, signups disabled, bad credentials, unconfirmed email. Unrecognised errors pass through verbatim — no swallowing.
+- Ordering matters and was caught by testing: "Failed to fetch **dynamically imported module**" matches the generic network pattern too, so the CDN case is tested first.
+- `session()` now fails soft to `null` (= signed out) instead of throwing — callers across the app do `if (await scAuth.session())` with no catch, and a rejected `ready` used to take the whole calling feature down with it.
+- Corrected the stale `content_api` blame in the fail-open message.
+
+**Flagged, not changed — check these once the project is unpaused**, since signup is magic-link-only (per [spec/auth_login_ui.md](spec/auth_login_ui.md)) and therefore entirely dependent on email delivery:
+- **Supabase's built-in SMTP is capped at ~2 emails/hour project-wide and is explicitly not for production.** Sending the app to a batch of industry friends means most of them get no magic link. Custom SMTP (Resend/Postmark/SES) is the fix, and it's a prerequisite for the GTM push, not a nicety.
+- Auth → Providers → **"Enable email signups"** must stay on, or new testers hit `otp_disabled`.
+- Redirect allowlist was verified live on 2026-06-11 (Site URL `https://thesoundcave.vercel.app`, redirects `…/**` + `http://localhost:3000/**`) — unchanged, but re-verify if the domain moved to `s0undcav3.com`.

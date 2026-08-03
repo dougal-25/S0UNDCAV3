@@ -41,10 +41,18 @@
     throw err;
   });
 
+  // Fails soft to null (= "signed out") rather than throwing: callers all over
+  // the app do `if (await scAuth.session())` without a catch, and a rejected
+  // `ready` used to take the whole calling feature down with it.
   async function session() {
-    await ready;
-    const { data } = await client.auth.getSession();
-    return data.session;
+    try {
+      await ready;
+      const { data } = await client.auth.getSession();
+      return data.session;
+    } catch (err) {
+      console.error('scAuth.session failed', err);
+      return null;
+    }
   }
 
   async function user() {
@@ -57,30 +65,74 @@
     return s ? s.access_token : null;
   }
 
+  // Raw Supabase auth failures are useless to a user standing at the cave mouth:
+  // a paused project, an offline laptop and a blocked CDN all read "Failed to
+  // fetch". Worse, `await ready` *throws* when the SDK never loaded, which
+  // escaped the callers and left the login button stuck on "{SENDING…}" with no
+  // message at all. Every auth helper funnels through run() so it always
+  // resolves to {error?: string}, never rejects, and says something actionable.
+  function explain(raw) {
+    const msg = (raw && raw.message) || String(raw || 'Unknown error');
+    // supabase-js v2 also carries a stable `code` (e.g. over_email_send_rate_limit,
+    // otp_disabled, invalid_credentials). Match on both, with underscores flattened
+    // so one pattern covers the code and the prose form.
+    const hay = `${msg} ${(raw && (raw.code || raw.name)) || ''}`.replace(/_/g, ' ');
+
+    // Module-import failure must be tested BEFORE the generic network case —
+    // "Failed to fetch dynamically imported module" matches both.
+    if (/dynamically imported module|error loading|failed to resolve module/i.test(hay)) {
+      return 'Login code failed to load (CDN blocked?). Disable any content blocker for this site and reload.';
+    }
+    // No response at all — network, DNS, CORS, or a paused Supabase project
+    // (paused projects stop serving *.supabase.co entirely).
+    if (/failed to fetch|load failed|networkerror|fetch failed|network request failed/i.test(hay)) {
+      return 'Can’t reach the auth service. It may be paused or down — check your connection, then try again shortly.';
+    }
+    // Supabase's own errors, rewritten where the stock wording misleads.
+    if (/rate limit/i.test(hay)) {
+      return 'Too many login emails sent recently. Wait a few minutes and try again.';
+    }
+    if (/signups? not allowed|signup is disabled|otp disabled/i.test(hay)) {
+      return 'No account for that email, and new signups are currently closed. Ask Doug for an invite.';
+    }
+    if (/invalid login credentials|invalid credentials/i.test(hay)) {
+      return 'Wrong email or password. If you never set a password, use the magic link instead.';
+    }
+    if (/email not confirmed/i.test(hay)) {
+      return 'Email not confirmed yet — click the link in your inbox first.';
+    }
+    return msg;
+  }
+
+  async function run(fn) {
+    try {
+      await ready;
+      const { error } = await fn();
+      return error ? { error: explain(error) } : {};
+    } catch (err) {
+      console.error('scAuth call failed', err);
+      return { error: explain(err) };
+    }
+  }
+
+  function redirectTo() {
+    return window.location.origin + window.location.pathname;
+  }
+
   async function signInWithEmail(email) {
-    await ready;
-    const redirectTo = window.location.origin + window.location.pathname;
-    const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
-    return error ? { error: error.message } : {};
+    return run(() => client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo() } }));
   }
 
   async function signInWithPassword(email, password) {
-    await ready;
-    const { error } = await client.auth.signInWithPassword({ email, password });
-    return error ? { error: error.message } : {};
+    return run(() => client.auth.signInWithPassword({ email, password }));
   }
 
   async function sendPasswordReset(email) {
-    await ready;
-    const redirectTo = window.location.origin + window.location.pathname;
-    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
-    return error ? { error: error.message } : {};
+    return run(() => client.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() }));
   }
 
   async function setPassword(password) {
-    await ready;
-    const { error } = await client.auth.updateUser({ password });
-    return error ? { error: error.message } : {};
+    return run(() => client.auth.updateUser({ password }));
   }
 
   async function signOut() {

@@ -130,9 +130,12 @@
       }
     } catch (e) {
       console.error('auth init failed', e);
-      // Fail-open: show the login form so user can at least try.
+      // Fail-open: show the login form so user can at least try. (Auth talks to
+      // Supabase directly — content_api is not in this path, despite what this
+      // message used to claim.)
       showLoginForm();
-      msgEl.textContent = 'Auth service unreachable — is content_api running?';
+      msgEl.textContent = 'Auth service unreachable — check your connection and reload.';
+      msgEl.className = 'cave-login-msg error';
     }
   }
 
