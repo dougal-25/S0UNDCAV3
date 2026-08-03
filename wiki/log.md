@@ -1564,3 +1564,15 @@ Corrected `0024` to `revoke … from public, anon, authenticated`. Verified afte
 Linter after: all 8 `SECURITY DEFINER`-exposure warnings and the `function_search_path_mutable` warning are **gone**. Remaining, unchanged and triaged: `rls_enabled_no_policy` INFO on six server-only tables (correct as-is), the three public-bucket listing WARNs (the deferred signed-URL migration), and Auth leaked-password protection off (one dashboard toggle).
 
 **Rule of thumb worth keeping:** after any `revoke`, assert with `has_*_privilege()`. A migration returning `success` is not evidence that a permission actually changed.
+
+## [2026-08-03] Dormancy — app replaced with a holding page (branch `claude/soundcave-signup-login-errors-qeq7zr`)
+
+Doug is pausing the build (permanent employment). Decision [0015](decisions/0015_dormant_holding_page.md).
+
+- **`index.html` is now a self-contained holding page**: the logo breathing over the cave drone, `S0UNDCAV3` wordmark below, `{SOUND ON/OFF}` toggle top-right (defaults **ON**), `{HEADPHONES RECOMMENDED}` tag, CRT scanlines + grain + vignette, `{51.5°N 0.1°W}` stamp. Everything is inlined; the only assets it touches are `brand/logo/soundcave_logo_2026-05-11.svg`, `audio/cave_drone.mp3`, favicons and the DM Mono webfont. No `css/style.css`, no `js/`, no Supabase SDK — the page is indifferent to the backend being off.
+- **Sound-on-by-default**, honestly: autoplay is attempted on load; when the browser blocks it (all of them do, pre-gesture) the toggle stays ON, a `{TAP ANYWHERE FOR SOUND}` hint appears, and the first gesture starts the drone — the same one-shot prime pattern the app shell used (works on iOS Safari). Explicit OFF persists via `localStorage.sc_sound_on`; audio path is the same WebAudio chain (loop + 0.9 rate + analyser→pulse; `--cave-pulse` drives the mark's scale/halo, LFO-only when muted).
+- **No entrance swirl** — the reference was the logo-click re-show, which skips it. Logo is a plain `<img>`.
+- **Verified by rendering**, desktop 1280×800 + mobile 390×844, via the pre-installed Chromium. Two tooling traps worth remembering: `--disable-gpu` headless intermittently dropped the filtered/blurred layers entirely (blank logo — use `--use-gl=angle --use-angle=swiftshader`), and new-headless clamps `--window-size` width to ~500 while clipping the shot to the requested width (use the `headless_shell` binary for true mobile viewports).
+- **The app is not deleted.** It lives in git history on this branch and, until the merge, on `main`. Revival = revert the holding-page commit (see 0015).
+
+**Operational steps for full dormancy** (in order): merge this branch → `main` (Vercel auto-deploys the holding page); pause the Supabase project (dashboard or API — kills auth + DB, keeps all data; restore took ~7 min on 2026-08-03); stop the Railway service `soundcave-api-production` in its dashboard (saves the hosting spend; nothing references it once the holding page is live). GitHub Actions (`weekly_scout.yml`, `daily_tracker.yml`) hit SoundCloud, not Supabase — they keep running and committing `data/` unless disabled in the Actions tab; harmless but noisy.
