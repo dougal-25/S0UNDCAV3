@@ -23,14 +23,32 @@
 -- (sb_helpers.charge/refund, content_api._debit and the Stripe webhook grants)
 -- goes through a SUPABASE_SERVICE_KEY client, which bypasses these grants.
 
-revoke execute on function public.grant_credits(uuid, integer, text, uuid)  from anon, authenticated;
-revoke execute on function public.debit_credits(uuid, integer, text, uuid)  from anon, authenticated;
-revoke execute on function public.refund_credits(uuid, integer, text, uuid) from anon, authenticated;
+-- NOTE — revoke from PUBLIC, not from anon/authenticated.
+-- Unlike tables, Postgres grants functions EXECUTE to the PUBLIC pseudo-role by
+-- default. These functions' ACLs read:
+--     =X/postgres          <- the empty grantee is PUBLIC
+--     postgres=X/postgres
+--     service_role=X/postgres
+-- anon and authenticated hold no explicit grant to revoke — they inherit
+-- EXECUTE through PUBLIC. `revoke ... from anon, authenticated` therefore
+-- silently removes nothing and leaves the endpoint wide open. (Learned the hard
+-- way: the first version of this migration did exactly that and reported
+-- success while has_function_privilege('anon', ...) stayed true.)
+-- postgres and service_role keep their explicit grants, so the backend is
+-- unaffected.
 
--- handle_new_user is an auth.users trigger function; it is never meant to be
--- called over the API (a direct call errors on the missing NEW record, but
--- there is no reason to expose it at all).
-revoke execute on function public.handle_new_user() from anon, authenticated;
+revoke execute on function public.grant_credits(uuid, integer, text, uuid)  from public, anon, authenticated;
+revoke execute on function public.debit_credits(uuid, integer, text, uuid)  from public, anon, authenticated;
+revoke execute on function public.refund_credits(uuid, integer, text, uuid) from public, anon, authenticated;
+
+-- handle_new_user is the on_auth_user_created trigger function on auth.users.
+-- Exposure is negligible (a direct RPC call errors on the unassigned NEW
+-- record), but there is no reason to publish it. Postgres checks EXECUTE on a
+-- trigger function at CREATE TRIGGER time rather than at fire time, so this is
+-- safe — the explicit grant to supabase_auth_admin (the role that inserts into
+-- auth.users) is belt-and-braces so signup cannot possibly regress.
+grant execute on function public.handle_new_user() to supabase_auth_admin;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 -- Pin the search_path on the shared trigger helper so it cannot be hijacked by
 -- a caller-controlled search_path (flagged by the Supabase linter).

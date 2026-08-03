@@ -1542,3 +1542,25 @@ Wrote **`db/0024_lock_credit_rpcs.sql`** to revoke `EXECUTE` on the three credit
 **Lesson for future migrations:** locking a table's RLS is only half the surface. Any `SECURITY DEFINER` function in the `public` schema is a public API endpoint by default, and it bypasses the very RLS you just tightened.
 
 Other linter output, triaged and left alone for now: three public storage buckets allow listing (`brand_assets`, `generated_images`, `generated_videos`) — this is the known signed-URL migration already flagged as deferred on 2026-07-03; several `rls_enabled_no_policy` INFO notices (server-only tables — correct as-is); and Auth leaked-password protection is off (one dashboard toggle, worth turning on).
+
+### [2026-08-03] `db/0024` applied — and the revoke that silently did nothing
+
+Applied `0024`. **The first attempt reported `success` and changed nothing**, which is worth recording because the failure mode is invisible.
+
+`revoke execute on function … from anon, authenticated` ran without error, and `touch_updated_at`'s `search_path` did change — so the migration had definitely executed. But `has_function_privilege('anon', 'grant_credits', 'EXECUTE')` was still **true**. The ACL showed why:
+
+```
+=X/postgres            <- empty grantee = PUBLIC
+postgres=X/postgres
+service_role=X/postgres
+```
+
+**Unlike tables, Postgres grants functions EXECUTE to the `PUBLIC` pseudo-role by default.** `anon` and `authenticated` never held an explicit grant, so there was nothing to revoke from them — they inherit through `PUBLIC`. Revoking from a role that has no direct grant is a silent no-op: no error, no warning, no effect. Had we trusted the `success` response, the blocker would have looked closed while staying fully open.
+
+Corrected `0024` to `revoke … from public, anon, authenticated`. Verified after: `anon` and `authenticated` are now `false` on all four functions; `service_role` retains EXECUTE (backend unaffected); `supabase_auth_admin` retains it on `handle_new_user` (granted explicitly first, so the `on_auth_user_created` signup trigger could not regress).
+
+**Signup proved end-to-end after the revoke** — inserted a real row into `auth.users` inside a `DO` block that raises at the end to force rollback: `profile_rows=1, credits=0` (trigger fired, invite gate's zero-credit default correct), then confirmed 8/8 users and 0 leftovers. Nothing persisted.
+
+Linter after: all 8 `SECURITY DEFINER`-exposure warnings and the `function_search_path_mutable` warning are **gone**. Remaining, unchanged and triaged: `rls_enabled_no_policy` INFO on six server-only tables (correct as-is), the three public-bucket listing WARNs (the deferred signed-URL migration), and Auth leaked-password protection off (one dashboard toggle).
+
+**Rule of thumb worth keeping:** after any `revoke`, assert with `has_*_privilege()`. A migration returning `success` is not evidence that a permission actually changed.

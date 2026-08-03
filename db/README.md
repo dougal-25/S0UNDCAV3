@@ -14,7 +14,8 @@ SQL migrations for Sound Cave's Supabase project.
 - `0008`–`0018` — see file headers (this index went stale; each migration's first comment block describes it)
 - `0019_artist_tracking.sql` — Clan Data Tracking v2: `tracked_artists` registry + `artist_snapshots` time-series + `snapshot_runs` log (spec: wiki/spec/clan_data_tracking_v2.md)
 - `0020`–`0022` — see file headers (free-trial/invite, invite codes, per-user SoundCloud OAuth)
-- `0023_security_hardening.sql` — **pre-launch hardening.** Removes client UPDATE on `public.users` (credits/tier/trial were self-writable via the anon key), makes `credits_ledger` client read-only, and adds the `stripe_events` webhook-idempotency table. Apply before opening public signups.
+- `0023_security_hardening.sql` — **pre-launch hardening.** Removes client UPDATE on `public.users` (credits/tier/trial were self-writable via the anon key), makes `credits_ledger` client read-only, and adds the `stripe_events` webhook-idempotency table. Apply before opening public signups. ✅ applied to prod 2026-08-03.
+- `0024_lock_credit_rpcs.sql` — **finishes what `0023` started.** `0023` locked the table API but not the RPC API: `grant_credits`/`debit_credits`/`refund_credits` are `SECURITY DEFINER`, PostgREST publishes every public-schema function at `/rest/v1/rpc/<name>`, and functions grant EXECUTE to `PUBLIC` by default — so the self-granted-credits blocker stayed open to `anon`, bypassing the RLS `0023` had just tightened. Revokes EXECUTE from `PUBLIC` (revoking from `anon`/`authenticated` alone is a **no-op** — they hold no explicit grant) and pins `touch_updated_at`'s `search_path`. ✅ applied to prod 2026-08-03.
 
 All idempotent — safe to re-run.
 
