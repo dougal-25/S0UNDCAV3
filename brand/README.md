@@ -18,7 +18,10 @@ deck, a poster, or a social post, it's here.
 | The fonts | `fonts/DMSans-Regular.ttf`, `fonts/DMMono-Regular.ttf` |
 | A Reddit profile banner (logo + wordmark) | `banners/soundcave_banner_reddit_1920x384_2026-06-29.png` |
 | A wide banner — logo + name side by side, fire glow | `banners/soundcave_banner_horizontal_1500x500_2026-08-03.png` |
+| A LinkedIn banner (same lockup, zoomed out) | `banners/soundcave_banner_linkedin_1584x396_2026-08-03.png` |
+| A LinkedIn banner, **name only** (no logo) | `banners/soundcave_banner_linkedin_text_1584x396_2026-08-03.png` |
 | Logo with the name to the **right** (vector) | `logo/soundcave_lockup_horizontal_2026-08-03.svg` |
+| Just the wordmark, no logo (vector) | `logo/soundcave_wordmark_2026-08-03.svg` |
 
 ## Structure
 
@@ -57,6 +60,7 @@ brand/
 | `logo/soundcave_logo_2026-05-11.svg` | SVG, transparent | **Primary mark.** Off-white cave glyph, no background. Used in the splash, header tab, and hero. |
 | `logo/soundcave_lockup_stacked_2026-08-03.svg` | SVG, transparent, 499×577 | **Stacked lockup.** Primary mark with the `S0UNDCAV3` wordmark underneath. Wordmark is DM Mono at `0.18em` tracking, **converted to outlines** — no font needed to render it. Wordmark width is 90% of the mark width; gap is 10%. |
 | `logo/soundcave_lockup_horizontal_2026-08-03.svg` | SVG, transparent, 1761×478 (3.68:1) | **Horizontal lockup.** Same mark with the wordmark to the **right**, vertically centred, sized to balance the mark (cap-height 27% of mark height, gap 13%). Outlined DM Mono, **synthetically emboldened** — the outlines carry a same-colour stroke (34 font units) because DM Mono ships no Bold cut. For wide surfaces — headers, banners, footers. |
+| `logo/soundcave_wordmark_2026-08-03.svg` | SVG, transparent, 8.91:1 | **Wordmark only** — the `S0UNDCAV3` glyph run with no mark. Same outlined + emboldened DM Mono as the lockups. For text-only surfaces and footers. |
 | `logo/dormant/soundcave_logo_alt_2026-05-11.svg` | SVG, 1024×1024 | Alternate — same glyph on a solid `#0A0A0A` square. Dormant; kept for possible revival. |
 
 ### Logos (raster, 300×300)
@@ -102,6 +106,8 @@ Lockups (logo + `S0UNDCAV3` wordmark, no glow) on cave-black, sized for social p
 |---|---|---|
 | `banners/soundcave_banner_reddit_1920x384_2026-06-29.png` | 1920×384 (5:1) | Reddit profile banner — **stacked** (logo above wordmark) |
 | `banners/soundcave_banner_horizontal_1500x500_2026-08-03.png` | 1500×500 (3:1) | X/Twitter header / generic wide banner — **horizontal** lockup (logo left, wordmark right) on cave black with the `#ff4500` **fire glow** behind the mark |
+| `banners/soundcave_banner_linkedin_1584x396_2026-08-03.png` | 1584×396 (4:1) | LinkedIn profile banner — same horizontal lockup + fire glow, **zoomed out** (mark is 52% of banner height vs 62% on the X cut) so LinkedIn's crop and the avatar overlap don't clip the art |
+| `banners/soundcave_banner_linkedin_text_1584x396_2026-08-03.png` | 1584×396 (4:1) | LinkedIn profile banner — **wordmark only**, centred, no glow (the glow = fire and belongs behind the mark; text-only stays clean) |
 
 > **Reddit mobile crops the banner inward to ~the centre third**, so a wide horizontal
 > logo-left/wordmark-right lockup loses its ends on a phone. The Reddit banner therefore

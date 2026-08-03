@@ -1521,3 +1521,13 @@ Doug's feedback on the first banner cut: text bigger and bolder to balance the l
 - Banner re-rendered with the new aspect; mark height in-frame unchanged (62% of banner height).
 
 Stacked lockup untouched — the feedback was banner-specific.
+
+## [2026-08-03] LinkedIn banners + standalone wordmark (branch `claude/logo-favicon-assets-tt49xv`)
+
+Doug: "zoom out so it can fit linkedin. also give me a version with just text and not logo." Three new files:
+
+- **`banners/soundcave_banner_linkedin_1584x396_2026-08-03.png`** — the horizontal lockup + fire glow at LinkedIn's 1584×396, art zoomed out (mark 52% of banner height vs 62% on the X cut) so LinkedIn's crop and the bottom-left avatar overlap don't clip anything.
+- **`banners/soundcave_banner_linkedin_text_1584x396_2026-08-03.png`** — wordmark only, centred, **no glow** (per the fire rule: glow belongs behind the mark, text-only stays clean).
+- **`logo/soundcave_wordmark_2026-08-03.svg`** — new master: the `S0UNDCAV3` wordmark alone (outlined + emboldened DM Mono, 8.91:1), so text-only surfaces don't need to crop a lockup.
+
+`brand/README.md` updated. Same render pipeline (headless Chromium 3× → Lanczos).
