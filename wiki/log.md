@@ -1527,3 +1527,18 @@ Restored the project via the Supabase API (`INACTIVE` → `COMING_UP` → `RESTO
 - `credits_ledger owner all` is still `FOR ALL`, not the SELECT-only client policy `0023` intended.
 
 Not applied here — it's prod DDL that drops policies, and it's Doug's call. **This is the top open item before any user push**; unpausing has made the app reachable again, which also makes this reachable.
+
+### [2026-08-03] `db/0023` applied to prod — and `db/0024` written because 0023 doesn't actually close the blocker
+
+Applied `0023` to prod (Doug's go-ahead). Verified after: `users self update` gone (only `users self read` SELECT remains), `credits_ledger owner all` replaced by the SELECT-only `credits_ledger owner read`, `stripe_events` created with RLS on. Client `UPDATE` on `users` and `INSERT/UPDATE/DELETE` on `credits_ledger` are revoked. RLS is enabled on all three tables, so the residual `INSERT`/`DELETE` grants `0023` leaves on `users` are inert (no policy permits them) — belt without braces, not a hole.
+
+**Then the Supabase linter found the blocker is still open via a side door.** `0023` locked the table API but not the RPC API:
+
+- `grant_credits` / `debit_credits` / `refund_credits` are `SECURITY DEFINER` (they must be — they write the append-only ledger past RLS), and **PostgREST exposes every public-schema function as an RPC endpoint**. Default `EXECUTE` grants left all three callable by **`anon`** and `authenticated`.
+- So `POST /rest/v1/rpc/grant_credits {"p_user_id": "<uuid>", "p_amount": 999999}` with the public anon key (hardcoded in `js/lib/supabase.js`, necessarily public) still self-grants unlimited credits and bypasses Stripe. `SECURITY DEFINER` means it sails straight past the RLS lockdown `0023` had just installed. It doesn't even require signing in.
+
+Wrote **`db/0024_lock_credit_rpcs.sql`** to revoke `EXECUTE` on the three credit functions plus `handle_new_user` from `anon`/`authenticated`, and to pin `touch_updated_at`'s `search_path`. **Verified safe before writing:** the frontend makes zero PostgREST RPC calls (no `.rpc(` anywhere in `js/`), and every backend caller (`sb_helpers.charge`/`refund`, `content_api._debit`, the Stripe webhook grants) uses a `SUPABASE_SERVICE_KEY` client, which bypasses these grants entirely.
+
+**Lesson for future migrations:** locking a table's RLS is only half the surface. Any `SECURITY DEFINER` function in the `public` schema is a public API endpoint by default, and it bypasses the very RLS you just tightened.
+
+Other linter output, triaged and left alone for now: three public storage buckets allow listing (`brand_assets`, `generated_images`, `generated_videos`) — this is the known signed-URL migration already flagged as deferred on 2026-07-03; several `rls_enabled_no_policy` INFO notices (server-only tables — correct as-is); and Auth leaked-password protection is off (one dashboard toggle, worth turning on).
