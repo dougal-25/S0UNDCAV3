@@ -1511,3 +1511,13 @@ Follow-on from the 300×300 set: Doug asked for a banner with the logo and the b
 - **`banners/soundcave_banner_horizontal_1500x500_2026-08-03.png`** — the horizontal lockup on cave black with the `#ff4500` **fire glow** radiating from behind the mark (wordmark stays clean off-white). 1500×500 = X/Twitter header size, which the brand README had already flagged as the missing wide-crop banner; works as a generic wide banner too. Rendered headless-Chromium 3× → Lanczos, ~210 KB.
 
 `brand/README.md` updated (quick-grab, tree, logo + banner tables). Design note for future treatments: **the glow = fire** — it belongs behind the mark (the cave mouth), not behind the wordmark.
+
+## [2026-08-03] Horizontal lockup: wordmark scaled up + emboldened (branch `claude/logo-favicon-assets-tt49xv`)
+
+Doug's feedback on the first banner cut: text bigger and bolder to balance the logo (logo size itself approved). Reworked the horizontal lockup master and re-rendered the banner — same filenames, both created earlier today:
+
+- Wordmark cap-height **18% → 27%** of mark height (gap 14% → 13%); lockup canvas is now 1761×478 (3.68:1).
+- **Synthetic bold:** DM Mono has no Bold cut, so the outlined glyphs carry a same-colour stroke (34 font units, round joins) on top of the fill. Technique note for future lockups: bump the stroke, not the font.
+- Banner re-rendered with the new aspect; mark height in-frame unchanged (62% of banner height).
+
+Stacked lockup untouched — the feedback was banner-specific.

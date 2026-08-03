@@ -56,7 +56,7 @@ brand/
 |---|---|---|
 | `logo/soundcave_logo_2026-05-11.svg` | SVG, transparent | **Primary mark.** Off-white cave glyph, no background. Used in the splash, header tab, and hero. |
 | `logo/soundcave_lockup_stacked_2026-08-03.svg` | SVG, transparent, 499×577 | **Stacked lockup.** Primary mark with the `S0UNDCAV3` wordmark underneath. Wordmark is DM Mono at `0.18em` tracking, **converted to outlines** — no font needed to render it. Wordmark width is 90% of the mark width; gap is 10%. |
-| `logo/soundcave_lockup_horizontal_2026-08-03.svg` | SVG, transparent, 1366×478 (2.85:1) | **Horizontal lockup.** Same mark with the wordmark to the **right**, vertically centred. Same outlined DM Mono wordmark; cap-height is 18% of the mark height, gap 14%. For wide surfaces — headers, banners, footers. |
+| `logo/soundcave_lockup_horizontal_2026-08-03.svg` | SVG, transparent, 1761×478 (3.68:1) | **Horizontal lockup.** Same mark with the wordmark to the **right**, vertically centred, sized to balance the mark (cap-height 27% of mark height, gap 13%). Outlined DM Mono, **synthetically emboldened** — the outlines carry a same-colour stroke (34 font units) because DM Mono ships no Bold cut. For wide surfaces — headers, banners, footers. |
 | `logo/dormant/soundcave_logo_alt_2026-05-11.svg` | SVG, 1024×1024 | Alternate — same glyph on a solid `#0A0A0A` square. Dormant; kept for possible revival. |
 
 ### Logos (raster, 300×300)
