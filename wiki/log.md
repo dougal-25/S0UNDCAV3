@@ -1511,3 +1511,19 @@ Doug reported errors signing up / logging in at the live site. Diagnosed, then h
 - **Supabase's built-in SMTP is capped at ~2 emails/hour project-wide and is explicitly not for production.** Sending the app to a batch of industry friends means most of them get no magic link. Custom SMTP (Resend/Postmark/SES) is the fix, and it's a prerequisite for the GTM push, not a nicety.
 - Auth → Providers → **"Enable email signups"** must stay on, or new testers hit `otp_disabled`.
 - Redirect allowlist was verified live on 2026-06-11 (Site URL `https://thesoundcave.vercel.app`, redirects `…/**` + `http://localhost:3000/**`) — unchanged, but re-verify if the domain moved to `s0undcav3.com`.
+
+### [2026-08-03] Follow-up — project restored, signup path verified, and `db/0023` found unapplied
+
+Restored the project via the Supabase API (`INACTIVE` → `COMING_UP` → `RESTORING` → **`ACTIVE_HEALTHY`**). Auth and the database are serving again; login/signup should work at the live site.
+
+**Verified healthy after restore:**
+- 8 `auth.users`, 6 confirmed, last sign-in `2026-07-10` — the ~3-week idle gap that tripped the auto-pause.
+- `auth.users` → `public.users` sync is intact: 8/8, **0 missing profiles**, `handle_new_user` trigger present. So the signup path itself was never broken — only unreachable.
+- `db/0020` (invite gate) is applied — `users.trial_claimed` exists.
+
+**Separate finding — `db/0023_security_hardening.sql` was never applied to prod.** The 2026-07-03 entry below flagged this as *"Action required before launch: apply `db/0023` in the Supabase SQL editor (code and DB must ship together)"*. The code half shipped in PR #14; the DB half did not. Confirmed live:
+- `public.stripe_events` **does not exist** → the Stripe webhook's idempotency guard has no table to claim against.
+- The `users self update` policy is **still present with no `WITH CHECK`** → the original launch blocker is open: any signed-up account can `update` its own `users` row through the public anon key and set `credits_balance` / `tier` / `trial_claimed` freely, bypassing Stripe and the invite gate.
+- `credits_ledger owner all` is still `FOR ALL`, not the SELECT-only client policy `0023` intended.
+
+Not applied here — it's prod DDL that drops policies, and it's Doug's call. **This is the top open item before any user push**; unpausing has made the app reachable again, which also makes this reachable.
