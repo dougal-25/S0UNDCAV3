@@ -17,6 +17,8 @@ deck, a poster, or a social post, it's here.
 | The alternate / boxed logo | `logo/dormant/soundcave_logo_alt_2026-05-11.svg` |
 | The fonts | `fonts/DMSans-Regular.ttf`, `fonts/DMMono-Regular.ttf` |
 | A Reddit profile banner (logo + wordmark) | `banners/soundcave_banner_reddit_1920x384_2026-06-29.png` |
+| A wide banner — logo + name side by side, fire glow | `banners/soundcave_banner_horizontal_1500x500_2026-08-03.png` |
+| Logo with the name to the **right** (vector) | `logo/soundcave_lockup_horizontal_2026-08-03.svg` |
 
 ## Structure
 
@@ -27,6 +29,7 @@ brand/
 │   ├── soundcave_logo_2026-05-11.svg          primary mark, vector
 │   ├── soundcave_logo_300.png                 primary mark, 300×300 transparent
 │   ├── soundcave_lockup_stacked_2026-08-03.svg  mark + wordmark underneath, vector
+│   ├── soundcave_lockup_horizontal_2026-08-03.svg  mark + wordmark to the right, vector
 │   ├── soundcave_lockup_stacked_300.png       lockup, 300×300 transparent
 │   ├── soundcave_lockup_stacked_dark_300.png  lockup, 300×300 on cave black + ember glow
 │   └── dormant/             alternates, drafts, retired logos — kept for reference / revival
@@ -53,6 +56,7 @@ brand/
 |---|---|---|
 | `logo/soundcave_logo_2026-05-11.svg` | SVG, transparent | **Primary mark.** Off-white cave glyph, no background. Used in the splash, header tab, and hero. |
 | `logo/soundcave_lockup_stacked_2026-08-03.svg` | SVG, transparent, 499×577 | **Stacked lockup.** Primary mark with the `S0UNDCAV3` wordmark underneath. Wordmark is DM Mono at `0.18em` tracking, **converted to outlines** — no font needed to render it. Wordmark width is 90% of the mark width; gap is 10%. |
+| `logo/soundcave_lockup_horizontal_2026-08-03.svg` | SVG, transparent, 1366×478 (2.85:1) | **Horizontal lockup.** Same mark with the wordmark to the **right**, vertically centred. Same outlined DM Mono wordmark; cap-height is 18% of the mark height, gap 14%. For wide surfaces — headers, banners, footers. |
 | `logo/dormant/soundcave_logo_alt_2026-05-11.svg` | SVG, 1024×1024 | Alternate — same glyph on a solid `#0A0A0A` square. Dormant; kept for possible revival. |
 
 ### Logos (raster, 300×300)
@@ -97,6 +101,7 @@ Lockups (logo + `S0UNDCAV3` wordmark, no glow) on cave-black, sized for social p
 | File | Size | For |
 |---|---|---|
 | `banners/soundcave_banner_reddit_1920x384_2026-06-29.png` | 1920×384 (5:1) | Reddit profile banner — **stacked** (logo above wordmark) |
+| `banners/soundcave_banner_horizontal_1500x500_2026-08-03.png` | 1500×500 (3:1) | X/Twitter header / generic wide banner — **horizontal** lockup (logo left, wordmark right) on cave black with the `#ff4500` **fire glow** behind the mark |
 
 > **Reddit mobile crops the banner inward to ~the centre third**, so a wide horizontal
 > logo-left/wordmark-right lockup loses its ends on a phone. The Reddit banner therefore

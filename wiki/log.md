@@ -1502,3 +1502,12 @@ Doug asked for a 300×300 logo and favicon, plus "a version of the logo with the
 All rasters rendered from the vector masters via headless Chromium at 4× (1200px) → Lanczos downscale, the same pipeline as the existing icon set, and each sits on a square 300×300 canvas with the art fitted and centred so they drop into a grid without re-cropping. `brand/README.md` updated (quick-grab table, tree, new "Logos (raster, 300×300)" section, and a note that size-suffixed files are renders of the dated master, not versions of their own).
 
 Gotcha worth keeping: headless Chromium's `--window-size=W,H` gives a viewport shorter than `H`, so a full-bleed render silently loses its bottom ~7% — render into an oversized window and crop to the target square instead.
+
+## [2026-08-03] Brand assets: horizontal banner + horizontal lockup (branch `claude/logo-favicon-assets-tt49xv`)
+
+Follow-on from the 300×300 set: Doug asked for a banner with the logo and the brand name in white, and confirmed the **orange glow is deliberate — it represents fire** (keep it on hero/dark treatments). Two new files:
+
+- **`logo/soundcave_lockup_horizontal_2026-08-03.svg`** — new master: mark with the wordmark to the **right**, vertically centred, transparent, 1366×478 (2.85:1). Same construction as the stacked lockup (outlined DM Mono, `0.18em` tracking); wordmark cap-height = 18% of mark height, gap = 14%.
+- **`banners/soundcave_banner_horizontal_1500x500_2026-08-03.png`** — the horizontal lockup on cave black with the `#ff4500` **fire glow** radiating from behind the mark (wordmark stays clean off-white). 1500×500 = X/Twitter header size, which the brand README had already flagged as the missing wide-crop banner; works as a generic wide banner too. Rendered headless-Chromium 3× → Lanczos, ~210 KB.
+
+`brand/README.md` updated (quick-grab, tree, logo + banner tables). Design note for future treatments: **the glow = fire** — it belongs behind the mark (the cave mouth), not behind the wordmark.
