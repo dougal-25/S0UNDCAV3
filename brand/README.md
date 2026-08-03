@@ -9,7 +9,11 @@ deck, a poster, or a social post, it's here.
 | You want… | Use this file |
 |---|---|
 | The logo (vector, transparent) | `logo/soundcave_logo_2026-05-11.svg` |
+| The logo at 300×300 (PNG, transparent) | `logo/soundcave_logo_300.png` |
+| **Logo with the name underneath** (vector) | `logo/soundcave_lockup_stacked_2026-08-03.svg` |
+| Logo with the name underneath, 300×300 PNG | `logo/soundcave_lockup_stacked_300.png` (transparent) or `_dark_300.png` (cave-black + ember glow) |
 | The app icon / favicon (logo on dark square) | `icons/favicon.svg` |
+| The favicon at 300×300 (PNG) | `icons/favicon-300.png` |
 | The alternate / boxed logo | `logo/dormant/soundcave_logo_alt_2026-05-11.svg` |
 | The fonts | `fonts/DMSans-Regular.ttf`, `fonts/DMMono-Regular.ttf` |
 | A Reddit profile banner (logo + wordmark) | `banners/soundcave_banner_reddit_1920x384_2026-06-29.png` |
@@ -20,7 +24,11 @@ deck, a poster, or a social post, it's here.
 brand/
 ├── README.md                ← you are here (the index)
 ├── logo/                    active logo files (SVG preferred, dated filenames keep history)
-│   ├── soundcave_logo_2026-05-11.svg
+│   ├── soundcave_logo_2026-05-11.svg          primary mark, vector
+│   ├── soundcave_logo_300.png                 primary mark, 300×300 transparent
+│   ├── soundcave_lockup_stacked_2026-08-03.svg  mark + wordmark underneath, vector
+│   ├── soundcave_lockup_stacked_300.png       lockup, 300×300 transparent
+│   ├── soundcave_lockup_stacked_dark_300.png  lockup, 300×300 on cave black + ember glow
 │   └── dormant/             alternates, drafts, retired logos — kept for reference / revival
 │       └── soundcave_logo_alt_2026-05-11.svg
 ├── icons/                   app-icon / favicon set (reference copies — see note below)
@@ -28,6 +36,7 @@ brand/
 │   ├── favicon.ico          16/32/48 multi-res ICO (Chromium omnibox + legacy fallback)
 │   ├── favicon-32.png       32×32 PNG fallback
 │   ├── favicon-192.png      192×192 PNG (Chromium high-DPI surfaces)
+│   ├── favicon-300.png      300×300 PNG (decks, store listings, profile avatars)
 │   └── apple-touch-icon.png 180×180 home-screen icon
 ├── fonts/                   brand typefaces (TTF)
 │   ├── DMSans-Regular.ttf
@@ -43,7 +52,20 @@ brand/
 | File | Format | What it is |
 |---|---|---|
 | `logo/soundcave_logo_2026-05-11.svg` | SVG, transparent | **Primary mark.** Off-white cave glyph, no background. Used in the splash, header tab, and hero. |
+| `logo/soundcave_lockup_stacked_2026-08-03.svg` | SVG, transparent, 499×577 | **Stacked lockup.** Primary mark with the `S0UNDCAV3` wordmark underneath. Wordmark is DM Mono at `0.18em` tracking, **converted to outlines** — no font needed to render it. Wordmark width is 90% of the mark width; gap is 10%. |
 | `logo/dormant/soundcave_logo_alt_2026-05-11.svg` | SVG, 1024×1024 | Alternate — same glyph on a solid `#0A0A0A` square. Dormant; kept for possible revival. |
+
+### Logos (raster, 300×300)
+
+Rendered from the vector masters above (headless Chromium at 4× → Lanczos downscale), so they
+stay pixel-consistent with the rest of the set. Each PNG is a square 300×300 canvas with the art
+fitted and centred, so the four drop into a grid without re-cropping.
+
+| File | Background | What it is |
+|---|---|---|
+| `logo/soundcave_logo_300.png` | transparent | Mark only. Fills the width (mark is 1.04:1), centred vertically. |
+| `logo/soundcave_lockup_stacked_300.png` | transparent | Mark + `S0UNDCAV3` underneath. Fills the height (lockup is 0.87:1), centred horizontally. |
+| `logo/soundcave_lockup_stacked_dark_300.png` | `#0a0a0a` + ember glow | Same lockup on cave black with an `#ff4500` radial glow — the "hero" treatment, for dark decks and social avatars where a transparent PNG would sit on the wrong background. |
 
 ### App icons / favicons
 
@@ -55,6 +77,7 @@ These are the logo rendered as an app icon (mark on the brand dark rounded squar
 | `icons/favicon.ico` | 16 + 32 + 48 | Multi-res ICO served from the site root — Chromium's omnibox/URL-suggestion UI requests `/favicon.ico` directly; also the legacy fallback |
 | `icons/favicon-32.png` | 32×32 | PNG favicon fallback |
 | `icons/favicon-192.png` | 192×192 | Larger PNG for Chromium high-DPI surfaces (new-tab tiles, suggestion rows) |
+| `icons/favicon-300.png` | 300×300 | Not a browser size — the app icon at deck/store/profile-avatar scale. Reference copy only; nothing at the repo root needs it |
 | `icons/apple-touch-icon.png` | 180×180 | iOS/Android home-screen icon |
 
 > All raster sizes are rendered from the `favicon.svg` master (headless-Chromium render →
@@ -118,5 +141,10 @@ In the app these load via `--font-mono` / `--font-body` CSS variables (`css/styl
 
 - Logo filenames are **dated** (`_YYYY-MM-DD`) so we keep version history — add a new dated
   file rather than overwriting when the mark changes, and move the old one to `logo/dormant/`.
+  Size-suffixed files (`_300.png`, `favicon-192.png`) are **renders of the dated master**, not
+  versions of their own — re-render them whenever the master changes.
+- The lockup wordmark is **outlines, not live text**. To change the wording or tracking, rebuild
+  it from `fonts/DMMono-Regular.ttf` (the glyphs are laid out at `0.18em` tracking, then scaled so
+  the wordmark is 90% of the mark width with a 10% gap) — you can't edit it as text in the SVG.
 - This folder is the **single source of truth** for brand art. Related *spec/design* pages
   (the compositor, brand-kit UI, image-gen brand awareness) live in `wiki/spec/brand_*.md`.

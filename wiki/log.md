@@ -1488,3 +1488,17 @@ Ran the `prelaunch-review` workflow (40 agents, 102 findings verified — see `w
 **Deliberately deferred to post-launch** (no launch/security value, real regression risk to do unattended now): the structural de-duplication refactors (merging content_api's parallel auth/credit stack into `sb_helpers`, consolidating the Supabase/Anthropic client factories, `HAIKU_MODEL` constant, storage-helper and `get_oauth_token` consolidation, `update_manifest` dedupe), the `trail_map.js` IIFE-wrap (leaks ~30 globals — needs cross-file check), and the deeper correctness cluster (4:5 portrait rendered square, legacy fake-zero snapshots, headliner mis-assignment, literal `{{artist}}`). All captured in the findings doc.
 
 Decisions worth noting: copy/caption generation and `/classify-ref` were left un-metered on purpose — consistent with the existing `text = 0` pricing decision (2026-06-23) and covered by the per-IP POST throttle; metering them would punish normal use with no cheap cost tier.
+
+## [2026-08-03] Brand assets: 300×300 renders + the stacked logo lockup (branch `claude/logo-favicon-assets-tt49xv`)
+
+Doug asked for a 300×300 logo and favicon, plus "a version of the logo with the brand name written underneath". The 300s didn't exist (the icon set stopped at 192×192 / 180×180 apple-touch) and the stacked lockup only existed *baked into* the Reddit banner — there was no standalone file to grab. Five new files in [`brand/`](../brand/README.md), no code touched:
+
+- **`logo/soundcave_lockup_stacked_2026-08-03.svg`** — the new master. Primary mark with the `S0UNDCAV3` wordmark underneath, transparent, 499×577. Wordmark is DM Mono at the brand `0.18em` tracking **converted to outlines**, so the SVG renders anywhere with no font dependency (matches the wordmark already used on the Reddit banner, slashed zero included). Proportions: wordmark width = 90% of mark width, gap = 10%.
+- **`logo/soundcave_logo_300.png`** — mark only, 300×300 transparent.
+- **`logo/soundcave_lockup_stacked_300.png`** — lockup, 300×300 transparent.
+- **`logo/soundcave_lockup_stacked_dark_300.png`** — lockup on cave black with an `#ff4500` radial ember glow (the hero treatment Doug's reference image showed), for dark decks and social avatars where a transparent PNG lands on the wrong background.
+- **`icons/favicon-300.png`** — the app icon (mark on the dark rounded square) at 300×300. Not a browser size — deck/store/profile-avatar scale. Reference copy only; nothing at the repo root needs it, so no root copy was added and `index.html` is unchanged.
+
+All rasters rendered from the vector masters via headless Chromium at 4× (1200px) → Lanczos downscale, the same pipeline as the existing icon set, and each sits on a square 300×300 canvas with the art fitted and centred so they drop into a grid without re-cropping. `brand/README.md` updated (quick-grab table, tree, new "Logos (raster, 300×300)" section, and a note that size-suffixed files are renders of the dated master, not versions of their own).
+
+Gotcha worth keeping: headless Chromium's `--window-size=W,H` gives a viewport shorter than `H`, so a full-bleed render silently loses its bottom ~7% — render into an oversized window and crop to the target square instead.
