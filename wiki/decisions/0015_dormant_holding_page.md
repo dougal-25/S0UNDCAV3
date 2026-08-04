@@ -30,8 +30,35 @@ drone playing — like the logo-click re-show inside the app. A sound toggle,
 - The app-side pieces (Supabase pause, Railway stop, `main` merge) are
   operational steps, tracked in the log.
 
-## Revival
+## Dormancy layout (updated same day, Doug's refinement)
 
-`git log` for this commit on `index.html`, revert it, redeploy, unpause the
-Supabase project (dashboard → restore, ~7 min), restart Railway. Everything
-else — data, migrations, credits, the whole studio — is untouched.
+Doug's requirements sharpened: nothing deleted, background work must continue,
+and resume must be fast (the site URL is on his LinkedIn).
+
+- **`main`** = live = the holding page. Scout/tracker Actions keep committing
+  `data/` here — they don't touch `index.html`, so the page is unaffected.
+- **`studio`** = the full app, cut from `fb73b3f` (app shell + auth-error
+  fixes + `db/0023`/`0024` work — everything except the holding-page commit).
+  **All background development happens here** (feature branches off `studio`,
+  merged back to `studio`, per the existing branching rules).
+- **Supabase stays up** (it free-tier auto-pauses after ~7 idle days on its
+  own; restore ≈ 7 min). Safe because: RLS locked (`0023`), credit RPCs
+  revoked from clients (`0024`), Railway backend paused (Doug, dashboard),
+  and the live site no longer ships a login form or the Supabase SDK.
+- **Railway**: paused by Doug in the dashboard. Scout/tracker are GitHub
+  Actions hitting SoundCloud — independent of Railway/Supabase, stay on.
+
+## Resume (go-live again)
+
+```bash
+git checkout main && git pull origin main
+git merge studio                    # index.html conflicts: holding page vs app
+git checkout --theirs index.html    # take the app shell (the studio side)
+git add index.html
+# wiki/log.md may also conflict (both sides append) — keep BOTH sets of entries
+git commit && git push origin main
+```
+
+Then: Supabase dashboard → restore project (if auto-paused, ~7 min);
+Railway dashboard → resume service. Done — Vercel redeploys `main`
+automatically.

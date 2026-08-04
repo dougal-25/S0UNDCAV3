@@ -1576,3 +1576,13 @@ Doug is pausing the build (permanent employment). Decision [0015](decisions/0015
 - **The app is not deleted.** It lives in git history on this branch and, until the merge, on `main`. Revival = revert the holding-page commit (see 0015).
 
 **Operational steps for full dormancy** (in order): merge this branch → `main` (Vercel auto-deploys the holding page); pause the Supabase project (dashboard or API — kills auth + DB, keeps all data; restore took ~7 min on 2026-08-03); stop the Railway service `soundcave-api-production` in its dashboard (saves the hosting spend; nothing references it once the holding page is live). GitHub Actions (`weekly_scout.yml`, `daily_tracker.yml`) hit SoundCloud, not Supabase — they keep running and committing `data/` unless disabled in the Actions tab; harmless but noisy.
+
+### [2026-08-03] Dormancy activated — `studio` branch created, holding page merged to `main`
+
+Doug confirmed the plan (nothing deleted; background work continues; fast resume; URL is on his LinkedIn). Decision [0015](decisions/0015_dormant_holding_page.md) updated with the layout + resume recipe.
+
+- **`studio` created from `fb73b3f`** and pushed — the full app one commit before the holding page, including the auth-error overhaul and the `0023`/`0024` security work. Background development: branch off `studio`, merge back to `studio`.
+- **Holding page merged to `main`** → Vercel auto-deploys it as the live site.
+- **CLAUDE.md** now opens with a dormancy notice so future sessions don't "fix" the holding page or develop against `main`.
+- Supabase left up (locked down; will auto-pause itself). Railway: Doug pauses in dashboard. Scout/tracker Actions untouched — they commit `data/` to `main`, which never conflicts with the holding page.
+- **Resume** = merge `studio` into `main`, keep `studio`'s `index.html`, push (exact commands in 0015), then restore Supabase + Railway.
