@@ -17,6 +17,17 @@
 - No new fonts, no new colours.
 - Mobile-first (the existing splash is responsive).
 
+## Troubleshooting — when signup/login fails
+
+Added 2026-08-03 after a live outage. Work down this list; the first two are infrastructure and account for most "login is broken" reports.
+
+1. **Is the Supabase project paused?** Free-tier projects auto-pause after ~7 days idle, which stops `*.supabase.co` serving entirely — every auth call fails at the network layer. Check the project status (dashboard, or the projects API — a paused project reports `INACTIVE`); a DB query timing out on *connect* and empty auth logs are corroborating signs. Restore from the dashboard. **No code change fixes this.** The Railway backend uses the same project, so Forge will be down too.
+2. **Did the magic-link email actually send?** Signup here is magic-link-only, so email delivery *is* signup. Supabase's built-in SMTP allows only ~2 emails/hour project-wide — a batch of new testers will mostly get nothing, reported as `over_email_send_rate_limit`. Custom SMTP is required before any real user push.
+3. **Are email signups enabled?** Auth → Providers → Email. If off, new addresses get `otp_disabled`.
+4. **Is the return URL allowlisted?** Auth → URL Configuration. The frontend sends `origin + pathname` as `emailRedirectTo`/`redirectTo`, so every host the app is served from needs an entry (currently the Vercel URL + `http://localhost:3000/**`).
+
+The UI copy comes from `explain()` in `js/lib/supabase.js`, which maps the above to plain-English messages; anything unrecognised is shown verbatim, and the full error is always in the browser console.
+
 ## Out of scope (later phases)
 
 - Google / Apple sign-in

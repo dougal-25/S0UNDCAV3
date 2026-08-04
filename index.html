@@ -1,1189 +1,370 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>S0UNDCAV3</title>
-  <!-- Favicon: cave logo on the brand dark square. SVG for modern browsers, PNG + ICO fallbacks.
-       favicon.ico (16/32/48) lives at the site root — Chromium's omnibox/suggestion UI requests
-       /favicon.ico directly, so it must exist even though browsers prefer the SVG here. -->
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
-  <link rel="icon" href="favicon.ico" sizes="48x48 32x32 16x16">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <meta name="theme-color" content="#0a0a0a">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/dashboard.css">
-  <link rel="stylesheet" href="css/foraging.css">
-  <link rel="stylesheet" href="css/trail_map.css">
-  <link rel="stylesheet" href="css/brands.css">
-  <link rel="stylesheet" href="css/mobile.css">
-</head>
-<body>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S0UNDCAV3</title>
+<meta name="description" content="S0UNDCAV3">
 
-<!-- ═══════════════════════════════════════════════════════
-     CAVE ENTRANCE — single unified splash + reveal
-     ═══════════════════════════════════════════════════════ -->
-<div class="cave-entrance" id="caveEntrance">
-  <!-- SVG halftone filter applied to the logo via CSS filter: url(#caveHalftone) -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <filter id="caveHalftone">
-        <feGaussianBlur stdDeviation="0.4"/>
-      </filter>
-    </defs>
-  </svg>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 
-  <button type="button" class="cave-sound-toggle" id="caveSoundToggle"
-          aria-pressed="false" aria-label="Toggle ambient sound">
-    {SOUND <span id="caveSoundState">OFF</span>}
-  </button>
-  <div class="cave-stamp" id="caveStamp">{51.5°N 0.1°W} &nbsp; {S0UNDCAV3 / <span data-version>V1.2.2</span>} &nbsp; {<span data-age>FIRST AGE</span>}</div>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-  <div class="cave-crt" aria-hidden="true"></div>
-  <div class="cave-grain" aria-hidden="true"></div>
+<!--
+  S0UNDCAV3 — holding page.
 
-  <div class="cave-logo">
-    <span class="cave-logo-tag">{HEADPHONES RECOMMENDED}</span>
-    <div class="cave-logo-svg-mount" id="caveLogoMount">
-      <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="S0UNDCAV3"
-           class="logo-img logo-img--splash"
-           width="400" height="400">
-    </div>
-    <div class="cave-logo-text">S0UNDCAV3</div>
+  Deliberately self-contained: one file, plus the logo SVG and the drone mp3.
+  It does not load css/style.css, js/app.js, the Supabase SDK or anything else
+  from the studio build, so it keeps working with the backend and database
+  switched off. The app is untouched in git history — see wiki/log.md.
+-->
 
-    <!-- Login form (Phase B) — visible only when no auth session -->
-    <form class="cave-login" id="caveLogin" autocomplete="on" hidden>
-      <input class="cave-login-input" id="caveLoginEmail" type="email" required
-             placeholder="you@example.com" autocomplete="email" spellcheck="false">
-      <input class="cave-login-input" id="caveLoginPassword" type="password"
-             placeholder="password" autocomplete="current-password" hidden>
-      <button class="cave-login-btn" type="submit" id="caveLoginBtn" data-glitch-text="{ENTER THE CAVE}">{ENTER THE CAVE}</button>
-      <button class="cave-login-toggle" type="button" id="caveLoginToggle">{USE PASSWORD}</button>
-      <button class="cave-login-toggle" type="button" id="caveLoginForgot" hidden>{FORGOT PASSWORD}</button>
-      <div class="cave-login-msg" id="caveLoginMsg" aria-live="polite"></div>
-    </form>
+<style>
+  :root {
+    --bg:        #0a0a0a;
+    --text:      #e8e8e8;
+    --muted:     #888;
+    --faint:     #4a4a4a;
+    --accent:    #ff4500;
+    --mono:      'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --tracking:  0.18em;
+    --cave-pulse: 0;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Centred logo + wordmark ─────────────────────────── */
+  .cave-logo {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    text-align: center;
+    animation: fadeIn 0.6s ease 0.2s backwards;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .cave-logo-tag {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* The pulse halo lives on the mount so it applies to the <img> fallback
+     and the inlined <svg> alike. Origin is the orange dot inside the mark
+     (512/1024 x 553/1024 in the SVG viewBox) so it breathes from the centre. */
+  .cave-logo-mount {
+    display: block;
+    margin: 8px auto 0;
+    width: 200px; height: 200px;
+    max-width: 36vmin;
+    transform-origin: 50% 54%;
+    transform: scale(calc(1 + var(--cave-pulse) * 0.04));
+    transition: transform 40ms linear;
+    filter:
+      drop-shadow(0 0 calc(14px + var(--cave-pulse) * 14px) rgba(255, 69, 0, calc(0.55 + var(--cave-pulse) * 0.25)))
+      drop-shadow(0 0 calc(36px + var(--cave-pulse) * 24px) rgba(255, 69, 0, 0.30))
+      drop-shadow(0 0 80px rgba(255, 69, 0, 0.18));
+  }
+  .cave-logo-mount > img,
+  .cave-logo-mount > svg { display: block; width: 100%; height: 100%; }
+
+  .cave-logo-text {
+    font-weight: 500;
+    font-size: 26px;
+    letter-spacing: var(--tracking);
+    color: #fff;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  @media (max-width: 480px) { .cave-logo-text { font-size: 20px; } }
+
+  /* Shown only when the browser blocks autoplay until a gesture. */
+  .cave-hint {
+    margin-top: 18px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+  }
+  .cave-hint.show { opacity: 1; animation: hintPulse 2.6s ease-in-out infinite; }
+  @keyframes hintPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+
+  /* ── Corner furniture ────────────────────────────────── */
+  .cave-sound-toggle {
+    position: absolute;
+    top: 24px; right: 24px;
+    z-index: 6;
+    background: transparent;
+    border: 1px solid var(--faint);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  .cave-sound-toggle:hover,
+  .cave-sound-toggle.is-on { color: var(--accent); border-color: var(--accent); }
+  .cave-sound-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .cave-stamp {
+    position: absolute;
+    bottom: 24px; left: 24px;
+    z-index: 6;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  @media (max-width: 480px) {
+    .cave-sound-toggle { top: 16px; right: 16px; }
+    .cave-stamp { bottom: 16px; left: 16px; }
+  }
+
+  /* ── CRT scanlines + grain + vignette ────────────────── */
+  .cave-crt { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+  .cave-crt::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(
+      to bottom, rgba(255,255,255,0.04) 0 1px, transparent 1px 3px);
+    mix-blend-mode: overlay;
+  }
+  .cave-crt::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.55) 100%);
+  }
+  .cave-grain {
+    position: absolute; inset: -10%;
+    pointer-events: none;
+    opacity: 0.06;
+    z-index: 4;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    animation: grainShift 1.6s steps(6) infinite;
+  }
+  @keyframes grainShift {
+    0%   { transform: translate(0, 0); }
+    20%  { transform: translate(-3%, 2%); }
+    40%  { transform: translate(2%, -2%); }
+    60%  { transform: translate(-2%, -3%); }
+    80%  { transform: translate(3%, 2%); }
+    100% { transform: translate(0, 0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cave-grain { animation: none; }
+    .cave-logo  { animation: none; }
+    .cave-logo-mount { transition: none; }
+    .cave-hint.show { animation: none; opacity: 0.7; }
+    .cave-logo-mount > svg path { transition: none !important; }
+  }
+</style>
+
+<div class="cave-crt" aria-hidden="true"></div>
+<div class="cave-grain" aria-hidden="true"></div>
+
+<button type="button" class="cave-sound-toggle" id="soundToggle"
+        aria-pressed="true" aria-label="Toggle ambient sound">
+  {SOUND <span id="soundState">ON</span>}
+</button>
+
+<div class="cave-stamp">{51.5°N 0.1°W}</div>
+
+<main class="cave-logo">
+  <span class="cave-logo-tag">{HEADPHONES RECOMMENDED}</span>
+  <div class="cave-logo-mount" id="logoMount">
+    <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="S0UNDCAV3" width="400" height="400">
   </div>
-</div>
-
-<div class="app-wrap" id="appWrap">
-<!-- ═══════════════════════════════════════════════════════
-     HEADER
-     ═══════════════════════════════════════════════════════ -->
-<header>
-  <button class="htab htab-brand" type="button" data-action="splash" aria-label="S0UNDCAV3 — home">
-    <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="" class="htab-brand-logo">
-  </button>
-  <nav class="header-tabs">
-    <button class="htab active" type="button" data-tab="cave" data-group="cave">
-      <span class="htab-label">THE CAVE</span>
-    </button>
-    <button class="htab" type="button" data-tab="firepit">
-      <span class="htab-label">FIREPIT <span class="count" id="firepitCount"></span></span>
-    </button>
-    <button class="htab" type="button" data-tab="reflection">
-      <span class="htab-label">REFLECTION</span>
-    </button>
-  </nav>
-  <button type="button" class="app-sound-toggle htab" id="appSoundToggle"
-          aria-pressed="false" aria-label="Toggle ambient sound">
-    <span class="htab-label">{SOUND <span id="appSoundState">OFF</span>}</span>
-  </button>
-</header>
-
-<!-- ═══════════════════════════════════════════════════════
-     MAIN CONTENT
-     ═══════════════════════════════════════════════════════ -->
-<div class="container">
-
-  <!-- ─── CAVE SUB-NAV (visible only when in Cave group) ── -->
-  <nav class="cave-subnav" id="caveSubnav" style="display:none">
-    <button class="cave-subtab active" type="button" data-tab="cave">MURAL</button>
-    <button class="cave-subtab" type="button" data-tab="foraging">FORAGING</button>
-    <button class="cave-subtab" type="button" data-tab="clan">CLAN</button>
-    <button class="cave-subtab" type="button" data-tab="footprints">FOOTPRINTS</button>
-  </nav>
-
-  <!-- ─── FIREPIT SUB-NAV (visible when in Firepit group) ── -->
-  <nav class="cave-subnav" id="firepitSubnav" style="display:none">
-    <button class="cave-subtab active" type="button" data-subtab="forge">FORGE</button>
-    <button class="cave-subtab" type="button" data-subtab="summons">GATHERINGS</button>
-    <button class="cave-subtab" type="button" data-subtab="stash">STASH</button>
-    <button class="cave-subtab" type="button" data-subtab="trailmap">TRAIL MAP</button>
-    <button class="cave-subtab" type="button" data-subtab="brandkits">MARKS</button>
-  </nav>
-
-  <!-- ─── HOME TAB ────────────────────────────────────── -->
-  <div id="tab-home">
-    <!-- Hero -->
-    <div style="text-align:center;padding:40px 0 48px">
-      <div class="home-logo-glow">
-        <img src="brand/logo/soundcave_logo_2026-05-11.svg" alt="S0UNDCAV3"
-             class="logo-img logo-img--hero"
-             width="260" height="260"
-             style="display:block;margin:0 auto">
-      </div>
-      <h1 style="font-size:32px;font-weight:700;color:var(--heading);margin-top:20px">S0UNDCAV3</h1>
-      <p style="font-size:16px;color:var(--secondary);margin-top:8px;max-width:500px;margin-left:auto;margin-right:auto">
-        Discover, track and grow unsigned talent in European underground dance music.
-      </p>
-      <button class="btn-red" style="margin-top:24px;padding:12px 32px;font-size:14px" onclick="switchTab('firepit')">Enter Firepit</button>
-    </div>
-
-    <!-- Philosophy -->
-    <div class="card" style="margin-bottom:24px">
-      <h3 class="section-title">What is The Sound Cave?</h3>
-      <p style="font-size:14px;line-height:1.7;color:var(--body)">
-        The Sound Cave is a music discovery engine built for the underground. It automatically scouts SoundCloud for unsigned and emerging artists across 16 dance music genres, tracks their growth over time, and gives you the tools to curate, manage and promote the ones worth watching. Think of it as your personal A&R assistant for the European underground scene.
-      </p>
-    </div>
-
-    <!-- Terminology -->
-    <div style="margin-bottom:24px">
-      <h3 class="section-title">Terminology</h3>
-      <div class="home-terms-grid">
-        <div class="card-elevated">
-          <div class="term-ico" data-icon="foraging"></div>
-          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Foraging</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Live artist search. Hunt for new talent by genre, follower count and more. Schedule automated searches to run while you sleep.</p>
-        </div>
-        <div class="card-elevated">
-          <div class="term-ico" data-icon="clan"></div>
-          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Clan</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your clan of tracked artists. View profiles, link platforms, star favourites and monitor their growth from one place.</p>
-        </div>
-        <div class="card-elevated">
-          <div class="term-ico" data-icon="cave"></div>
-          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Mural</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Your dashboard — the cave wall where the whole picture lives. Aggregate stats, genre breakdowns, weekly charts and new track drops from your Clan at a glance.</p>
-        </div>
-        <div class="card-elevated">
-          <div class="term-ico" data-icon="footprints"></div>
-          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Footprints</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Analytics deep dive. Per-artist growth charts, week-over-week metrics and insights on who's rising and who's fading.</p>
-        </div>
-        <div class="card-elevated">
-          <div class="term-ico" data-icon="firepit"></div>
-          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Firepit</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">AI content production. Generate social posts, press releases, event copy and more — powered by Claude, tuned for underground music culture.</p>
-        </div>
-        <div class="card-elevated">
-          <div class="term-ico" data-icon="cut"></div>
-          <div style="font-size:13px;font-weight:600;color:var(--heading);margin-bottom:4px">Cut</div>
-          <p style="font-size:12px;color:var(--secondary);line-height:1.5">Remove an artist from active tracking. Cut artists stop appearing in your mural and analytics but their data is preserved.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- How it works -->
-    <div class="card" style="margin-bottom:24px">
-      <h3 class="section-title">How It Works</h3>
-      <div class="home-steps">
-        <div class="home-step">
-          <div class="home-step-num">1</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--heading)">Search</div>
-            <p style="font-size:12px;color:var(--secondary);margin-top:2px">Use Foraging to search SoundCloud by genre, follower range and keywords. Get results instantly or schedule recurring hunts.</p>
-          </div>
-        </div>
-        <div class="home-step">
-          <div class="home-step-num">2</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--heading)">Curate</div>
-            <p style="font-size:12px;color:var(--secondary);margin-top:2px">Add promising artists to your Clan. Link their other platforms, star your favourites, add notes.</p>
-          </div>
-        </div>
-        <div class="home-step">
-          <div class="home-step-num">3</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--heading)">Track</div>
-            <p style="font-size:12px;color:var(--secondary);margin-top:2px">Daily snapshots automatically collect follower, play and like data. Watch growth rates in The Cave and Footprints.</p>
-          </div>
-        </div>
-        <div class="home-step">
-          <div class="home-step-num">4</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--heading)">Promote</div>
-            <p style="font-size:12px;color:var(--secondary);margin-top:2px">Use the Firepit to generate social media posts, press releases and event copy for your artists. Export reports to share.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Video placeholder -->
-    <div class="card" style="margin-bottom:24px">
-      <h3 class="section-title">Demo</h3>
-      <div style="text-align:center;padding:60px 20px;border:2px dashed var(--border);border-radius:8px">
-        <div style="font-size:48px;margin-bottom:12px">🎬</div>
-        <p style="color:var(--secondary);font-size:14px">Video walkthrough coming soon.</p>
-      </div>
-    </div>
-
-    <!-- Why 2 weeks? -->
-    <div class="card" style="margin-bottom:24px">
-      <h3 class="section-title">Why does data take time to appear?</h3>
-      <p style="font-size:14px;line-height:1.7;color:var(--body)">
-        Charts and growth metrics require at least two data points to draw a comparison. The Sound Cave collects daily snapshots via an automated tracker, so you'll start seeing meaningful trends within a few days of adding artists to your Clan. Weekly scout reports add additional depth. The more time passes, the richer and more accurate your analytics become.
-      </p>
-    </div>
-  </div>
-
-  <!-- ─── EVENTS TAB (Phase 2) ────────────────────────── -->
-  <div id="tab-events" style="display:none">
-    <div id="eventsRoot"></div>
-  </div>
-
-  <!-- ─── THE CAVE TAB ────────────────────────────────── -->
-  <div id="tab-cave" style="display:none">
-    <div id="caveWelcome" class="cave-welcome"></div>
-
-    <div class="cave-hero" id="caveHero">
-      <div class="cave-rail cave-rail-left">
-        <div class="cave-hero-panel" id="caveFollowersPanel"></div>
-        <div class="cave-hero-panel" id="caveListensPanel"></div>
-        <div class="cave-hero-panel" id="caveGenrePanel"></div>
-      </div>
-
-      <div class="cave-stage" id="caveStage">
-        <div class="stack-stage" id="caveStack"></div>
-        <div class="stack-meta" id="caveStackMeta"></div>
-        <div class="scroll-hint" id="caveScrollHint">scroll · click · explore</div>
-      </div>
-
-      <div class="cave-rail cave-rail-right">
-        <div class="cave-hero-panel" id="caveLikesPanel"></div>
-        <div class="cave-hero-panel" id="cavePlaylistPanel"></div>
-        <div class="cave-hero-panel" id="caveTracksPanel"></div>
-      </div>
-    </div>
-
-    <div class="cave-chart-strip" id="caveChart" data-empty="true"></div>
-  </div>
-
-  <!-- ─── FORAGING TAB ────────────────────────────────── -->
-  <div id="tab-foraging" style="display:none">
-    <div class="foraging-header">
-      <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">FORAGING</h2>
-        <p class="subtitle">Hunt for new talent. Rotate fast, decide faster.</p>
-      </div>
-      <div class="autocut-setting">
-        <label>Auto-cut after:</label>
-        <select class="input" id="autoCutSelect" style="width:auto;padding:6px 10px">
-          <option value="30">1 month</option>
-          <option value="90" selected>3 months</option>
-          <option value="180">6 months</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Sub-tabs -->
-    <div class="forage-tabs">
-      <button class="forage-tab active" type="button" onclick="setForageSubTab('manual', this)">MANUAL SEARCH</button>
-      <button class="forage-tab" type="button" onclick="setForageSubTab('scheduled', this)">SCHEDULED</button>
-      <button class="forage-tab" type="button" onclick="setForageSubTab('running', this)">RUNNING</button>
-    </div>
-
-    <!-- Manual Search Sub-tab -->
-    <div id="forage-manual">
-      <div class="forage-search-form">
-        <div class="forage-search-grid">
-          <input class="input" id="filterName" placeholder="Artist name or keyword...">
-          <input class="input" id="filterGenre" list="genreSuggestions" autocomplete="off" placeholder="All genres — type to filter">
-          <datalist id="genreSuggestions"></datalist>
-          <input class="input" id="filterMinFollow" type="number" placeholder="Min followers">
-          <input class="input" id="filterMaxFollow" type="number" placeholder="Max followers">
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-          <div class="forage-limit-group">
-            <span style="font-size:12px;color:var(--secondary)">Max results:</span>
-            <button class="forage-limit-btn active" onclick="setSearchLimit(20, this)">20</button>
-            <button class="forage-limit-btn" onclick="setSearchLimit(50, this)">50</button>
-            <button class="forage-limit-btn" onclick="setSearchLimit(100, this)">100</button>
-          </div>
-          <button class="btn-red" type="button" onclick="runLiveSearch()">SEARCH SOUNDCLOUD</button>
-        </div>
-      </div>
-      <div id="liveSearchStatus" style="display:none"></div>
-      <div class="forage-top-grid" id="foragingTopGrid">
-        <div id="foragingRotation"></div>
-        <div id="foragingWatching"></div>
-      </div>
-      <div id="foragingPrevious" class="forage-pending-wrap"></div>
-    </div>
-
-    <!-- Scheduled Sub-tab -->
-    <div id="forage-scheduled" style="display:none">
-      <div class="forage-search-form">
-        <h3 class="section-title" style="margin-bottom:14px">Create Scheduled Search</h3>
-        <div class="forage-search-grid">
-          <input class="input" id="schedName" placeholder="Search name (e.g. UK Techno Hunt)">
-          <input class="input" id="schedGenre" list="genreSuggestions" autocomplete="off" placeholder="All genres — type to filter">
-          <input class="input" id="schedKeyword" placeholder="Keyword (optional)">
-          <input class="input" id="schedMinFollow" type="number" placeholder="Min followers">
-          <input class="input" id="schedMaxFollow" type="number" placeholder="Max followers">
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--secondary)">Frequency:</span>
-          <select class="input" id="schedFreq" style="width:auto">
-            <option value="daily">Daily</option>
-            <option value="weekly" selected>Weekly</option>
-            <option value="biweekly">Bi-weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-          <div class="forage-limit-group" style="margin-bottom:0">
-            <span style="font-size:12px;color:var(--secondary)">Max results:</span>
-            <select class="input" id="schedLimit" style="width:auto">
-              <option value="20">20</option>
-              <option value="50" selected>50</option>
-              <option value="100">100</option>
-            </select>
-          </div>
-          <button class="btn-red" onclick="saveScheduledSearch()">Save Schedule</button>
-        </div>
-      </div>
-      <div id="scheduledSearchList"></div>
-    </div>
-
-    <!-- Running Sub-tab -->
-    <div id="forage-running" style="display:none">
-      <div id="runningSearchList"></div>
-    </div>
-  </div>
-
-  <!-- ─── CLAN TAB (data layer is 'clan'; account API/table use 'roster') ─── -->
-  <div id="tab-clan" style="display:none">
-    <div class="clan-header">
-      <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading)">CLAN</h2>
-        <p class="subtitle" id="clanSubtitle"></p>
-      </div>
-    </div>
-    <!-- Filters & Sort -->
-    <div class="clan-filters">
-      <input class="input" id="clanNameFilter" placeholder="Search artists..." style="max-width:200px" oninput="renderClan()">
-      <select class="input" id="clanGenreFilter" style="width:auto" onchange="renderClan()">
-        <option value="">All genres</option>
-      </select>
-      <div class="clan-sort-group">
-        <button class="clan-sort-btn active" data-sort="name" onclick="setClanSort('name', this)">Name</button>
-        <button class="clan-sort-btn" data-sort="followers" onclick="setClanSort('followers', this)">Followers</button>
-        <button class="clan-sort-btn" data-sort="plays" onclick="setClanSort('plays', this)">Plays</button>
-        <button class="clan-sort-btn" data-sort="likes" onclick="setClanSort('likes', this)">Likes</button>
-        <button class="clan-sort-btn" data-sort="genre" onclick="setClanSort('genre', this)">Genre</button>
-      </div>
-    </div>
-    <div id="clanList"></div>
-  </div>
-
-  <!-- ─── FOOTPRINTS TAB ─────────────────────────────── -->
-  <div id="tab-footprints" style="display:none">
-    <div class="fp-header">
-      <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--heading);margin-bottom:6px">FOOTPRINTS</h2>
-        <p class="subtitle" style="margin-bottom:0">Track how your artists move over time.</p>
-      </div>
-      <div class="fp-actions" style="position:relative">
-        <button class="btn-outline" id="fpExportReportBtn" type="button" onclick="fpToggleReportMenu()" style="display:inline-flex;align-items:center;gap:8px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <path d="M14 2v6h6"/>
-            <path d="M12 18v-6"/>
-            <path d="m9 15 3 3 3-3"/>
-          </svg>
-          EXPORT REPORT</button>
-        <div id="fpReportMenu" style="display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:40;width:260px;padding:14px;background:var(--surface,#161616);border:1px solid var(--border,#333);border-radius:8px"></div>
-      </div>
-    </div>
-    <div id="fpSummary" class="stats-row" style="margin-top:20px"></div>
-    <div id="fpControls" style="display:flex;gap:16px;margin-top:20px;flex-wrap:wrap"></div>
-    <div class="card" id="fpChart" style="margin-top:16px"></div>
-    <div class="card" id="fpInsights" style="margin-top:20px"></div>
-  </div>
-
-  <!-- ─── FIREPIT TAB ─────────────────────────────────── -->
-  <div id="tab-firepit" style="display:none">
-    <div style="margin-bottom:6px">
-      <h2 style="font-size:20px;font-weight:700;color:var(--heading)">FIREPIT</h2>
-      <p class="subtitle" style="margin-bottom:20px">Create, store and plan content for your artists, labels and events.</p>
-    </div>
-
-    <!-- (internal firepit-modes strip removed 2026-05-28 — replaced by global #firepitSubnav, see spec/firepit_headline.md) -->
-    <span style="display:none" id="stashCount"></span>
-
-    <!-- ── FORGE ──────────────────────────────────────── -->
-    <div id="firepit-forge">
-      <div class="forge-grid">
-        <!-- Input card walks the CONTEXT STACK top-to-bottom (master spec §4,
-             2026-06-12): Format → Style → Subject → Facts → Direction & Mood.
-             Same order in every format; a format hides layers it doesn't use. -->
-        <div class="card forge-controls">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div class="section-label" style="margin-bottom:0">Input</div>
-            <button type="button" class="forge-clear-btn" onclick="newForge()" title="Clear all inputs and start fresh">{CLEAR ALL}</button>
-          </div>
-
-          <div class="forge-stack-label">1 · Format</div>
-          <div class="forge-input-group">
-            <!-- Format + Size on one row (compact dropdowns). Size shows for ALL
-                 formats incl. Animation (output follows the source artwork). -->
-            <!-- Format + Size: custom icon-dropdowns (icons per option, compact on
-                 one row). The hidden native <select> stays the source-of-truth;
-                 forgeDDPick/syncForgeDD drive it + mirror the trigger. -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label class="forge-label">Format</label>
-                <div class="forge-dd" data-for="forgeContentType">
-                  <button type="button" class="forge-dd-trigger" onclick="forgeDDToggle(this)"></button>
-                  <div class="forge-dd-menu">
-                    <button type="button" class="forge-dd-opt" data-value="social_post" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="3" width="12" height="10" rx="1"/><circle cx="5.5" cy="6.5" r="1"/><path d="M3 12l3-3 2 2 2.5-2.5L13 11"/></svg>Still<span class="forge-soon">soon</span></button>
-                    <button type="button" class="forge-dd-opt" data-value="social_carousel" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5" y="3.5" width="8" height="9" rx="1"/><path d="M3 5.5v6a1 1 0 0 0 1 1h6"/></svg>Carousel<span class="forge-soon">soon</span></button>
-                    <button type="button" class="forge-dd-opt" data-value="event_poster" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Flyer</button>
-                    <button type="button" class="forge-dd-opt" data-value="animation" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M7 6.3l3 1.7-3 1.7z" fill="currentColor" stroke="none"/></svg>Animation</button>
-                  </div>
-                  <select class="input" id="forgeContentType" onchange="updateForgeFields()" hidden>
-                    <option value="social_post" disabled>Still</option>
-                    <option value="social_carousel" disabled>Carousel</option>
-                    <option value="event_poster" selected>Flyer</option>
-                    <option value="animation">Animation</option>
-                  </select>
-                </div>
-              </div>
-              <div id="forgeSizeWrap">
-                <label class="forge-label">Size</label>
-                <div class="forge-dd" data-for="forgeSize">
-                  <button type="button" class="forge-dd-trigger" onclick="forgeDDToggle(this)"></button>
-                  <div class="forge-dd-menu">
-                    <button type="button" class="forge-dd-opt" data-value="4:5" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="4.5" y="2.5" width="7" height="11" rx="0.5"/></svg>4:5</button>
-                    <button type="button" class="forge-dd-opt" data-value="9:16" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5.5" y="1.5" width="5" height="13" rx="0.5"/></svg>9:16</button>
-                    <button type="button" class="forge-dd-opt" data-value="1:1" onclick="forgeDDPick(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/></svg>1:1</button>
-                  </div>
-                  <select class="input" id="forgeSize" hidden>
-                    <option value="4:5">4:5</option>
-                    <option value="9:16">9:16</option>
-                    <option value="1:1">1:1</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <!-- Carousel only: how many stills in the set (Phase B) -->
-            <div id="forgeSlideCountWrap" style="display:none;margin-top:10px">
-              <label class="forge-label">Slides <span style="color:var(--muted);font-weight:normal">(one image per slide, one locked style)</span></label>
-              <select class="input" id="forgeSlideCount" onchange="syncSlideTextCount()">
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5" selected>5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-              </select>
-            </div>
-            <!-- Per-slide text baked into each image (carousel only) -->
-            <div id="forgeSlideTextsWrap" style="display:none;margin-top:12px">
-              <label class="forge-label">Slide text <span style="color:var(--muted);font-weight:normal">(baked into each image — artist, date, venue…)</span></label>
-              <div id="forgeSlideTextInputs"></div>
-            </div>
-          </div>
-
-          <!-- Standard stack: Still / Carousel / Flyer. Hidden when Animation
-               is the format (Animation runs the generative i2v sub-form below). -->
-          <div id="forgeStandardStack">
-          <!-- Elements (forge_elements.md): one panel for everything that goes IN —
-               references (role-tagged), a Spirit, and an Artist. Phase 1 = visual
-               merge of the old 2·Style + 3·Subject; gatherForgeContext unchanged. -->
-          <div class="forge-stack-label">2 · Elements</div>
-          <div class="forge-input-group">
-            <label class="forge-label">References <span style="color:var(--muted);font-weight:normal">(up to 5 — first sets the style)</span></label>
-            <div class="forge-dropzone" role="button" tabindex="0" aria-label="Add reference image"
-                 onclick="document.getElementById('forgeRefImages').click()"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('forgeRefImages').click()}">
-              <span class="forge-dropzone-plus" aria-hidden="true">+</span>
-              <span class="forge-dropzone-label">Upload from device</span>
-            </div>
-            <button type="button" class="forge-stash-btn" onclick="addStashAsRef()">↓ FROM STASH — use existing artwork</button>
-            <input type="file" id="forgeRefImages" multiple accept="image/jpeg,image/png,image/webp" onchange="handleRefImagesChange(event)" hidden>
-            <div id="forgeRefImagesPreview" class="forge-ref-thumbs"></div>
-            <div id="forgeRefImagesError" class="forge-ref-error" style="display:none"></div>
-          </div>
-          <div id="forgeSubjectFields" style="display:none"></div>
-
-          <div class="forge-stack-label" id="forgeFactsLabel">3 · Facts</div>
-          <div id="forgeFactFields"></div>
-
-          <div class="forge-stack-label">4 · Direction</div>
-          <div class="forge-input-group">
-            <label class="forge-label">Direction <span style="color:var(--muted);font-weight:normal">(what to make — layout, type, mood)</span></label>
-            <textarea class="input" id="forgeFreeform" rows="4" placeholder="e.g. headliner huge up top, photo bottom-left, black &amp; white, acid warehouse energy"></textarea>
-          </div>
-
-          <button class="btn-red forge-go" type="button" style="width:100%" onclick="generateContent()">FORGE</button>
-          </div><!-- /#forgeStandardStack -->
-
-          <!-- ANIMATION format (generative i2v): upload a finished artwork →
-               describe the motion in plain words → looping video. Text & logos
-               travel untouched (no per-effect code). Orchestrates fal Kling i2v
-               via /api/conjure. See wiki/spec/animated_flyer.md. -->
-          <div id="forgeAnimationStack" style="display:none">
-            <div class="forge-stack-label">2 · Artwork</div>
-            <div class="forge-input-group">
-              <label class="forge-label">Artwork <span style="color:var(--muted);font-weight:normal">(the image to animate)</span></label>
-              <div class="forge-dropzone" role="button" tabindex="0" aria-label="Add artwork to animate"
-                   onclick="document.getElementById('forgeAnimSource').click()"
-                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('forgeAnimSource').click()}">
-                <span class="forge-dropzone-plus" aria-hidden="true">+</span>
-                <span class="forge-dropzone-label">Upload from device</span>
-              </div>
-              <button type="button" class="forge-stash-btn" onclick="addStashAsAnimSource()">↓ FROM STASH — use existing artwork</button>
-              <input type="file" id="forgeAnimSource" accept="image/jpeg,image/png,image/webp" onchange="forgeAnimPreview()" hidden>
-              <div id="forgeAnimPreview" class="forge-ref-thumbs"></div>
-            </div>
-
-            <div class="forge-stack-label">3 · Motion</div>
-            <div class="forge-input-group">
-              <label class="forge-label">Motion <span style="color:var(--muted);font-weight:normal">(plain words — text stays still)</span></label>
-              <textarea class="input" id="forgeAnimMotion" rows="4" placeholder="e.g. the ice melts and drips · smoke drifts behind the type"></textarea>
-            </div>
-
-            <div class="forge-stack-label">4 · Length</div>
-            <div class="forge-input-group">
-              <div class="forge-range">
-                <input type="range" id="forgeAnimDuration" min="5" max="10" step="1" value="5"
-                       oninput="document.getElementById('forgeAnimDurationVal').textContent=this.value+'s'">
-                <span class="forge-range-val" id="forgeAnimDurationVal">5s</span>
-              </div>
-            </div>
-
-            <button class="btn-red forge-go" type="button" style="width:100%" onclick="generateContent()">ANIMATE</button>
-          </div><!-- /#forgeAnimationStack -->
-        </div>
-
-        <div class="card forge-canvas">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div class="section-label" style="margin:0">Output</div>
-            <div class="forge-char-count" id="forgeCharCount"></div>
-          </div>
-
-          <!-- P1.5 layout: IMAGE on top, caption text below — like the post it becomes. -->
-          <div id="forgeImageArea" class="forge-image-area" style="display:none"></div>
-
-          <!-- Compositor — replaces image preview when a brand kit is applied
-               (Post/Carousel only since P1.5; flyers bake text into the image) -->
-          <div id="forgeCompositor" class="forge-compositor" style="display:none">
-            <div class="compositor-toolbar">
-              <div class="compositor-tool-group">
-                <span class="compositor-tool-label">SELECTED</span>
-                <span class="compositor-selected-name" id="compositorSelectedName">—</span>
-              </div>
-              <div class="compositor-tool-group" id="compositorTextTools" style="display:none">
-                <button type="button" class="compositor-btn" data-action="text-size-down" title="Smaller">A−</button>
-                <button type="button" class="compositor-btn" data-action="text-size-up" title="Larger">A+</button>
-                <div class="compositor-swatch-row" id="compositorTextSwatches"></div>
-              </div>
-              <div class="compositor-tool-group" id="compositorEditTextWrap" style="display:none">
-                <button type="button" class="compositor-btn" data-action="edit-text">EDIT TEXT</button>
-              </div>
-              <div class="compositor-tool-group">
-                <button type="button" class="compositor-btn" data-action="reset-layout" title="Reset to default layout">RESET</button>
-              </div>
-            </div>
-            <div class="compositor-stage-frame">
-              <div id="compositorStage"></div>
-            </div>
-          </div>
-
-          <div id="forgeOutputArea">
-            <div class="forge-loading" style="border:1px dashed var(--border);border-radius:8px">
-              <span style="color:var(--muted)">Select a content type and hit Generate</span>
-            </div>
-          </div>
-
-          <!-- P1.5 controls: icon toolbar — Save is the hero, others are secondary. -->
-          <div id="forgeActions" style="display:none">
-            <div class="forge-actions">
-              <button class="forge-icon-btn forge-icon-btn--primary no-glitch" type="button" onclick="saveToStash()" title="Save to Stash">
-                <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="9" rx="1"/><path d="M3 11l2-5h14l2 5"/><path d="M9 15h6"/></svg>
-                <span class="forge-icon-btn-label">Stash</span>
-              </button>
-              <button class="forge-icon-btn no-glitch" type="button" onclick="generateContent()" title="Regenerate">
-                <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
-                <span class="forge-icon-btn-label">Regen</span>
-              </button>
-              <button class="forge-icon-btn no-glitch" type="button" id="btnRefineImage" onclick="toggleRefinePanel()" style="display:none" title="Make one small change">
-                <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                <span class="forge-icon-btn-label">Refine</span>
-              </button>
-              <button class="forge-icon-btn no-glitch" type="button" id="btnMakeVideo" onclick="openBeatPanel()" title="Add a beat track">
-                <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="18" r="2.5"/><circle cx="18" cy="16" r="2"/><path d="M11.5 18V6l9-2v12"/></svg>
-                <span class="forge-icon-btn-label">Beat</span>
-              </button>
-              <button class="forge-icon-btn no-glitch" type="button" id="btnDownloadImage" onclick="downloadForgeImage()" style="display:none" title="Download">
-                <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 20h14"/></svg>
-                <span class="forge-icon-btn-label">Download</span>
-              </button>
-              <button class="forge-icon-btn no-glitch" type="button" id="btnDownloadAll" onclick="downloadAllSlides()" style="display:none" title="Download all slides">
-                <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 20h14"/><path d="M3 3l3 3"/></svg>
-                <span class="forge-icon-btn-label">All</span>
-              </button>
-              <button class="forge-icon-btn forge-icon-btn--danger no-glitch" type="button" onclick="resetForgeOutput()" title="Discard output">
-                <svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>
-                <span class="forge-icon-btn-label">Discard</span>
-              </button>
-            </div>
-            <!-- Iteration loop (wiki/spec/forge_iteration_loop.md) — refine the last output, never reroll -->
-            <div id="forgeRefinePanel" class="forge-refine-panel" style="display:none">
-              <div class="forge-refine-label">Versions <span style="color:var(--muted);font-weight:normal">— click one to step back / branch</span></div>
-              <div id="forgeVersionStrip" class="forge-version-strip"></div>
-              <div class="forge-refine-row">
-                <input type="text" class="input" id="forgeRefineInput" placeholder="Describe ONE change (e.g. roughen the type)" onkeydown="if(event.key==='Enter')refineImage()">
-                <button class="btn-red" type="button" id="btnRefineGo" onclick="refineImage()">REFINE</button>
-              </div>
-              <div class="forge-refine-hint" id="forgeRefineHint">One change at a time lands best — the model keeps everything else.</div>
-            </div>
-            <!-- Caption (wiki/spec/forge_output_column.md) — concise facts, editable, ✨ enhance -->
-            <div id="forgeCaptionBox" class="forge-caption-box" style="display:none">
-              <div class="forge-caption-head">
-                <span class="forge-stack-label" style="margin:0">Caption</span>
-                <button class="btn-outline btn-xs" type="button" id="btnEnhanceCaption" onclick="enhanceCaption()" title="Expand into a fuller caption with AI">✨ Enhance</button>
-              </div>
-              <textarea class="input" id="forgeCaptionText" rows="5" placeholder="Event facts — edit freely" oninput="forgeGeneratedContent=this.value;updateCharCount()"></textarea>
-            </div>
-            <!-- Phase D: Beat → composite MP4 (still + motion + waveform to the beat) -->
-            <div id="forgeBeatPanel" class="forge-beat-panel" style="display:none">
-              <div class="forge-stack-label" style="margin-top:0">Beat <span style="color:var(--muted);font-weight:normal">— the track this post carries</span></div>
-              <!-- Audio file picker — styled to match reference image dropzone -->
-              <div class="forge-dropzone forge-beat-drop" role="button" tabindex="0" aria-label="Choose audio file"
-                   onclick="document.getElementById('forgeBeatFile').click()"
-                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('forgeBeatFile').click()}">
-                <svg class="sc-icon" style="width:20px;height:20px;color:var(--color-accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="18" r="2.5"/><circle cx="18" cy="16" r="2"/><path d="M11.5 18V6l9-2v12"/></svg>
-                <span class="forge-dropzone-label" id="forgeBeatFileName">Add audio</span>
-              </div>
-              <input type="file" id="forgeBeatFile" accept="audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg" onchange="beatSegmentInit(this.files[0])" hidden>
-              <!-- Two-handle waveform picker: drag left handle = in-point, right = out-point -->
-              <div id="beatSegment" class="beat-segment" style="display:none">
-                <div id="beatWaveWrap" class="beat-wave-wrap">
-                  <canvas id="beatWave" class="beat-wave"></canvas>
-                  <div id="beatRegion" class="beat-region"></div>
-                  <div id="beatHandleL" class="beat-handle beat-handle-l" role="slider" tabindex="0" aria-label="In-point — drag to set start">
-                    <span class="beat-handle-grip"></span>
-                  </div>
-                  <div id="beatHandleR" class="beat-handle beat-handle-r" role="slider" tabindex="0" aria-label="Out-point — drag to set end">
-                    <span class="beat-handle-grip"></span>
-                  </div>
-                  <div id="beatSegPlayhead" class="beat-seg-playhead" style="display:none"></div>
-                </div>
-                <div class="beat-seg-row">
-                  <button type="button" class="beat-seg-play" id="beatSegPlay" onclick="beatSegmentPreview()" aria-label="Preview selection">▶</button>
-                  <span class="beat-seg-time" id="beatSegTime">0:00 – 0:00  (0:00)</span>
-                  <span class="beat-seg-hint">drag handles to set in / out</span>
-                </div>
-                <div class="beat-loop-row">
-                  <label class="beat-loop-label">
-                    <input type="checkbox" id="forgeBeatLoop" class="beat-loop-check">
-                    <span class="beat-loop-indicator"></span>
-                    <span class="beat-loop-text">Loop</span>
-                  </label>
-                  <span class="beat-loop-hint" id="beatLoopHint"></span>
-                </div>
-              </div>
-              <audio id="beatSegAudio" preload="auto" style="display:none"></audio>
-              <label class="forge-label" style="margin-top:10px">Rights <span style="color:var(--muted);font-weight:normal">(required — platforms fingerprint audio and enforce later)</span></label>
-              <select class="input" id="forgeBeatRights">
-                <option value="">— Classify this track —</option>
-                <option value="own_master">My own master / track</option>
-                <option value="artist_permission">A lineup artist's track, with written permission</option>
-                <option value="royalty_free">Royalty-free with a commercial licence</option>
-                <option value="cc0_public_domain">CC0 / public domain</option>
-                <option value="commercial_release">Commercially-released / major-label (can't schedule)</option>
-                <option value="app_sound_or_rip">Trending app sound or stream-rip (can't schedule)</option>
-                <option value="undocumented">Third-party, no documented permission (can't schedule)</option>
-              </select>
-              <input class="input" id="forgeBeatProof" style="margin-top:10px" placeholder="Proof link (licence receipt / written permission / CC0 link)">
-              <div style="display:flex;gap:8px;margin-top:10px">
-                <button class="btn-red" type="button" onclick="makeBeatVideo(this)">FORGE THE VIDEO</button>
-                <button class="btn-outline no-glitch" type="button" onclick="document.getElementById('forgeBeatPanel').style.display='none';beatSegmentReset()">CANCEL</button>
-              </div>
-              <div id="forgeBeatError" class="forge-ref-error" style="display:none"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Generation meta — direction, format, refs, model (populated by updateForgeMetaPanel) -->
-        <div id="forgeMetaPanel" class="forge-meta-panel" style="display:none">
-          <div class="forge-meta-grid" id="forgeMetaGrid"></div>
-        </div>
-
-        <!-- Image lightbox — click any generated image to zoom (Esc / click-away closes) -->
-        <div id="forgeLightbox" class="forge-lightbox" onclick="if(event.target===this)closeForgeLightbox()">
-          <img id="forgeLightboxImg" alt="Generated image, zoomed">
-          <button type="button" class="forge-lightbox-close" onclick="closeForgeLightbox()" aria-label="Close">×</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- CONJURE panel removed 2026-06-22 — folded into FORGE as the "Animation"
-         format (#forgeAnimationStack above). Same /api/conjure backend. -->
-
-    <!-- ── STASH ──────────────────────────────────────── -->
-    <div id="firepit-stash" style="display:none">
-      <div class="stash-filters">
-        <input class="input" id="stashSearch" placeholder="Search content..." style="max-width:260px" oninput="renderStash()">
-        <select class="input" id="stashTypeFilter" style="width:auto" onchange="renderStash()">
-          <option value="">All types</option>
-        </select>
-        <select class="input" id="stashStatusFilter" style="width:auto" onchange="renderStash()">
-          <option value="">All status</option>
-          <option value="draft">Draft</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="published">Published</option>
-        </select>
-      </div>
-      <div id="stashList"></div>
-    </div>
-
-    <!-- ── TRAIL MAP ──────────────────────────────────── -->
-    <div id="firepit-trailmap" style="display:none">
-      <div class="trail-wrap">
-        <div class="trail-main">
-          <div class="trail-toolbar">
-            <div class="trail-nav">
-              <button class="trail-nav-btn" onclick="trailNav(-1)" title="Previous">◀</button>
-              <div class="trail-period" id="trailPeriod"></div>
-              <button class="trail-nav-btn" onclick="trailNav(1)" title="Next">▶</button>
-            </div>
-            <div class="trail-view-toggle">
-              <button data-view="month" class="active" onclick="trailSetView('month')">Month</button>
-              <button data-view="week" onclick="trailSetView('week')">Week</button>
-            </div>
-            <button class="trail-today-btn" onclick="trailToday()">Today</button>
-            <button class="trail-stash-toggle" onclick="trailToggleStash()">
-              Stash <span class="count" id="trailStashCount">0</span>
-            </button>
-          </div>
-          <div id="trailGrid"></div>
-        </div>
-        <aside class="trail-stash-drawer" id="trailStashDrawer">
-          <div class="trail-stash-head">
-            <span>Stash · drag to schedule</span>
-            <button class="trail-modal-close" onclick="trailToggleStash()" title="Close">×</button>
-          </div>
-          <div class="trail-stash-list" id="trailStashList"></div>
-        </aside>
-      </div>
-    </div>
-
-    <!-- Schedule modal -->
-    <div class="trail-modal-overlay" id="trailModalOverlay" onclick="if(event.target===this)closeTrailModal()">
-      <div class="trail-modal">
-        <div class="trail-modal-head">
-          <span class="trail-modal-title">Schedule post</span>
-          <button class="trail-modal-close" onclick="closeTrailModal()">×</button>
-        </div>
-        <div class="trail-modal-body">
-          <div>
-            <label class="trail-field-label">Content</label>
-            <div class="trail-content-preview" id="trailModalContent"></div>
-          </div>
-          <div>
-            <label class="trail-field-label">When</label>
-            <input type="datetime-local" class="trail-input" id="trailModalDateTime">
-          </div>
-          <div>
-            <label class="trail-field-label">Platforms</label>
-            <div class="trail-platforms" id="trailModalPlatforms"></div>
-          </div>
-          <div>
-            <label class="trail-field-label">Status</label>
-            <div class="trail-status-row" id="trailModalStatus"></div>
-          </div>
-        </div>
-        <div class="trail-modal-actions">
-          <button class="trail-btn trail-btn-danger" onclick="deleteTrailModal()">Delete</button>
-          <button class="trail-btn trail-btn-secondary" onclick="closeTrailModal()">Cancel</button>
-          <button class="trail-btn trail-btn-primary glitch-cta" onclick="saveTrailModal()">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Spirits modal (avatars — reusable character reference sets).
-         Launched from the Forge "Spirit" selector ⚙; body rendered by js/spirits.js. -->
-    <div class="trail-modal-overlay" id="spiritsOverlay" onclick="if(event.target===this)closeSpirits()">
-      <div class="trail-modal spirits-modal">
-        <div class="trail-modal-head">
-          <span class="trail-modal-title">SPIRITS</span>
-          <button class="trail-modal-close" onclick="closeSpirits()">×</button>
-        </div>
-        <div class="trail-modal-body" id="spiritsBody"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── BRANDS TAB (brand-kit management) ──────────────────
-       Spec: wiki/spec/brand_kits_ui.md
-       Phase 2 of the Brand Overlay Compositor build. -->
-  <div id="tab-brands" style="display:none">
-    <div class="brands-wrap">
-      <header class="brands-head">
-        <div>
-          <div class="brands-eyebrow">YOUR IDENTITIES</div>
-          <h1 class="brands-title">BRANDS</h1>
-        </div>
-        <button class="brands-new glitch-cta" id="brandsNew" type="button">+ New brand kit</button>
-      </header>
-
-      <section class="brands-grid" id="brandsGrid" aria-live="polite">
-        <!-- kit cards rendered by js/brands.js -->
-      </section>
-
-      <section class="brands-empty" id="brandsEmpty" hidden>
-        <div class="brands-empty-title">NO BRAND KITS YET</div>
-        <p class="brands-empty-body">
-          A brand kit holds your logo, fonts, and colours so every poster, lineup, and social post looks like <em>you</em>.
-        </p>
-        <button class="brands-new glitch-cta" id="brandsEmptyCta" type="button">+ Create your first brand kit</button>
-      </section>
-
-      <!-- ── EDITOR (slides over the grid; full-page swap, not modal) ── -->
-      <section class="brand-editor" id="brandEditor" hidden>
-        <header class="brand-editor-head">
-          <button class="brand-editor-back" id="brandEditorBack" type="button" aria-label="Back to brands">← back</button>
-          <div class="brand-editor-title" id="brandEditorTitle">NEW BRAND KIT</div>
-          <div class="brand-editor-spacer"></div>
-        </header>
-
-        <div class="brand-editor-body">
-          <!-- LEFT: inputs -->
-          <div class="brand-editor-inputs">
-            <label class="brand-field">
-              <span class="brand-field-label">NAME</span>
-              <input class="brand-input" id="bfName" type="text" maxlength="64" placeholder="e.g. S0UNDCAV3">
-            </label>
-
-            <label class="brand-field">
-              <span class="brand-field-label">LOGO <small>PNG / SVG / JPEG / WebP · 5MB max</small></span>
-              <input class="brand-file" id="bfLogo" type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp">
-              <span class="brand-file-state" id="bfLogoState">no file</span>
-            </label>
-
-            <label class="brand-field">
-              <span class="brand-field-label">DISPLAY FONT <small>.woff2 / .woff / .ttf / .otf · optional</small></span>
-              <input class="brand-file" id="bfDisplayFont" type="file" accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf">
-              <span class="brand-file-state" id="bfDisplayFontState">no file</span>
-            </label>
-
-            <label class="brand-field">
-              <span class="brand-field-label">BODY FONT <small>.woff2 / .woff / .ttf / .otf · optional</small></span>
-              <input class="brand-file" id="bfBodyFont" type="file" accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf">
-              <span class="brand-file-state" id="bfBodyFontState">no file</span>
-            </label>
-
-            <div class="brand-field">
-              <span class="brand-field-label">PALETTE</span>
-              <div class="brand-palette-row">
-                <label class="brand-swatch-field">
-                  <input type="color" id="bfPalettePrimary" class="brand-swatch-input" value="#3FB7E9">
-                  <span class="brand-swatch-name">primary</span>
-                </label>
-                <label class="brand-swatch-field">
-                  <input type="color" id="bfPaletteAccent" class="brand-swatch-input" value="#F5A8C9">
-                  <span class="brand-swatch-name">accent</span>
-                </label>
-                <label class="brand-swatch-field">
-                  <input type="color" id="bfPaletteText" class="brand-swatch-input" value="#FFFFFF">
-                  <span class="brand-swatch-name">text</span>
-                </label>
-                <label class="brand-swatch-field">
-                  <input type="color" id="bfPaletteStroke" class="brand-swatch-input" value="#000000">
-                  <span class="brand-swatch-name">stroke</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="brand-field">
-              <span class="brand-field-label">DEFAULT LOGO POSITION</span>
-              <div class="brand-position-grid" id="bfPositionGrid" role="radiogroup" aria-label="Default logo position">
-                <button type="button" data-pos="top_left"     class="brand-pos">↖</button>
-                <button type="button" data-pos="top_center"   class="brand-pos">↑</button>
-                <button type="button" data-pos="top_right"    class="brand-pos">↗</button>
-                <button type="button" data-pos="center_left"  class="brand-pos">←</button>
-                <button type="button" data-pos="center"       class="brand-pos">●</button>
-                <button type="button" data-pos="center_right" class="brand-pos">→</button>
-                <button type="button" data-pos="bottom_left"  class="brand-pos">↙</button>
-                <button type="button" data-pos="bottom_center" class="brand-pos">↓</button>
-                <button type="button" data-pos="bottom_right" class="brand-pos">↘</button>
-              </div>
-            </div>
-
-            <label class="brand-field">
-              <span class="brand-field-label">LOGO SCALE <small id="bfLogoScaleVal">18%</small></span>
-              <input class="brand-range" id="bfLogoScale" type="range" min="5" max="50" step="1" value="18">
-            </label>
-
-            <div class="brand-editor-actions">
-              <button class="brand-cancel" id="brandEditorCancel" type="button">Cancel</button>
-              <button class="brand-save glitch-cta"   id="brandEditorSave"   type="button">Save kit</button>
-            </div>
-
-            <div class="brand-editor-msg" id="brandEditorMsg" aria-live="polite"></div>
-          </div>
-
-          <!-- RIGHT: live preview -->
-          <div class="brand-editor-preview-wrap">
-            <div class="brand-editor-preview-label">LIVE PREVIEW</div>
-            <article class="brand-card brand-card--preview" id="brandPreviewCard">
-              <div class="brand-card-logo-strip"><img id="bpLogo" alt=""></div>
-              <div class="brand-card-name" id="bpName">YOUR BRAND</div>
-              <div class="brand-card-palette" id="bpPalette"></div>
-              <div class="brand-card-fonts">
-                <span class="brand-card-font-sample" id="bpDisplaySample">Aa</span>
-                <span class="brand-card-font-caption" id="bpDisplayCaption">(default)</span>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <!-- ─── REFLECTION TAB (formerly the account dropdown) ──── -->
-  <div id="tab-reflection" style="display:none">
-    <div class="reflection-wrap">
-      <header class="reflection-head">
-        <span class="reflection-avatar" id="reflectionAvatar">·</span>
-        <div>
-          <div class="reflection-eyebrow">YOUR REFLECTION</div>
-          <div class="reflection-email" id="reflectionEmail">—</div>
-        </div>
-      </header>
-
-      <section class="reflection-stats">
-        <div class="reflection-stat">
-          <div class="reflection-stat-label">TIER</div>
-          <div class="reflection-stat-val" id="reflectionTier">—</div>
-        </div>
-        <div class="reflection-stat">
-          <div class="reflection-stat-label">CREDITS</div>
-          <div class="reflection-stat-val" id="reflectionCredits">—</div>
-        </div>
-        <div class="reflection-stat">
-          <div class="reflection-stat-label">SOCIALS</div>
-          <div class="reflection-stat-val" id="reflectionSocials">—</div>
-        </div>
-      </section>
-
-      <!-- SoundCloud connection -->
-      <section class="reflection-sc" id="reflectionScSection">
-        <div class="reflection-sc-row">
-          <span class="reflection-sc-label">SOUNDCLOUD</span>
-          <span class="reflection-sc-status" id="reflectionScStatus">—</span>
-        </div>
-        <div class="reflection-sc-msg" id="reflectionScMsg" hidden></div>
-        <button class="reflection-action reflection-action-sc" id="reflectionConnectSc" type="button">Connect SoundCloud</button>
-        <button class="reflection-action reflection-action-danger" id="reflectionDisconnectSc" type="button" hidden>Disconnect SoundCloud</button>
-      </section>
-
-      <section class="reflection-actions">
-        <button class="reflection-action" id="reflectionConnectSocials" type="button">Connect socials</button>
-        <button class="reflection-action" id="reflectionSetPassword" type="button">Set / change password</button>
-        <div class="reflection-pwd-form" id="reflectionPwdForm" hidden>
-          <input class="cave-login-input" id="reflectionPwdInput" type="password"
-                 placeholder="new password" autocomplete="new-password">
-          <button class="reflection-action" id="reflectionPwdSave" type="button">Save password</button>
-          <div class="cave-login-msg" id="reflectionPwdMsg" aria-live="polite"></div>
-        </div>
-        <button class="reflection-action" id="reflectionUpgrade" type="button">Upgrade plan</button>
-        <button class="reflection-action" id="reflectionManageBilling" type="button" hidden>Manage billing</button>
-        <button class="reflection-action reflection-action-danger" id="reflectionSignOut" type="button">Sign out</button>
-      </section>
-    </div>
-  </div>
-
-  <!-- ─── INDEX TAB (tech stack & APIs powering the app) ──── -->
-  <div id="tab-index" style="display:none">
-    <div style="max-width:780px;margin:48px auto;padding:0 24px">
-      <h1 class="section-title" style="margin-bottom:8px">INDEX</h1>
-      <p style="color:var(--secondary);font-size:13px;margin-bottom:32px;letter-spacing:var(--tracking-mono)">TOOLS &amp; APIS POWERING THE SOUND CAVE</p>
-      <ul class="index-list">
-        <li><span class="index-key">SOUNDCLOUD API</span><span class="index-val">Artist discovery, track metadata, follower data — the source of every Foraging result.</span></li>
-        <li><span class="index-key">CLAUDE (HAIKU)</span><span class="index-val">Anthropic's fast model — powers the Firepit's text generation: bios, press, event copy, captions.</span></li>
-        <li><span class="index-key">FAL AI</span><span class="index-val">FLUX schnell image generation — primary engine for visual content in the Firepit.</span></li>
-        <li><span class="index-key">REPLICATE</span><span class="index-val">Fallback image generation provider when Fal is unavailable.</span></li>
-        <li><span class="index-key">SUPABASE</span><span class="index-val">Auth (magic links + password), user metadata, billing state, content stash persistence.</span></li>
-        <li><span class="index-key">FLASK</span><span class="index-val">Python backend (content_api.py) — proxies AI calls, manages credits, routes to Fal/Replicate.</span></li>
-        <li><span class="index-key">VANILLA JS</span><span class="index-val">Frontend is plain HTML/CSS/JS — no framework, no build step. Designed to stay readable.</span></li>
-        <li><span class="index-key">GITHUB PAGES</span><span class="index-val">Static hosting for the dashboard. Backend deploys separately to Vercel/Railway.</span></li>
-        <li><span class="index-key">GITHUB ACTIONS</span><span class="index-val">Scheduled jobs: weekly artist scout (Mondays) + daily clan tracker (every morning).</span></li>
-      </ul>
-    </div>
-  </div>
-
-</div>
-
-</div><!-- /.app-wrap -->
-
-<!-- ─── BOTTOM-LEFT VERSION STAMP ────────────────────────
-     The splash corner stamp, carried into the app on every page.
-     Lives OUTSIDE .app-wrap (same transform:scale() re-anchor reason
-     as corner-nav / mobile-tabbar). Version number is read from
-     /VERSION by js/version.js — single source of truth, see
-     wiki/decisions/0013_version_ages.md. Hidden behind the splash
-     overlay (z 9999) until the user enters the cave. -->
-<div class="app-stamp" id="appStamp" aria-hidden="true">{51.5°N 0.1°W} &nbsp; {S0UNDCAV3 / <span data-version>V1.2.2</span>} &nbsp; {<span data-age>FIRST AGE</span>}</div>
-
-<!-- ─── BOTTOM-RIGHT CORNER NAV ──────────────────────────
-     OVERVIEW = the existing tab-home content (rebranded).
-     INDEX    = the new tab-index above.
-     Fixed to viewport, sits OUTSIDE .app-wrap so the artist-
-     panel scale-transform doesn't re-anchor it. -->
-<nav class="corner-nav" id="cornerNav" hidden>
-  <button class="corner-link" type="button" data-tab="home">OVERVIEW</button>
-  <button class="corner-link" type="button" data-tab="index">INDEX</button>
-</nav>
-
-<!-- ─── MOBILE BOTTOM TAB BAR (phones ≤720px) ────────────
-     Primary nav for mobile. Lives OUTSIDE .app-wrap for the
-     same reason as corner-nav / artist-panel: .app-wrap gets
-     transform:scale(), which would re-anchor position:fixed to
-     it instead of the viewport. Buttons carry data-tab +
-     .mobile-tab so the existing switchTab() delegation (app.js
-     ~L622) wires them automatically — no new nav logic. -->
-<nav class="mobile-tabbar" id="mobileTabbar" aria-label="Primary">
-  <button class="mobile-tab active" type="button" data-tab="cave">
-    <span class="mobile-tab-ico"><svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20V12a9 9 0 0 1 18 0v8"/><path d="M3 20h18"/><path d="M8 20v-4M16 20v-4"/><circle cx="12" cy="11" r="0.8" fill="currentColor"/></svg></span>
-    <span class="mobile-tab-label">CAVE</span>
-  </button>
-  <button class="mobile-tab" type="button" data-tab="firepit">
-    <span class="mobile-tab-ico"><svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1.5 3 3 4.5 3 7a3 3 0 0 1-6 0c0-1.2.6-2 1.5-3"/><path d="M5 20h14"/><path d="M6 20l3-4M18 20l-3-4M9 20l3-2.5L15 20"/></svg></span>
-    <span class="mobile-tab-label">FIREPIT</span>
-  </button>
-  <button class="mobile-tab" type="button" data-tab="reflection">
-    <span class="mobile-tab-ico"><svg class="sc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-4 4-6 7-6s5.5 2 7 6"/><path d="M9 8h6"/></svg></span>
-    <span class="mobile-tab-label">REFLECTION</span>
-  </button>
-</nav>
-
-<!-- ═══════════════════════════════════════════════════════
-     ARTIST DETAIL PANEL (slide-out)
-     Must live OUTSIDE .app-wrap: that ancestor has transform:scale(),
-     which would re-anchor position:fixed to it (instead of viewport)
-     and create horizontal page overflow.
-     ═══════════════════════════════════════════════════════ -->
-<div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
-<div class="artist-panel" id="artistPanel">
-  <div class="panel-head">
-    <div class="panel-head-corner">
-      <div id="panelStar"></div>
-      <button class="panel-close" onclick="closePanel()">✕</button>
-    </div>
-    <div class="panel-head-grid">
-      <div class="panel-identity">
-        <div class="panel-id-top">
-          <div class="panel-avatar" id="panelAvatar"></div>
-          <div class="panel-id-text">
-            <div class="panel-name" id="panelName"></div>
-            <div class="panel-genre" id="panelGenre"></div>
-          </div>
-        </div>
-        <div class="platform-grid" id="platformGrid"></div>
-      </div>
-      <div class="panel-head-notes" id="panelNotesSection">
-        <h3>Notes</h3>
-        <textarea class="notes-area" id="artistNotes" placeholder="Add notes about this artist..." oninput="saveNotes()"></textarea>
-      </div>
-    </div>
-  </div>
-  <div class="panel-body">
-    <div class="panel-section" id="panelAddClanSection" style="display:none">
-      <button class="btn-red" type="button" style="width:100%;padding:11px;font-size:13px;letter-spacing:.04em" onclick="addArtistToClan(activeArtist)">＋ ADD TO CLAN</button>
-      <p style="font-size:11px;color:var(--muted);margin-top:8px">Viewing only — not in your Clan. Add to track stats, edit links and take notes.</p>
-    </div>
-    <div class="panel-section" id="panelGrowth"></div>
-    <div class="panel-section">
-      <h3 id="metricChartTitle">Plays over time</h3>
-      <div id="playsChart" class="plays-chart"></div>
-    </div>
-    <div class="panel-section">
-      <h3 id="tracksHeading">Tracks</h3>
-      <div id="tracksSeen"></div>
-    </div>
-    <div class="panel-section" id="panelActionRow">
-      <div class="panel-actions">
-        <button class="icon-btn" type="button" onclick="toggleCut()" id="cutBtn" title="Cut from tracking — moves to your Watch list">
-          <span class="icon-btn-ico" id="cutBtnIco"></span><span class="icon-btn-label" id="cutBtnLabel">Cut</span>
-        </button>
-        <button class="icon-btn" type="button" onclick="exportSingleArtist(activeArtist)" title="Export this artist as CSV">
-          <span class="icon-btn-ico" data-icon="download"></span><span class="icon-btn-label">Export</span>
-        </button>
-        <button class="icon-btn danger" type="button" onclick="removeFavourite()" title="Remove permanently from your roster">
-          <span class="icon-btn-ico" data-icon="trash"></span><span class="icon-btn-label">Remove</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Mural stat-widget drill-downs: click-only modal (hover = CSS ring only) -->
-<div class="stat-modal" id="caveStatModal">
-  <div class="stat-modal-backdrop" onclick="closeCaveStatModal()"></div>
-  <div class="stat-modal-card" role="dialog" aria-modal="true">
-    <div class="stat-modal-head">
-      <h3 id="caveStatModalTitle"></h3>
-      <button class="stat-modal-close" type="button" onclick="closeCaveStatModal()" aria-label="Close">✕</button>
-    </div>
-    <div class="stat-modal-body" id="caveStatModalBody"></div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════
-     JAVASCRIPT — loaded per-tab for token efficiency
-     ═══════════════════════════════════════════════════════ -->
-
-<!-- Billing modal (Phase D) -->
-<div class="billing-modal" id="billingModal" hidden>
-  <div class="billing-backdrop" id="billingBackdrop"></div>
-  <div class="billing-panel" role="dialog" aria-modal="true" aria-labelledby="billingTitle">
-    <button class="billing-close" id="billingClose" type="button" aria-label="Close">×</button>
-    <h2 class="billing-title" id="billingTitle">Choose your plan</h2>
-    <p class="billing-sub">Credits power generation. Images 2cr · Animations 4–8cr · Captions free.</p>
-    <div class="billing-cards" id="billingCards"></div>
-    <div class="billing-pack" id="billingPack"></div>
-    <div class="billing-note" id="billingNote"></div>
-  </div>
-</div>
-
-<script src="js/lib/supabase.js"></script>
-<script src="js/config.js"></script>
-<script src="js/version.js"></script>
-<script src="js/icons.js"></script>
-<script src="js/cave_entrance.js"></script>
-<script src="js/roster_sync.js"></script>
-<script src="js/app.js"></script>
-<script src="js/cave.js"></script>
-<script src="js/foraging.js"></script>
-<script src="js/clan.js"></script>
-<script src="js/footprints.js"></script>
-<script src="https://unpkg.com/konva@9.3.16/konva.min.js"></script>
-<script src="js/compositor_templates.js"></script>
-<script src="js/compositor.js"></script>
-<script src="js/forge_refs.js"></script>
-<script src="js/beat_segment.js"></script>
-<script src="js/firepit.js"></script>
-<script src="js/stash.js"></script>
-<script src="js/stash_picker.js"></script>
-<script src="js/spirits.js"></script>
-<script src="js/trail_map.js"></script>
-<script src="js/brands.js"></script>
-<script src="js/events_shared.js"></script>
-<script src="js/events_list.js"></script>
-<script src="js/events_form.js"></script>
-<script src="js/events_match.js"></script>
-<script src="js/events_detail.js"></script>
-<script src="js/events_post_editor.js"></script>
-<script src="js/sc_oauth.js"></script>
-</body>
-</html>
+  <h1 class="cave-logo-text">S0UNDCAV3</h1>
+  <p class="cave-hint" id="soundHint" aria-live="polite">{TAP ANYWHERE FOR SOUND}</p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var AUDIO_URL     = 'audio/cave_drone.mp3';
+  var TARGET_VOLUME = 0.35;
+  var PLAYBACK_RATE = 0.9;          // a touch slower than the original
+  var STORAGE_KEY   = 'sc_sound_on';
+
+  var toggle   = document.getElementById('soundToggle');
+  var stateEl  = document.getElementById('soundState');
+  var hintEl   = document.getElementById('soundHint');
+  var root     = document.documentElement;
+
+  var ctx = null, nodes = null, buffer = null, raf = null;
+
+  // Sound is ON by default. Only an explicit OFF is remembered — a stored
+  // value is the single source of truth once the visitor has chosen.
+  var stored = null;
+  try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+  var wantSound = stored !== '0';
+
+  function setToggleUI(on) {
+    toggle.classList.toggle('is-on', on);
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    stateEl.textContent = on ? 'ON' : 'OFF';
+  }
+
+  function showHint(show) { hintEl.classList.toggle('show', show); }
+
+  // ── Audio ──────────────────────────────────────────────
+  function ensureCtx() {
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function loadBuffer(c) {
+    if (buffer) return Promise.resolve(buffer);
+    return fetch(AUDIO_URL)
+      .then(function (r) {
+        if (!r.ok) throw new Error('fetch ' + r.status);
+        return r.arrayBuffer();
+      })
+      .then(function (arr) {
+        return new Promise(function (res, rej) { c.decodeAudioData(arr, res, rej); });
+      })
+      .then(function (buf) { buffer = buf; return buf; });
+  }
+
+  function startDrone() {
+    if (nodes) return Promise.resolve(true);
+    var c = ensureCtx();
+    return loadBuffer(c).then(function (buf) {
+      var source   = c.createBufferSource();
+      source.buffer = buf;
+      source.loop   = true;                 // sample-accurate loop, no seam click
+      source.playbackRate.value = PLAYBACK_RATE;
+      var gain     = c.createGain();
+      var analyser = c.createAnalyser();
+      analyser.fftSize = 1024;
+      gain.gain.value = 0;
+      source.connect(analyser); analyser.connect(gain); gain.connect(c.destination);
+      source.start(0);
+      gain.gain.linearRampToValueAtTime(TARGET_VOLUME, c.currentTime + 1.2);
+      nodes = { source: source, gain: gain, analyser: analyser };
+      pulseFromAudio();
+      return c.state === 'running';
+    }).catch(function (err) {
+      console.warn('[cave] audio failed', err && err.message);
+      return false;
+    });
+  }
+
+  function stopDrone() {
+    if (!nodes) return;
+    var n = nodes;
+    nodes = null;
+    try { n.gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4); } catch (e) {}
+    setTimeout(function () { try { n.source.stop(); } catch (e) {} }, 500);
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    pulseLFO();
+  }
+
+  // ── Pulse ──────────────────────────────────────────────
+  // A drone loop has near-constant amplitude, so raw RMS would flatline.
+  // Blend a 12s breathing cycle (most of the movement) with audio activity
+  // (subtle modulation that ties the visual to the sound), then low-pass it.
+  function pulseFromAudio() {
+    if (raf) cancelAnimationFrame(raf);
+    var buf = new Uint8Array(nodes.analyser.fftSize);
+    var start = performance.now(), period = 12000, smoothed = 0;
+    (function tick(now) {
+      if (!nodes) return;
+      nodes.analyser.getByteTimeDomainData(buf);
+      var sum = 0;
+      for (var i = 0; i < buf.length; i++) {
+        var v = (buf[i] - 128) / 128;
+        sum += v * v;
+      }
+      var rms    = Math.sqrt(sum / buf.length);
+      var phase  = ((now - start) % period) / period;
+      var breath = (1 - Math.cos(phase * Math.PI * 2)) / 2;
+      var target = breath * 0.7 + Math.min(1, rms) * 0.3;
+      smoothed  += (target - smoothed) * 0.08;
+      root.style.setProperty('--cave-pulse', smoothed.toFixed(3));
+      raf = requestAnimationFrame(tick);
+    })(performance.now());
+  }
+
+  // Visual-only breathing when sound is off, so the mark never goes static.
+  function pulseLFO() {
+    if (raf) cancelAnimationFrame(raf);
+    var start = performance.now(), period = 12000;
+    (function tick(now) {
+      if (nodes) return;                    // audio-driven pulse took over
+      var phase = ((now - start) % period) / period;
+      root.style.setProperty('--cave-pulse', ((1 - Math.cos(phase * Math.PI * 2)) / 2).toFixed(3));
+      raf = requestAnimationFrame(tick);
+    })(performance.now());
+  }
+
+  // ── Wiring ─────────────────────────────────────────────
+  setToggleUI(wantSound);
+  pulseLFO();
+
+  toggle.addEventListener('click', function () {
+    wantSound = !wantSound;
+    setToggleUI(wantSound);
+    try { localStorage.setItem(STORAGE_KEY, wantSound ? '1' : '0'); } catch (e) {}
+    if (wantSound) {
+      startDrone().then(function (ok) { showHint(!ok); });
+    } else {
+      stopDrone();
+      showHint(false);
+    }
+  });
+
+  // Autoplay: every current browser blocks audio until the visitor interacts,
+  // so "default on" cannot literally mean "already playing on load". We try
+  // anyway — some contexts allow it — and if we're blocked, the toggle stays
+  // ON, a hint appears, and the first gesture anywhere starts the drone. That
+  // gesture path is what makes it work on iOS Safari.
+  if (wantSound) {
+    startDrone().then(function (playing) {
+      if (playing) return;
+      showHint(true);
+      var primed = false;
+      function prime() {
+        if (primed || !wantSound) return;
+        primed = true;
+        if (ctx && ctx.state === 'suspended') ctx.resume();
+        if (!nodes) startDrone();
+        showHint(false);
+      }
+      ['pointerdown', 'touchend', 'click', 'keydown'].forEach(function (ev) {
+        window.addEventListener(ev, prime, { once: true, passive: true });
+      });
+    });
+  }
+
+  // Note: the app's cold-load swirl (172 SVG ribbon paths flying in over ~7s)
+  // is deliberately NOT here. This page mirrors the logo-click re-show, which
+  // skips it — the mark is simply present and breathing. It also means the
+  // logo is a plain <img>: nothing to fetch, parse or animate, so there is no
+  // state in which the mark fails to appear.
+})();
+</script>

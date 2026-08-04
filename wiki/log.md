@@ -1488,3 +1488,101 @@ Ran the `prelaunch-review` workflow (40 agents, 102 findings verified — see `w
 **Deliberately deferred to post-launch** (no launch/security value, real regression risk to do unattended now): the structural de-duplication refactors (merging content_api's parallel auth/credit stack into `sb_helpers`, consolidating the Supabase/Anthropic client factories, `HAIKU_MODEL` constant, storage-helper and `get_oauth_token` consolidation, `update_manifest` dedupe), the `trail_map.js` IIFE-wrap (leaks ~30 globals — needs cross-file check), and the deeper correctness cluster (4:5 portrait rendered square, legacy fake-zero snapshots, headliner mis-assignment, literal `{{artist}}`). All captured in the findings doc.
 
 Decisions worth noting: copy/caption generation and `/classify-ref` were left un-metered on purpose — consistent with the existing `text = 0` pricing decision (2026-06-23) and covered by the per-IP POST throttle; metering them would punish normal use with no cheap cost tier.
+
+## [2026-08-03] Signup/login troubleshooting — root cause: paused Supabase project; auth errors made legible (branch `claude/soundcave-signup-login-errors-qeq7zr`)
+
+Doug reported errors signing up / logging in at the live site. Diagnosed, then hardened the code path that made it undiagnosable.
+
+**Root cause (infrastructure, not code): the Supabase project `agmmdrqmjywggtsycsri` is PAUSED.** Confirmed four ways — the projects API reports `"status": "INACTIVE"`; a `select` against the DB times out on connect; the auth log stream is empty; the advisor lints come back empty. A paused project stops serving `*.supabase.co` entirely, so *every* auth call (`signInWithOtp` for magic-link signup, `signInWithPassword`, password reset) fails at the network layer. Supabase free-tier projects auto-pause after ~7 days with no activity. **Fix is a dashboard/API restore — no code change unpauses it.** Note the Railway backend depends on the same project, so Forge generation is down for the same reason.
+
+**Why it looked like a mystery** — three code problems turned "project is paused" into an unreadable failure:
+- Every auth helper in `js/lib/supabase.js` returned `{ error: error.message }` raw, so a paused project surfaced in the cave-mouth login box as **"Failed to fetch"** (Chrome) / **"Load failed"** (Safari) — indistinguishable from being offline, a blocked CDN, or a genuine bad password.
+- Those helpers opened with a bare `await ready`, which **throws** if the SDK import failed. That rejection escaped into the `form.submit` handler, so the code after it never ran: the button stayed disabled on `{SENDING…}` with **no message at all**.
+- `start()`'s fail-open message blamed the wrong service — *"Auth service unreachable — is content_api running?"*. Auth talks to Supabase directly; `content_api` hasn't been in that path since the config was hardcoded in `js/lib/supabase.js`.
+
+**Fixed** (`js/lib/supabase.js`, `js/app.js`):
+- New `run()` wrapper — all four auth helpers (`signInWithEmail`, `signInWithPassword`, `sendPasswordReset`, `setPassword`) funnel through it. It always resolves to `{error?: string}` and **never rejects**, so the login button can't hang mid-glitch again.
+- New `explain()` — maps failures to actionable copy, matching on both `error.message` and supabase-js v2's stable `error.code` (underscores flattened so one pattern covers `over_email_send_rate_limit` and "Email rate limit exceeded"). Covers: unreachable/paused service, blocked CDN import, email rate limit, signups disabled, bad credentials, unconfirmed email. Unrecognised errors pass through verbatim — no swallowing.
+- Ordering matters and was caught by testing: "Failed to fetch **dynamically imported module**" matches the generic network pattern too, so the CDN case is tested first.
+- `session()` now fails soft to `null` (= signed out) instead of throwing — callers across the app do `if (await scAuth.session())` with no catch, and a rejected `ready` used to take the whole calling feature down with it.
+- Corrected the stale `content_api` blame in the fail-open message.
+
+**Flagged, not changed — check these once the project is unpaused**, since signup is magic-link-only (per [spec/auth_login_ui.md](spec/auth_login_ui.md)) and therefore entirely dependent on email delivery:
+- **Supabase's built-in SMTP is capped at ~2 emails/hour project-wide and is explicitly not for production.** Sending the app to a batch of industry friends means most of them get no magic link. Custom SMTP (Resend/Postmark/SES) is the fix, and it's a prerequisite for the GTM push, not a nicety.
+- Auth → Providers → **"Enable email signups"** must stay on, or new testers hit `otp_disabled`.
+- Redirect allowlist was verified live on 2026-06-11 (Site URL `https://thesoundcave.vercel.app`, redirects `…/**` + `http://localhost:3000/**`) — unchanged, but re-verify if the domain moved to `s0undcav3.com`.
+
+### [2026-08-03] Follow-up — project restored, signup path verified, and `db/0023` found unapplied
+
+Restored the project via the Supabase API (`INACTIVE` → `COMING_UP` → `RESTORING` → **`ACTIVE_HEALTHY`**). Auth and the database are serving again; login/signup should work at the live site.
+
+**Verified healthy after restore:**
+- 8 `auth.users`, 6 confirmed, last sign-in `2026-07-10` — the ~3-week idle gap that tripped the auto-pause.
+- `auth.users` → `public.users` sync is intact: 8/8, **0 missing profiles**, `handle_new_user` trigger present. So the signup path itself was never broken — only unreachable.
+- `db/0020` (invite gate) is applied — `users.trial_claimed` exists.
+
+**Separate finding — `db/0023_security_hardening.sql` was never applied to prod.** The 2026-07-03 entry below flagged this as *"Action required before launch: apply `db/0023` in the Supabase SQL editor (code and DB must ship together)"*. The code half shipped in PR #14; the DB half did not. Confirmed live:
+- `public.stripe_events` **does not exist** → the Stripe webhook's idempotency guard has no table to claim against.
+- The `users self update` policy is **still present with no `WITH CHECK`** → the original launch blocker is open: any signed-up account can `update` its own `users` row through the public anon key and set `credits_balance` / `tier` / `trial_claimed` freely, bypassing Stripe and the invite gate.
+- `credits_ledger owner all` is still `FOR ALL`, not the SELECT-only client policy `0023` intended.
+
+Not applied here — it's prod DDL that drops policies, and it's Doug's call. **This is the top open item before any user push**; unpausing has made the app reachable again, which also makes this reachable.
+
+### [2026-08-03] `db/0023` applied to prod — and `db/0024` written because 0023 doesn't actually close the blocker
+
+Applied `0023` to prod (Doug's go-ahead). Verified after: `users self update` gone (only `users self read` SELECT remains), `credits_ledger owner all` replaced by the SELECT-only `credits_ledger owner read`, `stripe_events` created with RLS on. Client `UPDATE` on `users` and `INSERT/UPDATE/DELETE` on `credits_ledger` are revoked. RLS is enabled on all three tables, so the residual `INSERT`/`DELETE` grants `0023` leaves on `users` are inert (no policy permits them) — belt without braces, not a hole.
+
+**Then the Supabase linter found the blocker is still open via a side door.** `0023` locked the table API but not the RPC API:
+
+- `grant_credits` / `debit_credits` / `refund_credits` are `SECURITY DEFINER` (they must be — they write the append-only ledger past RLS), and **PostgREST exposes every public-schema function as an RPC endpoint**. Default `EXECUTE` grants left all three callable by **`anon`** and `authenticated`.
+- So `POST /rest/v1/rpc/grant_credits {"p_user_id": "<uuid>", "p_amount": 999999}` with the public anon key (hardcoded in `js/lib/supabase.js`, necessarily public) still self-grants unlimited credits and bypasses Stripe. `SECURITY DEFINER` means it sails straight past the RLS lockdown `0023` had just installed. It doesn't even require signing in.
+
+Wrote **`db/0024_lock_credit_rpcs.sql`** to revoke `EXECUTE` on the three credit functions plus `handle_new_user` from `anon`/`authenticated`, and to pin `touch_updated_at`'s `search_path`. **Verified safe before writing:** the frontend makes zero PostgREST RPC calls (no `.rpc(` anywhere in `js/`), and every backend caller (`sb_helpers.charge`/`refund`, `content_api._debit`, the Stripe webhook grants) uses a `SUPABASE_SERVICE_KEY` client, which bypasses these grants entirely.
+
+**Lesson for future migrations:** locking a table's RLS is only half the surface. Any `SECURITY DEFINER` function in the `public` schema is a public API endpoint by default, and it bypasses the very RLS you just tightened.
+
+Other linter output, triaged and left alone for now: three public storage buckets allow listing (`brand_assets`, `generated_images`, `generated_videos`) — this is the known signed-URL migration already flagged as deferred on 2026-07-03; several `rls_enabled_no_policy` INFO notices (server-only tables — correct as-is); and Auth leaked-password protection is off (one dashboard toggle, worth turning on).
+
+### [2026-08-03] `db/0024` applied — and the revoke that silently did nothing
+
+Applied `0024`. **The first attempt reported `success` and changed nothing**, which is worth recording because the failure mode is invisible.
+
+`revoke execute on function … from anon, authenticated` ran without error, and `touch_updated_at`'s `search_path` did change — so the migration had definitely executed. But `has_function_privilege('anon', 'grant_credits', 'EXECUTE')` was still **true**. The ACL showed why:
+
+```
+=X/postgres            <- empty grantee = PUBLIC
+postgres=X/postgres
+service_role=X/postgres
+```
+
+**Unlike tables, Postgres grants functions EXECUTE to the `PUBLIC` pseudo-role by default.** `anon` and `authenticated` never held an explicit grant, so there was nothing to revoke from them — they inherit through `PUBLIC`. Revoking from a role that has no direct grant is a silent no-op: no error, no warning, no effect. Had we trusted the `success` response, the blocker would have looked closed while staying fully open.
+
+Corrected `0024` to `revoke … from public, anon, authenticated`. Verified after: `anon` and `authenticated` are now `false` on all four functions; `service_role` retains EXECUTE (backend unaffected); `supabase_auth_admin` retains it on `handle_new_user` (granted explicitly first, so the `on_auth_user_created` signup trigger could not regress).
+
+**Signup proved end-to-end after the revoke** — inserted a real row into `auth.users` inside a `DO` block that raises at the end to force rollback: `profile_rows=1, credits=0` (trigger fired, invite gate's zero-credit default correct), then confirmed 8/8 users and 0 leftovers. Nothing persisted.
+
+Linter after: all 8 `SECURITY DEFINER`-exposure warnings and the `function_search_path_mutable` warning are **gone**. Remaining, unchanged and triaged: `rls_enabled_no_policy` INFO on six server-only tables (correct as-is), the three public-bucket listing WARNs (the deferred signed-URL migration), and Auth leaked-password protection off (one dashboard toggle).
+
+**Rule of thumb worth keeping:** after any `revoke`, assert with `has_*_privilege()`. A migration returning `success` is not evidence that a permission actually changed.
+
+## [2026-08-03] Dormancy — app replaced with a holding page (branch `claude/soundcave-signup-login-errors-qeq7zr`)
+
+Doug is pausing the build (permanent employment). Decision [0015](decisions/0015_dormant_holding_page.md).
+
+- **`index.html` is now a self-contained holding page**: the logo breathing over the cave drone, `S0UNDCAV3` wordmark below, `{SOUND ON/OFF}` toggle top-right (defaults **ON**), `{HEADPHONES RECOMMENDED}` tag, CRT scanlines + grain + vignette, `{51.5°N 0.1°W}` stamp. Everything is inlined; the only assets it touches are `brand/logo/soundcave_logo_2026-05-11.svg`, `audio/cave_drone.mp3`, favicons and the DM Mono webfont. No `css/style.css`, no `js/`, no Supabase SDK — the page is indifferent to the backend being off.
+- **Sound-on-by-default**, honestly: autoplay is attempted on load; when the browser blocks it (all of them do, pre-gesture) the toggle stays ON, a `{TAP ANYWHERE FOR SOUND}` hint appears, and the first gesture starts the drone — the same one-shot prime pattern the app shell used (works on iOS Safari). Explicit OFF persists via `localStorage.sc_sound_on`; audio path is the same WebAudio chain (loop + 0.9 rate + analyser→pulse; `--cave-pulse` drives the mark's scale/halo, LFO-only when muted).
+- **No entrance swirl** — the reference was the logo-click re-show, which skips it. Logo is a plain `<img>`.
+- **Verified by rendering**, desktop 1280×800 + mobile 390×844, via the pre-installed Chromium. Two tooling traps worth remembering: `--disable-gpu` headless intermittently dropped the filtered/blurred layers entirely (blank logo — use `--use-gl=angle --use-angle=swiftshader`), and new-headless clamps `--window-size` width to ~500 while clipping the shot to the requested width (use the `headless_shell` binary for true mobile viewports).
+- **The app is not deleted.** It lives in git history on this branch and, until the merge, on `main`. Revival = revert the holding-page commit (see 0015).
+
+**Operational steps for full dormancy** (in order): merge this branch → `main` (Vercel auto-deploys the holding page); pause the Supabase project (dashboard or API — kills auth + DB, keeps all data; restore took ~7 min on 2026-08-03); stop the Railway service `soundcave-api-production` in its dashboard (saves the hosting spend; nothing references it once the holding page is live). GitHub Actions (`weekly_scout.yml`, `daily_tracker.yml`) hit SoundCloud, not Supabase — they keep running and committing `data/` unless disabled in the Actions tab; harmless but noisy.
+
+### [2026-08-03] Dormancy activated — `studio` branch created, holding page merged to `main`
+
+Doug confirmed the plan (nothing deleted; background work continues; fast resume; URL is on his LinkedIn). Decision [0015](decisions/0015_dormant_holding_page.md) updated with the layout + resume recipe.
+
+- **`studio` created from `fb73b3f`** and pushed — the full app one commit before the holding page, including the auth-error overhaul and the `0023`/`0024` security work. Background development: branch off `studio`, merge back to `studio`.
+- **Holding page merged to `main`** → Vercel auto-deploys it as the live site.
+- **CLAUDE.md** now opens with a dormancy notice so future sessions don't "fix" the holding page or develop against `main`.
+- Supabase left up (locked down; will auto-pause itself). Railway: Doug pauses in dashboard. Scout/tracker Actions untouched — they commit `data/` to `main`, which never conflicts with the holding page.
+- **Resume** = merge `studio` into `main`, keep `studio`'s `index.html`, push (exact commands in 0015), then restore Supabase + Railway.

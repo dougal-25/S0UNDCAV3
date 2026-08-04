@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⏸ PROJECT DORMANT (since 2026-08-03) — read this first
+
+The project is **paused, not stopped** (Doug in permanent employment). See
+`wiki/decisions/0015_dormant_holding_page.md` for the full picture + resume recipe.
+
+- **`main` = live = a self-contained holding page** (`index.html`: logo + drone +
+  sound toggle). It loads none of the app's CSS/JS/Supabase — do not "fix" that.
+- **`studio` = the complete app** (shell + all fixes as of 2026-08-03). **All
+  background development happens on branches cut from `studio`, merged back to
+  `studio`** — never to `main` while dormant (`main` only receives Actions data
+  commits and holding-page tweaks).
+- Railway backend paused (Doug's dashboard). Supabase left to auto-pause; restore
+  from dashboard when needed. Scout/tracker Actions stay ON.
+- Everything below this section describes the app as it exists **on `studio`**.
+
 ## Wiki-first (read before coding)
 
 **Before writing or editing code, read `wiki/index.md` and the relevant pages it links to** — at minimum `wiki/spec/overview.md` and any `wiki/features/<x>.md` you're touching.
