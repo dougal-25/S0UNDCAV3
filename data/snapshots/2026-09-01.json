@@ -1,0 +1,850 @@
+{
+  "date": "2026-09-01",
+  "artist_count": 57,
+  "artists": {
+    "Lucki": {
+      "display_name": "val",
+      "genre": "Techno",
+      "followers": 24,
+      "following": 3,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-Ga6iugyGVVmLNyvi-AQoadg-large.jpg",
+      "latest_track": null
+    },
+    "81zaki": {
+      "display_name": "81zaki",
+      "genre": "UK Garage",
+      "followers": 1357,
+      "following": 980,
+      "track_count": 25,
+      "total_plays": 28985,
+      "total_likes": 2474,
+      "total_reposts": 51,
+      "avatar_url": "https://i1.sndcdn.com/avatars-3EqU6MMZ38QfzKfX-VLuDmg-large.jpg",
+      "latest_track": {
+        "title": "Alicia Keys - Feeling U, Feeling Me (81zaki Remix)",
+        "plays": 477,
+        "likes": 103,
+        "created_at": "2026-04-27"
+      }
+    },
+    "BELFORT": {
+      "display_name": "belfort",
+      "genre": "Tech house",
+      "followers": 1,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "SKH": {
+      "display_name": "skh",
+      "genre": "Bassline",
+      "followers": 8,
+      "following": 14,
+      "track_count": 3,
+      "total_plays": 233,
+      "total_likes": 2,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-5dxz4xUc7JrK9tk4-xMUnzg-large.jpg",
+      "latest_track": {
+        "title": "First draft 16",
+        "plays": 18,
+        "likes": 0,
+        "created_at": "2013-03-10"
+      }
+    },
+    "Dom3x": {
+      "display_name": "Country Club \u26f3\ufe0f",
+      "genre": "House",
+      "followers": 14,
+      "following": 0,
+      "track_count": 2,
+      "total_plays": 496,
+      "total_likes": 26,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-L92VpaPmmULy90YD-stAPkQ-large.jpg",
+      "latest_track": {
+        "title": "ORION + DOMEX // BENEVENTO FREESTYLE",
+        "plays": 146,
+        "likes": 12,
+        "created_at": "2021-11-22"
+      }
+    },
+    "TREMUR": {
+      "display_name": "tremur",
+      "genre": "House",
+      "followers": 19,
+      "following": 290,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-BLyyKbfF6OeImt08-RBxHxg-large.jpg",
+      "latest_track": null
+    },
+    "dazegxd": {
+      "display_name": "dazegxd",
+      "genre": "Jungle",
+      "followers": 16572,
+      "following": 321,
+      "track_count": 299,
+      "total_plays": 6834768,
+      "total_likes": 148939,
+      "total_reposts": 7556,
+      "avatar_url": "https://i1.sndcdn.com/avatars-MJyzcFo8JOiSnaKz-iPVfIw-large.jpg",
+      "latest_track": {
+        "title": "put me first (2024)",
+        "plays": 3596,
+        "likes": 308,
+        "created_at": "2026-07-23"
+      }
+    },
+    "annias": {
+      "display_name": "annias",
+      "genre": "UK Garage",
+      "followers": 3712,
+      "following": 2000,
+      "track_count": 260,
+      "total_plays": 245982,
+      "total_likes": 7729,
+      "total_reposts": 1010,
+      "avatar_url": "https://i1.sndcdn.com/avatars-IytSMjQynMCGfR9Y-WLOu8A-large.jpg",
+      "latest_track": {
+        "title": "qveen herby ft thot squad - the fool (annias deepdub remix) mastered / free dl no gate",
+        "plays": 242,
+        "likes": 6,
+        "created_at": "2026-08-15"
+      }
+    },
+    "LACKY": {
+      "display_name": "Lacky",
+      "genre": "Tech House",
+      "followers": 435,
+      "following": 44,
+      "track_count": 27,
+      "total_plays": 7302,
+      "total_likes": 329,
+      "total_reposts": 50,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000382190429-b1fb4c-large.jpg",
+      "latest_track": {
+        "title": "Waiotapu Trance Festival",
+        "plays": 72,
+        "likes": 3,
+        "created_at": "2021-10-17"
+      }
+    },
+    "konzo": {
+      "display_name": "konzo",
+      "genre": "jungle",
+      "followers": 28,
+      "following": 30,
+      "track_count": 2,
+      "total_plays": 306,
+      "total_likes": 3,
+      "total_reposts": 1,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000126458101-y28cxx-large.jpg",
+      "latest_track": {
+        "title": "KONZO JAMAIS SEUL Master",
+        "plays": 99,
+        "likes": 1,
+        "created_at": "2015-01-21"
+      }
+    },
+    "p": {
+      "display_name": "p",
+      "genre": "UK Garage",
+      "followers": 658,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-wOF8ok5gKYykkpyp-a5t9nA-large.jpg",
+      "latest_track": null
+    },
+    "VALTI": {
+      "display_name": "valti",
+      "genre": "Afro House",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "Bass.T": {
+      "display_name": "Bass",
+      "genre": "Deep House",
+      "followers": 111,
+      "following": 291,
+      "track_count": 3,
+      "total_plays": 1372,
+      "total_likes": 7,
+      "total_reposts": 2,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000420974488-eryb8h-large.jpg",
+      "latest_track": {
+        "title": "Chill Out - Devic Vs RageSage",
+        "plays": 687,
+        "likes": 6,
+        "created_at": "2012-12-04"
+      }
+    },
+    "WESTON": {
+      "display_name": "$CAR!",
+      "genre": "UK Garage",
+      "followers": 1,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "Morgz": {
+      "display_name": "Morgz",
+      "genre": "Tech House",
+      "followers": 77,
+      "following": 48,
+      "track_count": 2,
+      "total_plays": 712,
+      "total_likes": 9,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000032916384-39dwel-large.jpg",
+      "latest_track": {
+        "title": "Morgz,Seek the Northener and Jon Herer..Murder of crows theme...",
+        "plays": 336,
+        "likes": 6,
+        "created_at": "2010-05-20"
+      }
+    },
+    "FGDLL": {
+      "display_name": "FGDLL",
+      "genre": "lo-fi",
+      "followers": 10,
+      "following": 4,
+      "track_count": 21,
+      "total_plays": 35,
+      "total_likes": 1,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "8. Ansiedad a las 3_02",
+        "plays": 4,
+        "likes": 0,
+        "created_at": "2026-05-17"
+      }
+    },
+    "BASSBONG": {
+      "display_name": "BASSBONG",
+      "genre": "Bassline",
+      "followers": 255,
+      "following": 124,
+      "track_count": 36,
+      "total_plays": 45942,
+      "total_likes": 1590,
+      "total_reposts": 72,
+      "avatar_url": "https://i1.sndcdn.com/avatars-9jlqhiSIyeRI2df5-GzvzKg-large.jpg",
+      "latest_track": {
+        "title": "T2, Becky Rhodes- Secrets (BassBong Bootleg)",
+        "plays": 363,
+        "likes": 17,
+        "created_at": "2026-08-25"
+      }
+    },
+    "C00kie": {
+      "display_name": "c00kiE",
+      "genre": "UK Garage",
+      "followers": 2,
+      "following": 8,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000002904859-5v89or-large.jpg",
+      "latest_track": null
+    },
+    "IDUR": {
+      "display_name": "idur",
+      "genre": "BREAKBEAT",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "MichaelAnthony": {
+      "display_name": "MichaelAnthony",
+      "genre": "140",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "AEYVO": {
+      "display_name": "AEYVO",
+      "genre": "140",
+      "followers": 525,
+      "following": 1174,
+      "track_count": 9,
+      "total_plays": 23781,
+      "total_likes": 1637,
+      "total_reposts": 195,
+      "avatar_url": "https://i1.sndcdn.com/avatars-VmxSYyQuz29Sb6X3-faeqjA-large.jpg",
+      "latest_track": {
+        "title": "21 Savage - Pop It x Kercha - Infiltration (AEYVO Edit) (FREE DOWNLOAD)",
+        "plays": 1006,
+        "likes": 111,
+        "created_at": "2026-08-05"
+      }
+    },
+    "DYTRO": {
+      "display_name": "Dytro",
+      "genre": "UK Garage",
+      "followers": 0,
+      "following": 60,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000066316538-3xd8y3-large.jpg",
+      "latest_track": null
+    },
+    "Denoon": {
+      "display_name": "Denoon",
+      "genre": "Tech House",
+      "followers": 1,
+      "following": 8,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "JaXx": {
+      "display_name": "JAXX",
+      "genre": "Tech House",
+      "followers": 35,
+      "following": 100,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000072129483-ycm161-large.jpg",
+      "latest_track": null
+    },
+    "ebeussy": {
+      "display_name": "ebeussy",
+      "genre": "Garage",
+      "followers": 14,
+      "following": 34,
+      "track_count": 6,
+      "total_plays": 1439,
+      "total_likes": 30,
+      "total_reposts": 3,
+      "avatar_url": "https://i1.sndcdn.com/avatars-P2DF8bIPcMUyGETZ-EqDv1w-large.jpg",
+      "latest_track": {
+        "title": "Lady Gaga - Beautiful, Dirty, Rich (ebeussy ukg-ish edit) [FREE DL]",
+        "plays": 262,
+        "likes": 7,
+        "created_at": "2026-08-16"
+      }
+    },
+    "Glitch_SE18": {
+      "display_name": "Glitch_se18",
+      "genre": "Deep House",
+      "followers": 0,
+      "following": 0,
+      "track_count": 1,
+      "total_plays": 16,
+      "total_likes": 2,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "FLOW STATE",
+        "plays": 16,
+        "likes": 2,
+        "created_at": "2026-08-20"
+      }
+    },
+    "Kommando": {
+      "display_name": "KOMMANDO",
+      "genre": "Tech House",
+      "followers": 77,
+      "following": 8,
+      "track_count": 10,
+      "total_plays": 12163,
+      "total_likes": 198,
+      "total_reposts": 11,
+      "avatar_url": "https://i1.sndcdn.com/avatars-7O0sRELc1GPsny49-Cmnhtg-large.jpg",
+      "latest_track": {
+        "title": "Spacetown",
+        "plays": 30,
+        "likes": 1,
+        "created_at": "2024-09-12"
+      }
+    },
+    "seb": {
+      "display_name": "se\u200b\u200bb\u200b\u200b",
+      "genre": "Uk Garage",
+      "followers": 21,
+      "following": 41,
+      "track_count": 3,
+      "total_plays": 519,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "Audio Recording on Tuesday morning",
+        "plays": 185,
+        "likes": 0,
+        "created_at": "2015-03-17"
+      }
+    },
+    "Fabianmaczka2007": {
+      "display_name": "Fabianmaczka2007",
+      "genre": "House",
+      "followers": 26,
+      "following": 8,
+      "track_count": 2,
+      "total_plays": 156294,
+      "total_likes": 3530,
+      "total_reposts": 9,
+      "avatar_url": "https://i1.sndcdn.com/avatars-6GTzHyTfJUergbky-OmySAw-large.jpg",
+      "latest_track": {
+        "title": "Roman district (unreleased)",
+        "plays": 155835,
+        "likes": 3517,
+        "created_at": "2026-04-10"
+      }
+    },
+    "KD": {
+      "display_name": "k'd",
+      "genre": "House",
+      "followers": 4,
+      "following": 3,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000001978342-jhkkk5-large.jpg",
+      "latest_track": null
+    },
+    "CEVEN": {
+      "display_name": "Ceven",
+      "genre": "Bassline",
+      "followers": 13,
+      "following": 8,
+      "track_count": 1,
+      "total_plays": 845,
+      "total_likes": 17,
+      "total_reposts": 2,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000035865639-ayb411-large.jpg",
+      "latest_track": {
+        "title": "Extrawelt @ Anti Pop Festival 07",
+        "plays": 845,
+        "likes": 17,
+        "created_at": "2011-01-29"
+      }
+    },
+    "Fr\u00e4nksi": {
+      "display_name": "FrankSi",
+      "genre": "UK Garage",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000094762419-5uvvb2-large.jpg",
+      "latest_track": null
+    },
+    "Itsowengerrard": {
+      "display_name": "Itsowengerrard",
+      "genre": "Bassline",
+      "followers": 353,
+      "following": 208,
+      "track_count": 9,
+      "total_plays": 139348,
+      "total_likes": 2790,
+      "total_reposts": 66,
+      "avatar_url": "https://i1.sndcdn.com/avatars-XvyH8U4zNzLI8ZcB-JPqdjg-large.jpg",
+      "latest_track": {
+        "title": "Unconditional - Owen Gerrard & ALI C Bassline Bootleg (FREE DOWNLOAD)",
+        "plays": 2221,
+        "likes": 102,
+        "created_at": "2026-08-22"
+      }
+    },
+    "dooon": {
+      "display_name": "dooon",
+      "genre": "uk garage",
+      "followers": 9,
+      "following": 10,
+      "track_count": 3,
+      "total_plays": 418,
+      "total_likes": 1,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000007413140-stmwx6-large.jpg",
+      "latest_track": {
+        "title": "China (Ravioli di gambero al vapore, con soja abbondante)",
+        "plays": 71,
+        "likes": 1,
+        "created_at": "2012-03-27"
+      }
+    },
+    "81Drew": {
+      "display_name": "81 Drew",
+      "genre": "Tech House",
+      "followers": 457,
+      "following": 49,
+      "track_count": 6,
+      "total_plays": 13520,
+      "total_likes": 609,
+      "total_reposts": 21,
+      "avatar_url": "https://i1.sndcdn.com/avatars-8AhXczYIucGzk4Qh-D6z34A-large.jpg",
+      "latest_track": {
+        "title": "Don Toliver - E85 (81 Drew edit) [free dl]",
+        "plays": 1576,
+        "likes": 21,
+        "created_at": "2026-07-08"
+      }
+    },
+    "KIRI": {
+      "display_name": "kirindigo",
+      "genre": "Electronic",
+      "followers": 5,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000000735304-caf15u-large.jpg",
+      "latest_track": null
+    },
+    "Josephh": {
+      "display_name": "JosephH",
+      "genre": "House",
+      "followers": 0,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "Senti.music": {
+      "display_name": "DhrieValderoza",
+      "genre": "Deep House",
+      "followers": 5,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000032647495-vjzb57-large.jpg",
+      "latest_track": null
+    },
+    "RoamOfficial": {
+      "display_name": "RoamOfficial",
+      "genre": "Deep House",
+      "followers": 452,
+      "following": 375,
+      "track_count": 32,
+      "total_plays": 223335,
+      "total_likes": 5441,
+      "total_reposts": 104,
+      "avatar_url": "https://i1.sndcdn.com/avatars-zSS3DABytes1ZJ4d-VA9tkQ-large.jpg",
+      "latest_track": {
+        "title": "Shimza, AR/CO & Kasango - Fire Fire (Roam Remix)",
+        "plays": 114,
+        "likes": 5,
+        "created_at": "2026-08-18"
+      }
+    },
+    "Defnhim": {
+      "display_name": "Defnhim",
+      "genre": "House",
+      "followers": 123,
+      "following": 25,
+      "track_count": 9,
+      "total_plays": 53660,
+      "total_likes": 1898,
+      "total_reposts": 30,
+      "avatar_url": "https://i1.sndcdn.com/avatars-6md1QhApipS28bYd-0wcARQ-large.jpg",
+      "latest_track": {
+        "title": "Example - Kickstarts (Defnhim Edit)",
+        "plays": 46461,
+        "likes": 1690,
+        "created_at": "2026-07-18"
+      }
+    },
+    "tweeleaf": {
+      "display_name": "tweeleaf",
+      "genre": "jungle",
+      "followers": 119,
+      "following": 22,
+      "track_count": 8,
+      "total_plays": 4773,
+      "total_likes": 424,
+      "total_reposts": 59,
+      "avatar_url": "https://i1.sndcdn.com/avatars-hl0BK53PgpKKlxrd-ET10yw-large.jpg",
+      "latest_track": {
+        "title": "Catch Fire",
+        "plays": 355,
+        "likes": 47,
+        "created_at": "2026-07-27"
+      }
+    },
+    "AFER": {
+      "display_name": "Afer",
+      "genre": "Deep House",
+      "followers": 0,
+      "following": 0,
+      "track_count": 1,
+      "total_plays": 258,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000001321864-nnnsws-large.jpg",
+      "latest_track": {
+        "title": "Sigla",
+        "plays": 258,
+        "likes": 0,
+        "created_at": "2010-12-29"
+      }
+    },
+    "Larco": {
+      "display_name": "Larco",
+      "genre": "Breaks",
+      "followers": 6,
+      "following": 56,
+      "track_count": 2,
+      "total_plays": 366,
+      "total_likes": 2,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000011659054-8o7oa6-large.jpg",
+      "latest_track": {
+        "title": "DIRTYYY SUMMMMER DUTCH",
+        "plays": 140,
+        "likes": 1,
+        "created_at": "2011-08-21"
+      }
+    },
+    "JIUZ": {
+      "display_name": "Jiuz",
+      "genre": "House",
+      "followers": 0,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "Alfredo.wav": {
+      "display_name": "alfredo!",
+      "genre": "Techno",
+      "followers": 4,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "ELIX": {
+      "display_name": "Elix",
+      "genre": "Tech House",
+      "followers": 5,
+      "following": 2,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000000597307-sv0lhv-large.jpg",
+      "latest_track": null
+    },
+    "VORALES": {
+      "display_name": "VORALES",
+      "genre": "Tech House",
+      "followers": 1010,
+      "following": 276,
+      "track_count": 23,
+      "total_plays": 30871,
+      "total_likes": 2064,
+      "total_reposts": 1604,
+      "avatar_url": "https://i1.sndcdn.com/avatars-FYW6lXbRmiMWiMEI-r8vYPg-large.jpg",
+      "latest_track": {
+        "title": "Just Altitude By Vorales 002 [FREE DOWNLOAD]",
+        "plays": 795,
+        "likes": 126,
+        "created_at": "2026-08-02"
+      }
+    },
+    "SHIVYR": {
+      "display_name": "Shivyr",
+      "genre": "UK Garage",
+      "followers": 1,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000150836686-uhid92-large.jpg",
+      "latest_track": null
+    },
+    "darkEntity": {
+      "display_name": "Dark Entity",
+      "genre": "Tech House",
+      "followers": 1,
+      "following": 0,
+      "track_count": 5,
+      "total_plays": 600,
+      "total_likes": 4,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "100 Shades of Black",
+        "plays": 35,
+        "likes": 0,
+        "created_at": "2017-06-06"
+      }
+    },
+    "JT49": {
+      "display_name": "jt49",
+      "genre": "bassline",
+      "followers": 0,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000679499153-j56lkr-large.jpg",
+      "latest_track": null
+    },
+    "Breznik": {
+      "display_name": "breznik",
+      "genre": "Afro House",
+      "followers": 68,
+      "following": 18,
+      "track_count": 2,
+      "total_plays": 199,
+      "total_likes": 7,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000005096198-571d77-large.jpg",
+      "latest_track": {
+        "title": "Dasco breznik pt. 2",
+        "plays": 59,
+        "likes": 2,
+        "created_at": "2013-05-17"
+      }
+    },
+    "4AMFM": {
+      "display_name": "4AMFM",
+      "genre": "UK GARAGE",
+      "followers": 8,
+      "following": 20,
+      "track_count": 14,
+      "total_plays": 7799,
+      "total_likes": 63,
+      "total_reposts": 10,
+      "avatar_url": "https://i1.sndcdn.com/avatars-56xwKUi0AjEeG9VY-YVLMyw-large.jpg",
+      "latest_track": {
+        "title": "WRONG TIME",
+        "plays": 203,
+        "likes": 1,
+        "created_at": "2026-08-18"
+      }
+    },
+    "S3BBO": {
+      "display_name": "S3BBO",
+      "genre": "Techno",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "HUKUTK": {
+      "display_name": "HUKUTK",
+      "genre": "bassline",
+      "followers": 24,
+      "following": 88,
+      "track_count": 22,
+      "total_plays": 4416,
+      "total_likes": 59,
+      "total_reposts": 6,
+      "avatar_url": "https://i1.sndcdn.com/avatars-aQ4fqdxRBDNs1Tlq-rLhgVw-large.jpg",
+      "latest_track": {
+        "title": "High",
+        "plays": 2508,
+        "likes": 17,
+        "created_at": "2026-08-02"
+      }
+    },
+    "bloodthirsty": {
+      "display_name": "ju|ius c.",
+      "genre": "Electronic",
+      "followers": 18,
+      "following": 53,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000154854890-unndxv-large.jpg",
+      "latest_track": null
+    },
+    "VERTEK": {
+      "display_name": "Vertek",
+      "genre": "Techno",
+      "followers": 1,
+      "following": 0,
+      "track_count": 3,
+      "total_plays": 51,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "kaitlyn's the best",
+        "plays": 14,
+        "likes": 0,
+        "created_at": "2016-11-27"
+      }
+    },
+    "Frosted": {
+      "display_name": "Frosted",
+      "genre": "House",
+      "followers": 1,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    }
+  }
+}
