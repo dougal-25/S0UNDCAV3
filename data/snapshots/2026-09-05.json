@@ -1,0 +1,513 @@
+{
+  "date": "2026-09-05",
+  "artist_count": 36,
+  "artists": {
+    "Lucki": {
+      "display_name": "val",
+      "genre": "Techno",
+      "followers": 24,
+      "following": 3,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-Ga6iugyGVVmLNyvi-AQoadg-large.jpg",
+      "latest_track": null
+    },
+    "81zaki": {
+      "display_name": "81zaki",
+      "genre": "UK Garage",
+      "followers": 1358,
+      "following": 980,
+      "track_count": 25,
+      "total_plays": 29125,
+      "total_likes": 2501,
+      "total_reposts": 51,
+      "avatar_url": "https://i1.sndcdn.com/avatars-3EqU6MMZ38QfzKfX-VLuDmg-large.jpg",
+      "latest_track": {
+        "title": "Alicia Keys - Feeling U, Feeling Me (81zaki Remix)",
+        "plays": 488,
+        "likes": 105,
+        "created_at": "2026-04-27"
+      }
+    },
+    "BELFORT": {
+      "display_name": "belfort",
+      "genre": "Tech house",
+      "followers": 1,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "SKH": {
+      "display_name": "skh",
+      "genre": "Bassline",
+      "followers": 8,
+      "following": 14,
+      "track_count": 3,
+      "total_plays": 233,
+      "total_likes": 2,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-5dxz4xUc7JrK9tk4-xMUnzg-large.jpg",
+      "latest_track": {
+        "title": "First draft 16",
+        "plays": 18,
+        "likes": 0,
+        "created_at": "2013-03-10"
+      }
+    },
+    "annias": {
+      "display_name": "annias",
+      "genre": "UK Garage",
+      "followers": 3712,
+      "following": 1999,
+      "track_count": 260,
+      "total_plays": 98077,
+      "total_likes": 4437,
+      "total_reposts": 614,
+      "avatar_url": "https://i1.sndcdn.com/avatars-IytSMjQynMCGfR9Y-WLOu8A-large.jpg",
+      "latest_track": {
+        "title": "qveen herby ft thot squad - the fool (annias deepdub remix) mastered / free dl no gate",
+        "plays": 264,
+        "likes": 8,
+        "created_at": "2026-08-15"
+      }
+    },
+    "LACKY": {
+      "display_name": "Lacky",
+      "genre": "Tech House",
+      "followers": 435,
+      "following": 44,
+      "track_count": 27,
+      "total_plays": 7303,
+      "total_likes": 329,
+      "total_reposts": 50,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000382190429-b1fb4c-large.jpg",
+      "latest_track": {
+        "title": "Waiotapu Trance Festival",
+        "plays": 72,
+        "likes": 3,
+        "created_at": "2021-10-17"
+      }
+    },
+    "konzo": {
+      "display_name": "konzo",
+      "genre": "jungle",
+      "followers": 28,
+      "following": 30,
+      "track_count": 2,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000126458101-y28cxx-large.jpg",
+      "latest_track": null
+    },
+    "p": {
+      "display_name": "p",
+      "genre": "UK Garage",
+      "followers": 657,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-wOF8ok5gKYykkpyp-a5t9nA-large.jpg",
+      "latest_track": null
+    },
+    "Bass.T": {
+      "display_name": "Bass",
+      "genre": "Deep House",
+      "followers": 111,
+      "following": 291,
+      "track_count": 3,
+      "total_plays": 1372,
+      "total_likes": 7,
+      "total_reposts": 2,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000420974488-eryb8h-large.jpg",
+      "latest_track": {
+        "title": "Chill Out - Devic Vs RageSage",
+        "plays": 687,
+        "likes": 6,
+        "created_at": "2012-12-04"
+      }
+    },
+    "Morgz": {
+      "display_name": "Morgz",
+      "genre": "Tech House",
+      "followers": 77,
+      "following": 48,
+      "track_count": 2,
+      "total_plays": 712,
+      "total_likes": 9,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000032916384-39dwel-large.jpg",
+      "latest_track": {
+        "title": "Morgz,Seek the Northener and Jon Herer..Murder of crows theme...",
+        "plays": 336,
+        "likes": 6,
+        "created_at": "2010-05-20"
+      }
+    },
+    "FGDLL": {
+      "display_name": "FGDLL",
+      "genre": "lo-fi",
+      "followers": 10,
+      "following": 4,
+      "track_count": 21,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "C00kie": {
+      "display_name": "c00kiE",
+      "genre": "UK Garage",
+      "followers": 2,
+      "following": 8,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000002904859-5v89or-large.jpg",
+      "latest_track": null
+    },
+    "IDUR": {
+      "display_name": "idur",
+      "genre": "BREAKBEAT",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "ebeussy": {
+      "display_name": "ebeussy",
+      "genre": "Garage",
+      "followers": 14,
+      "following": 34,
+      "track_count": 6,
+      "total_plays": 1453,
+      "total_likes": 31,
+      "total_reposts": 3,
+      "avatar_url": "https://i1.sndcdn.com/avatars-P2DF8bIPcMUyGETZ-EqDv1w-large.jpg",
+      "latest_track": {
+        "title": "Lady Gaga - Beautiful, Dirty, Rich (ebeussy ukg-ish edit) [FREE DL]",
+        "plays": 268,
+        "likes": 7,
+        "created_at": "2026-08-16"
+      }
+    },
+    "Glitch_SE18": {
+      "display_name": "Glitch_se18",
+      "genre": "Deep House",
+      "followers": 0,
+      "following": 0,
+      "track_count": 1,
+      "total_plays": 18,
+      "total_likes": 3,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "FLOW STATE",
+        "plays": 18,
+        "likes": 3,
+        "created_at": "2026-08-20"
+      }
+    },
+    "Kommando": {
+      "display_name": "KOMMANDO",
+      "genre": "Tech House",
+      "followers": 77,
+      "following": 8,
+      "track_count": 10,
+      "total_plays": 12164,
+      "total_likes": 198,
+      "total_reposts": 11,
+      "avatar_url": "https://i1.sndcdn.com/avatars-7O0sRELc1GPsny49-Cmnhtg-large.jpg",
+      "latest_track": {
+        "title": "Spacetown",
+        "plays": 30,
+        "likes": 1,
+        "created_at": "2024-09-12"
+      }
+    },
+    "Fabianmaczka2007": {
+      "display_name": "Fabianmaczka2007",
+      "genre": "House",
+      "followers": 26,
+      "following": 8,
+      "track_count": 2,
+      "total_plays": 157830,
+      "total_likes": 3548,
+      "total_reposts": 9,
+      "avatar_url": "https://i1.sndcdn.com/avatars-6GTzHyTfJUergbky-OmySAw-large.jpg",
+      "latest_track": {
+        "title": "Roman district (unreleased)",
+        "plays": 157371,
+        "likes": 3535,
+        "created_at": "2026-04-10"
+      }
+    },
+    "KD": {
+      "display_name": "k'd",
+      "genre": "House",
+      "followers": 4,
+      "following": 3,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000001978342-jhkkk5-large.jpg",
+      "latest_track": null
+    },
+    "Fr\u00e4nksi": {
+      "display_name": "FrankSi",
+      "genre": "UK Garage",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000094762419-5uvvb2-large.jpg",
+      "latest_track": null
+    },
+    "Itsowengerrard": {
+      "display_name": "Itsowengerrard",
+      "genre": "Bassline",
+      "followers": 356,
+      "following": 208,
+      "track_count": 9,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-XvyH8U4zNzLI8ZcB-JPqdjg-large.jpg",
+      "latest_track": null
+    },
+    "dooon": {
+      "display_name": "dooon",
+      "genre": "uk garage",
+      "followers": 9,
+      "following": 10,
+      "track_count": 3,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000007413140-stmwx6-large.jpg",
+      "latest_track": null
+    },
+    "81Drew": {
+      "display_name": "81 Drew",
+      "genre": "Tech House",
+      "followers": 457,
+      "following": 48,
+      "track_count": 6,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-8AhXczYIucGzk4Qh-D6z34A-large.jpg",
+      "latest_track": null
+    },
+    "KIRI": {
+      "display_name": "kirindigo",
+      "genre": "Electronic",
+      "followers": 5,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000000735304-caf15u-large.jpg",
+      "latest_track": null
+    },
+    "Josephh": {
+      "display_name": "JosephH",
+      "genre": "House",
+      "followers": 0,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "Larco": {
+      "display_name": "Larco",
+      "genre": "Breaks",
+      "followers": 6,
+      "following": 56,
+      "track_count": 2,
+      "total_plays": 366,
+      "total_likes": 2,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000011659054-8o7oa6-large.jpg",
+      "latest_track": {
+        "title": "DIRTYYY SUMMMMER DUTCH",
+        "plays": 140,
+        "likes": 1,
+        "created_at": "2011-08-21"
+      }
+    },
+    "JIUZ": {
+      "display_name": "Jiuz",
+      "genre": "House",
+      "followers": 0,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "Alfredo.wav": {
+      "display_name": "alfredo!",
+      "genre": "Techno",
+      "followers": 4,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "ELIX": {
+      "display_name": "Elix",
+      "genre": "Tech House",
+      "followers": 5,
+      "following": 2,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000000597307-sv0lhv-large.jpg",
+      "latest_track": null
+    },
+    "darkEntity": {
+      "display_name": "Dark Entity",
+      "genre": "Tech House",
+      "followers": 1,
+      "following": 0,
+      "track_count": 5,
+      "total_plays": 600,
+      "total_likes": 4,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "100 Shades of Black",
+        "plays": 35,
+        "likes": 0,
+        "created_at": "2017-06-06"
+      }
+    },
+    "JT49": {
+      "display_name": "jt49",
+      "genre": "bassline",
+      "followers": 0,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000679499153-j56lkr-large.jpg",
+      "latest_track": null
+    },
+    "4AMFM": {
+      "display_name": "4AMFM",
+      "genre": "UK GARAGE",
+      "followers": 9,
+      "following": 20,
+      "track_count": 14,
+      "total_plays": 10378,
+      "total_likes": 79,
+      "total_reposts": 10,
+      "avatar_url": "https://i1.sndcdn.com/avatars-56xwKUi0AjEeG9VY-YVLMyw-large.jpg",
+      "latest_track": {
+        "title": "WRONG TIME",
+        "plays": 204,
+        "likes": 1,
+        "created_at": "2026-08-18"
+      }
+    },
+    "S3BBO": {
+      "display_name": "S3BBO",
+      "genre": "Techno",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "HUKUTK": {
+      "display_name": "HUKUTK",
+      "genre": "bassline",
+      "followers": 24,
+      "following": 88,
+      "track_count": 22,
+      "total_plays": 4442,
+      "total_likes": 59,
+      "total_reposts": 6,
+      "avatar_url": "https://i1.sndcdn.com/avatars-aQ4fqdxRBDNs1Tlq-rLhgVw-large.jpg",
+      "latest_track": {
+        "title": "High",
+        "plays": 2532,
+        "likes": 17,
+        "created_at": "2026-08-02"
+      }
+    },
+    "bloodthirsty": {
+      "display_name": "ju|ius c.",
+      "genre": "Electronic",
+      "followers": 18,
+      "following": 53,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000154854890-unndxv-large.jpg",
+      "latest_track": null
+    },
+    "VERTEK": {
+      "display_name": "Vertek",
+      "genre": "Techno",
+      "followers": 1,
+      "following": 0,
+      "track_count": 3,
+      "total_plays": 51,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": {
+        "title": "kaitlyn's the best",
+        "plays": 14,
+        "likes": 0,
+        "created_at": "2016-11-27"
+      }
+    },
+    "Frosted": {
+      "display_name": "Frosted",
+      "genre": "House",
+      "followers": 1,
+      "following": 1,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    }
+  }
+}
