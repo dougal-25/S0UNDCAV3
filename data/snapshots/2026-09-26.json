@@ -1,0 +1,131 @@
+{
+  "date": "2026-09-26",
+  "artist_count": 10,
+  "artists": {
+    "TREMUR": {
+      "display_name": "tremur",
+      "genre": "House",
+      "followers": 19,
+      "following": 290,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-BLyyKbfF6OeImt08-RBxHxg-large.jpg",
+      "latest_track": null
+    },
+    "VALTI": {
+      "display_name": "valti",
+      "genre": "Afro House",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "FGDLL": {
+      "display_name": "FGDLL",
+      "genre": "lo-fi",
+      "followers": 9,
+      "following": 4,
+      "track_count": 21,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "IDUR": {
+      "display_name": "idur",
+      "genre": "BREAKBEAT",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "AEYVO": {
+      "display_name": "AEYVO",
+      "genre": "140",
+      "followers": 630,
+      "following": 1029,
+      "track_count": 9,
+      "total_plays": 34184,
+      "total_likes": 2551,
+      "total_reposts": 247,
+      "avatar_url": "https://i1.sndcdn.com/avatars-VmxSYyQuz29Sb6X3-faeqjA-large.jpg",
+      "latest_track": {
+        "title": "21 Savage - Pop It x Kercha - Infiltration (AEYVO Edit) (FREE DOWNLOAD)",
+        "plays": 1329,
+        "likes": 165,
+        "created_at": "2026-08-05"
+      }
+    },
+    "Denoon": {
+      "display_name": "Denoon",
+      "genre": "Tech House",
+      "followers": 1,
+      "following": 8,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    },
+    "ELIX": {
+      "display_name": "Elix",
+      "genre": "Tech House",
+      "followers": 5,
+      "following": 2,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000000597307-sv0lhv-large.jpg",
+      "latest_track": null
+    },
+    "Breznik": {
+      "display_name": "breznik",
+      "genre": "Afro House",
+      "followers": 68,
+      "following": 18,
+      "track_count": 2,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-000005096198-571d77-large.jpg",
+      "latest_track": null
+    },
+    "JP": {
+      "display_name": "JP",
+      "genre": "Deep House",
+      "followers": 1,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://i1.sndcdn.com/avatars-4NyAHeDBG0nMGSMg-bz7Dcg-large.jpg",
+      "latest_track": null
+    },
+    "KHENE": {
+      "display_name": "khene",
+      "genre": "Afro House",
+      "followers": 0,
+      "following": 0,
+      "track_count": 0,
+      "total_plays": 0,
+      "total_likes": 0,
+      "total_reposts": 0,
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "latest_track": null
+    }
+  }
+}
